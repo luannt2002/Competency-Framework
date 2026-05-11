@@ -60,9 +60,16 @@ See `../plan/01_ARCHITECTURE.md` for ADRs and full diagrams.
 ## 🚀 Setup local
 
 ### Prerequisites
-- Node 20+
-- pnpm 9+
-- A free Supabase project (https://supabase.com)
+- Node 20+, pnpm 9+
+- **Postgres** — choose one:
+  - **Option A (recommended):** managed [Supabase](https://supabase.com) free tier (500MB DB + Auth + Storage; 5min signup)
+  - **Option B:** local Docker Postgres via `docker compose up -d` (but still need Supabase Auth project — free tier — for sign-in)
+
+### Why Supabase?
+Supabase provides **3 services** the app uses:
+1. **Postgres** — primary database (replaceable with Docker Postgres for self-host)
+2. **Auth** — magic link + Google OAuth, session management (hard to replace, recommend keeping)
+3. **Storage** (future) — avatar/export file storage
 
 ### Steps
 
@@ -71,20 +78,18 @@ See `../plan/01_ARCHITECTURE.md` for ADRs and full diagrams.
 git clone https://github.com/luannt2002/Competency-Framework.git
 cd Competency-Framework/application
 
-# 2. Configure env
+# 2. (Optional) Start local Postgres if going Option B
+docker compose up -d
+
+# 3. Configure env
 cp .env.example .env.local
-# Edit .env.local with your Supabase keys + DATABASE_URL
+# - Always need: NEXT_PUBLIC_SUPABASE_URL + ANON_KEY + SERVICE_ROLE_KEY (for auth)
+# - DATABASE_URL: pick Supabase OR local Docker (see .env.example comments)
 
-# 3. Install
+# 4. Install + migrate + seed + run
 pnpm install
-
-# 4. Push schema to Supabase
-pnpm db:push
-
-# 5. Seed DevOps framework template
-pnpm db:seed
-
-# 6. Run dev
+pnpm db:push       # create 22 tables on chosen Postgres
+pnpm db:seed       # insert DevOps framework template (120KB JSON)
 pnpm dev
 ```
 

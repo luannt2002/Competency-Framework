@@ -21,6 +21,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Clock, Target, BookOpen, CheckCircle2, PlayCircle } from 'lucide-react';
 import { AiGenerateButton } from '@/components/learn/ai-generate-button';
+import { WeekNotes } from '@/components/learn/week-notes';
+import { listWeekNotes } from '@/actions/notes';
 
 export default async function WeekDetailPage({
   params,
@@ -232,6 +234,13 @@ export default async function WeekDetailPage({
               <AiGenerateButton workspaceSlug={slug} lessonId={lessonRows[0].id} count={2} />
             </div>
           )}
+
+          {/* Week notes (L3) */}
+          <WeekNotes
+            workspaceSlug={slug}
+            weekId={week.id}
+            notes={await listWeekNotes(slug, week.id)}
+          />
         </div>
 
         {/* Sidebar — skills advanced */}

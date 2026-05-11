@@ -418,6 +418,53 @@ export const userBadges = pgTable(
   (t) => ({ pk: primaryKey({ columns: [t.workspaceId, t.userId, t.badgeId] }) }),
 );
 
+/* ============================ USER NOTES PER WEEK ============================ */
+export const userWeekNotes = pgTable(
+  'user_week_notes',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    weekId: uuid('week_id').notNull().references(() => weeks.id, { onDelete: 'cascade' }),
+    bodyMd: text('body_md').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    wsUserWkIdx: index('uwn_ws_user_wk_idx').on(t.workspaceId, t.userId, t.weekId),
+  }),
+);
+
+/* ============================ LABS (week hands-on) ============================ */
+export const labs = pgTable('labs', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  weekId: uuid('week_id').notNull().references(() => weeks.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description'),
+  bodyMd: text('body_md'),
+  estMinutes: integer('est_minutes').default(30),
+  displayOrder: integer('display_order').default(0),
+});
+
+export const userLabProgress = pgTable(
+  'user_lab_progress',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    labId: uuid('lab_id').notNull().references(() => labs.id, { onDelete: 'cascade' }),
+    status: text('status').default('todo'),
+    evidenceUrls: text('evidence_urls').array().default(sql`'{}'::text[]`),
+    note: text('note'),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    wsUserLabUq: uniqueIndex('ulabp_ws_user_lab_uq').on(t.workspaceId, t.userId, t.labId),
+  }),
+);
+
 /* ============================ ACTIVITY ============================ */
 export const activityLog = pgTable(
   'activity_log',

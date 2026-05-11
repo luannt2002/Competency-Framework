@@ -34,8 +34,9 @@ export function AppSidebar({
     { href: base, label: 'Dashboard', icon: LayoutDashboard },
     { href: `${base}/daily`, label: 'Daily', icon: Calendar },
     { href: `${base}/skills`, label: 'Skills Matrix', icon: Grid3x3 },
-    { href: `${base}/learn`, label: 'Learn', icon: GraduationCap },
+    { href: `${base}/learn`, label: 'Learn (Duolingo)', icon: GraduationCap },
     { href: `${base}/roadmap-tree`, label: 'Roadmap Tree', icon: Network },
+    { href: `${base}/courses`, label: 'Khoá học (tree)', icon: GraduationCap },
     { href: `${base}/framework`, label: 'Framework', icon: Boxes },
   ];
 

@@ -561,3 +561,4 @@ export type FrameworkTemplate = typeof frameworkTemplates.$inferSelect;
 export * from './schema-v8';
 export * from './schema-v9';
 export * from './schema-etl';
+export * from './schema-tree';

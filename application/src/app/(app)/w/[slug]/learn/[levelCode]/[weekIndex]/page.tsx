@@ -10,6 +10,7 @@ import {
   levelTracks,
   modules,
   lessons,
+  labs as labsT,
   userLessonProgress,
   lessonSkillMap,
   skills,
@@ -18,11 +19,16 @@ import { requireWorkspaceAccess } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { LevelBadge } from '@/components/skills/level-badge';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight, Clock, Target, BookOpen, CheckCircle2, PlayCircle } from 'lucide-react';
+import { ArrowLeft, Clock, Target, BookOpen, CheckCircle2 } from 'lucide-react';
 import { AiGenerateButton } from '@/components/learn/ai-generate-button';
 import { WeekNotes } from '@/components/learn/week-notes';
 import { listWeekNotes } from '@/actions/notes';
+import {
+  WeekContentEditor,
+  type EditorModule,
+  type EditorLab,
+  type EditorLesson,
+} from '@/components/learn/week-content-editor';
 
 export default async function WeekDetailPage({
   params,
@@ -92,6 +98,13 @@ export default async function WeekDetailPage({
     if (!lessonsByModule.has(l.moduleId)) lessonsByModule.set(l.moduleId, []);
     lessonsByModule.get(l.moduleId)!.push(l);
   }
+
+  // Labs for this week
+  const labRows = await db
+    .select()
+    .from(labsT)
+    .where(and(eq(labsT.workspaceId, ws.id), eq(labsT.weekId, week.id)))
+    .orderBy(asc(labsT.displayOrder));
 
   // Skills advanced (sidebar)
   const skillLinks = lessonRows.length
@@ -169,58 +182,39 @@ export default async function WeekDetailPage({
       </header>
 
       <div className="grid gap-6 md:grid-cols-[1fr_240px]">
-        {/* Modules */}
+        {/* Modules + Lessons + Labs — editable inline */}
         <div className="space-y-4">
-          {moduleRows.length === 0 && (
-            <div className="surface p-8 text-center text-sm text-muted-foreground">
-              No modules yet for this week. (Level XS Week 1 is fully seeded; other weeks are stubs — expand the seed JSON to add content.)
-            </div>
-          )}
-          {moduleRows.map((mod) => {
-            const lessonsForMod = lessonsByModule.get(mod.id) ?? [];
-            return (
-              <section key={mod.id} className="surface overflow-hidden">
-                <header className="p-4 border-b border-border bg-secondary/20">
-                  <h3 className="font-semibold">{mod.title}</h3>
-                  {mod.summary && (
-                    <p className="text-xs text-muted-foreground mt-1">{mod.summary}</p>
-                  )}
-                </header>
-                <ul className="divide-y divide-border">
-                  {lessonsForMod.map((l) => {
-                    const status =
-                      l.status === 'mastered' ? 'mastered'
-                      : l.status === 'completed' ? 'completed'
-                      : l.status === 'in_progress' ? 'in-progress'
-                      : 'todo';
-                    const cta =
-                      status === 'completed' || status === 'mastered' ? 'Review'
-                      : status === 'in-progress' ? 'Continue'
-                      : 'Start';
-                    return (
-                      <li key={l.id} className="flex items-center gap-3 p-4 hover:bg-secondary/20 transition-colors">
-                        <StatusIcon status={status} />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{l.title}</p>
-                          <p className="text-xs text-muted-foreground">~{l.estMinutes ?? 8}m</p>
-                        </div>
-                        <Button asChild size="sm" variant={status === 'todo' ? 'default' : 'outline'}>
-                          <Link
-                            href={`/w/${slug}/learn/${levelCode}/${week.weekIndex}/${l.slug}`}
-                          >
-                            {cta} <ArrowRight className="size-3" />
-                          </Link>
-                        </Button>
-                      </li>
-                    );
-                  })}
-                  {lessonsForMod.length === 0 && (
-                    <li className="p-4 text-xs text-muted-foreground">No lessons.</li>
-                  )}
-                </ul>
-              </section>
-            );
-          })}
+          <WeekContentEditor
+            workspaceSlug={slug}
+            levelCode={levelCode}
+            weekIndex={week.weekIndex}
+            weekId={week.id}
+            modules={moduleRows.map<EditorModule>((mod) => ({
+              id: mod.id,
+              title: mod.title,
+              summary: mod.summary,
+              lessons: (lessonsByModule.get(mod.id) ?? []).map<EditorLesson>((l) => ({
+                id: l.id,
+                slug: l.slug,
+                title: l.title,
+                estMinutes: l.estMinutes,
+                status:
+                  l.status === 'mastered'
+                    ? 'mastered'
+                    : l.status === 'completed'
+                      ? 'completed'
+                      : l.status === 'in_progress'
+                        ? 'in_progress'
+                        : 'not_started',
+              })),
+            }))}
+            labs={labRows.map<EditorLab>((lab) => ({
+              id: lab.id,
+              title: lab.title,
+              description: lab.description,
+              estMinutes: lab.estMinutes,
+            }))}
+          />
 
           {/* AI Generate Content — placeholder for now; wires to first lesson if exists */}
           {lessonRows[0] && (
@@ -286,9 +280,4 @@ export default async function WeekDetailPage({
   );
 }
 
-function StatusIcon({ status }: { status: 'todo' | 'in-progress' | 'completed' | 'mastered' }) {
-  if (status === 'mastered') return <CheckCircle2 className="size-5 text-violet-400" />;
-  if (status === 'completed') return <CheckCircle2 className="size-5 text-emerald-400" />;
-  if (status === 'in-progress') return <PlayCircle className="size-5 text-cyan-400" />;
-  return <PlayCircle className="size-5 text-muted-foreground" />;
-}
+// StatusIcon moved inside WeekContentEditor (Vietnamese labels there).

@@ -1,7 +1,7 @@
 /**
  * Profile page — aggregate stats across all owned workspaces.
  */
-import { eq, sum, count, desc } from 'drizzle-orm';
+import { eq, sum, count, desc, gte, sql as dsql } from 'drizzle-orm';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { listMyWorkspaces } from '@/lib/workspace';
@@ -13,9 +13,10 @@ import {
   streaks,
   userLessonProgress,
 } from '@/lib/db/schema';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Trophy, Flame, Zap, BookOpen } from 'lucide-react';
+import { Plus, Trophy, Flame, Zap, BookOpen, CalendarDays } from 'lucide-react';
+import { ActivityHeatmap, type DailyXp } from '@/components/charts/activity-heatmap';
 
 export default async function ProfilePage() {
   const user = await requireUser();
@@ -40,6 +41,21 @@ export default async function ProfilePage() {
     .select({ lessonsDone: count() })
     .from(userLessonProgress)
     .where(eq(userLessonProgress.userId, user.id));
+
+  // Daily XP buckets last 84 days for heatmap
+  const sinceIso = new Date(Date.now() - 84 * 24 * 3600 * 1000).toISOString();
+  const dailyRows = await db
+    .select({
+      day: dsql<string>`to_char(${xpEvents.createdAt} at time zone 'UTC', 'YYYY-MM-DD')`,
+      total: sum(xpEvents.amount),
+    })
+    .from(xpEvents)
+    .where(dsql`${xpEvents.userId} = ${user.id} AND ${xpEvents.createdAt} >= ${sinceIso}`)
+    .groupBy(dsql`day`);
+  const heatmapData: DailyXp[] = dailyRows.map((r) => ({
+    date: r.day,
+    xp: Number(r.total ?? 0),
+  }));
 
   // Badges earned (join via badges table for names)
   const earnedBadges = await db
@@ -75,6 +91,20 @@ export default async function ProfilePage() {
         <StatCard icon={Flame} value={longestStreak} label="Longest streak" color="text-orange-300" />
         <StatCard icon={BookOpen} value={lessonsDone} label="Lessons done" color="text-cyan-400" />
       </section>
+
+      {/* Activity heatmap */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarDays className="size-4 text-cyan-400" />
+            Learning activity · last 12 weeks
+          </CardTitle>
+          <CardDescription>XP earned per day, GitHub-style.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ActivityHeatmap data={heatmapData} />
+        </CardContent>
+      </Card>
 
       {/* Badges */}
       <Card>

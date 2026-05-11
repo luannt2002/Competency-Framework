@@ -1100,18 +1100,343 @@
       "title": "Working Track",
       "description": "Kubernetes deep + EKS + Go advanced (operators, controllers, custom TF provider).",
       "weeks": [
-        { "index": 1, "title": "Kubernetes Fundamentals (kind cluster)", "summary": "Core objects, kubectl mastery, first Helm chart.", "goals": [], "keywords": ["k8s","kind","helm"], "estHours": 8, "modules": [] },
-        { "index": 2, "title": "Kubernetes Networking + Storage", "summary": "Gateway API, NetworkPolicy, StatefulSet.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 3, "title": "Helm Advanced + Kustomize", "summary": "Library charts, overlays, hybrid.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 4, "title": "EKS Production Setup (Terraform)", "summary": "IRSA, Pod Identity, addons.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 5, "title": "Karpenter + Cost Optimization", "summary": "NodePool, Spot, consolidation.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 6, "title": "Istio + Observability Stack", "summary": "Istio ambient, kube-prom-stack, Loki, Tempo.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 7, "title": "Golang Advanced: HTTP/gRPC Production", "summary": "chi, grpc, testcontainers, pprof.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 8, "title": "CRD + controller-runtime + kubebuilder", "summary": "FeatureFlag operator scaffold.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 9, "title": "Operator Production: Webhooks + Metrics", "summary": "Validating webhook, leader election.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 10, "title": "Custom Terraform Provider (Plugin Framework)", "summary": "Resource CRUD + acceptance tests.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 11, "title": "Multi-tenancy, Quotas, PSS, Kyverno basics", "summary": "Namespace tenancy + policies.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 12, "title": "CKA Crunch + Capstone", "summary": "killer.sh + CKA exam.", "goals": ["CKA pass"], "keywords": [], "estHours": 8, "modules": [] }
+        {
+          "index": 1, "title": "Kubernetes Fundamentals (kind cluster)",
+          "summary": "Core K8s objects, kubectl mastery, first Helm chart, local kind cluster.",
+          "goals": ["Pod/Deploy/Service/CM/Secret fluent", "30 kubectl commands < 5min", "First Helm chart"],
+          "keywords": ["k8s","kind","kubectl","helm","Pod","Deployment"], "estHours": 8,
+          "modules": [{
+            "title": "K8s Core Objects",
+            "lessons": [{
+              "slug": "pod-lifecycle",
+              "title": "Pod Lifecycle & Probes",
+              "introMd": "Pod states: Pending → Running → Succeeded/Failed. Probes: **liveness** (restart unhealthy), **readiness** (out of service mesh khi chưa ready), **startup** (slow boot apps).",
+              "estMinutes": 7,
+              "skillsAdvanced": [{ "skillSlug": "k8s-core", "contributesToLevel": "S", "weight": 1 }],
+              "exercises": [
+                {
+                  "kind": "mcq",
+                  "promptMd": "App Go boot mất 60s. Dùng probe nào để pod KHÔNG bị restart trong khi boot?",
+                  "payload": {
+                    "options": [
+                      { "id": "a", "text": "liveness probe" },
+                      { "id": "b", "text": "startup probe — disable liveness/readiness cho đến khi pass" },
+                      { "id": "c", "text": "readiness probe" },
+                      { "id": "d", "text": "Tăng initialDelaySeconds của liveness" }
+                    ],
+                    "correctId": "b", "shuffle": true
+                  },
+                  "explanationMd": "Startup probe (K8s 1.16+) thiết kế cho slow-boot. Khi pass, liveness/readiness mới bắt đầu chạy.",
+                  "xpAward": 15
+                },
+                {
+                  "kind": "type_answer",
+                  "promptMd": "Lệnh kubectl xem logs container `app` của pod `web-1` trong namespace `prod`:",
+                  "payload": {
+                    "accepts": ["^kubectl\\s+logs\\s+web-1\\s+-c\\s+app\\s+-n\\s+prod$", "^kubectl\\s+-n\\s+prod\\s+logs\\s+web-1\\s+-c\\s+app$"],
+                    "matchKind": "regex", "hint": "kubectl logs <pod> -c <container> -n <ns>"
+                  },
+                  "explanationMd": "Flag `-c` chọn container nếu pod có nhiều container.",
+                  "xpAward": 10
+                }
+              ]
+            },{
+              "slug": "kubectl-essentials",
+              "title": "kubectl 30 Commands Drill",
+              "introMd": "Speedrun kubectl: get/describe/logs/exec/port-forward/cp/scale/rollout. Mục tiêu: 30 lệnh < 5 phút không tra doc.",
+              "estMinutes": 6,
+              "skillsAdvanced": [{ "skillSlug": "k8s-core", "contributesToLevel": "S", "weight": 1 }],
+              "exercises": [
+                {
+                  "kind": "order_steps",
+                  "promptMd": "Sắp xếp pipeline debug 1 pod CrashLoopBackOff đúng thứ tự:",
+                  "payload": {
+                    "steps": [
+                      { "id": "1", "text": "kubectl get pods → confirm status" },
+                      { "id": "2", "text": "kubectl describe pod <name> → events" },
+                      { "id": "3", "text": "kubectl logs <name> --previous → last crash logs" },
+                      { "id": "4", "text": "Fix root cause + redeploy" }
+                    ],
+                    "correctOrder": ["1","2","3","4"]
+                  },
+                  "explanationMd": "Status → events → previous logs → fix. Đừng skip describe.",
+                  "xpAward": 10
+                }
+              ]
+            }]
+          }]
+        },
+        {
+          "index": 2, "title": "Kubernetes Networking + Storage",
+          "summary": "Gateway API (replacing Ingress), NetworkPolicy default-deny, StatefulSet + PVC.",
+          "goals": ["Gateway API mTLS", "NetworkPolicy lockdown"], "keywords": ["Gateway API","NetworkPolicy","PVC","StatefulSet"], "estHours": 8,
+          "modules": [{ "title": "Network & Storage", "lessons": [{
+            "slug": "gateway-api-vs-ingress", "title": "Gateway API vs Ingress (2026)",
+            "introMd": "Ingress (`networking.k8s.io/v1`) đã tới mức stable nhưng vendor-specific annotations. **Gateway API** (CNCF 2026 GA) chuẩn hoá: Gateway + HTTPRoute + TLSRoute, multi-tenant rõ ràng.",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "k8s-networking", "contributesToLevel": "S", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Lý do chính 2026 dùng Gateway API thay Ingress là?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Faster" },
+                  { "id": "b", "text": "Standardized cross-vendor + role-oriented (cluster ops vs app dev separate)" },
+                  { "id": "c", "text": "Easier syntax" },
+                  { "id": "d", "text": "Required by EKS" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Gateway API tách rõ persona: GatewayClass (infra), Gateway (cluster ops), HTTPRoute (app dev). Ingress chỉ 1 layer, mọi setting qua annotation.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 3, "title": "Helm Advanced + Kustomize",
+          "summary": "Library charts, sub-charts, hooks, Kustomize overlays, hybrid helm template | kustomize.",
+          "goals": ["Library chart pattern", "Overlays per env"], "keywords": ["Helm","Kustomize","hooks"], "estHours": 8,
+          "modules": [{ "title": "Templating Power", "lessons": [{
+            "slug": "helm-vs-kustomize", "title": "Helm vs Kustomize — When What",
+            "introMd": "**Helm**: package + version + values. Tốt cho third-party + multi-tenant SaaS. **Kustomize**: overlays patch, no templating, native kubectl. Tốt cho cùng app deploy nhiều env.",
+            "estMinutes": 6,
+            "skillsAdvanced": [], "exercises": [{
+              "kind": "mcq", "promptMd": "Deploy cùng product service lên 3 env (dev/stg/prod) chỉ khác replicas + secrets. Recommend?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Helm với 3 values.yaml" },
+                  { "id": "b", "text": "Kustomize base/ + overlays/dev,stg,prod/ patches" },
+                  { "id": "c", "text": "3 raw YAML duplicate" },
+                  { "id": "d", "text": "Cả 2 đều OK, nhưng Kustomize đơn giản hơn cho same-app-diff-env" }
+                ],
+                "correctId": "d", "shuffle": true
+              },
+              "explanationMd": "Cùng app, khác env → Kustomize overlays là pattern thuần khiết. Helm shine cho packaging + 3rd-party.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 4, "title": "EKS Production Setup (Terraform)",
+          "summary": "Cluster module, OIDC, managed addons, IRSA vs EKS Pod Identity.",
+          "goals": ["Stand up EKS via TF", "IRSA service account"], "keywords": ["EKS","IRSA","Pod Identity","addons"], "estHours": 8,
+          "modules": [{ "title": "EKS Identity", "lessons": [{
+            "slug": "irsa-vs-pod-identity", "title": "IRSA vs EKS Pod Identity (2024+)",
+            "introMd": "**IRSA**: OIDC provider per cluster; cluster-scoped. **Pod Identity** (2024+): trust via EKS service principal; simpler setup, no OIDC, supports cross-account. AWS recommends Pod Identity cho new clusters.",
+            "estMinutes": 7,
+            "skillsAdvanced": [{ "skillSlug": "eks-prod", "contributesToLevel": "S", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Workload trong EKS cần assume role ở account B (cross-account). 2026 recommend?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "IRSA — set up OIDC in account A, trust from B" },
+                  { "id": "b", "text": "EKS Pod Identity — native cross-account trust via service principal" },
+                  { "id": "c", "text": "Long-lived access keys in secret" },
+                  { "id": "d", "text": "Không support" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Pod Identity simplifies cross-account: trust pods:assumeRole từ EKS service. IRSA cross-account workable nhưng more wiring.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 5, "title": "Karpenter + Cost Optimization",
+          "summary": "Karpenter v1 NodePool + NodeClass, Spot mix, consolidation, EKS Auto Mode.",
+          "goals": ["Karpenter scaling under load", "70%+ Spot for non-critical"], "keywords": ["Karpenter","Spot","NodePool","consolidation"], "estHours": 8,
+          "modules": [{ "title": "Smart Scaling", "lessons": [{
+            "slug": "karpenter-consolidation", "title": "Karpenter Consolidation",
+            "introMd": "Karpenter `consolidationPolicy: WhenEmptyOrUnderutilized` continuously repacks pods onto fewer/cheaper nodes. Saves 30-50% vs Cluster Autoscaler. Beware PDB cho prod workloads.",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "karpenter", "contributesToLevel": "S", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Bạn enable Karpenter consolidation, prod service mất 2/3 replicas trong 1 lần consolidation. Vấn đề?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Karpenter bug" },
+                  { "id": "b", "text": "Thiếu PodDisruptionBudget — Karpenter free to evict all replicas khi repack" },
+                  { "id": "c", "text": "Spot interruption" },
+                  { "id": "d", "text": "Replica config sai" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "PDB `minAvailable: 1` (hoặc 50%) bắt Karpenter giữ replicas lại trong rolling consolidation. Luôn set PDB cho prod Deployment > 1 replica.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 6, "title": "Istio + Observability Stack",
+          "summary": "Istio ambient mode (no sidecar), kube-prometheus-stack, Loki, Tempo, SLO with Sloth.",
+          "goals": ["mTLS strict", "SLO 99.9% PrometheusRule"], "keywords": ["Istio","ambient","Prometheus","Loki","Tempo","SLO"], "estHours": 8,
+          "modules": [{ "title": "Mesh + Observability", "lessons": [{
+            "slug": "istio-ambient-vs-sidecar", "title": "Istio Ambient vs Sidecar",
+            "introMd": "**Sidecar mode**: 1 envoy/pod, high resource cost. **Ambient mode** (1.22+ GA): ztunnel (L4) + waypoint (L7 per-namespace). 30-50% less resources, cleaner pod logs.",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "prometheus-grafana", "contributesToLevel": "S", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Cluster 500 pods cần mTLS + traffic policy. 2026 chọn?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Istio sidecar — proven" },
+                  { "id": "b", "text": "Istio ambient — less resource, ztunnel + waypoint" },
+                  { "id": "c", "text": "Linkerd 2 sidecar" },
+                  { "id": "d", "text": "Cilium mesh" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Ambient mode đã GA. Cho cluster lớn, save resources đáng kể. Sidecar vẫn fine nhưng overhead 100MB+/pod.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 7, "title": "Golang Advanced: HTTP/gRPC Production",
+          "summary": "chi/echo, grpc-go, testcontainers, pprof, structured logging slog.",
+          "goals": ["Production HTTP server", "Integration tests with testcontainers"], "keywords": ["chi","gRPC","pprof","slog","testcontainers"], "estHours": 8,
+          "modules": [{ "title": "Production Go", "lessons": [{
+            "slug": "go-graceful-shutdown", "title": "Graceful Shutdown Pattern",
+            "introMd": "Production HTTP server PHẢI handle SIGTERM gracefully. Use `signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)` → cancel ctx → server.Shutdown(timeoutCtx).",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "go-http-server", "contributesToLevel": "S", "weight": 1 }],
+            "exercises": [{
+              "kind": "code_block_review", "promptMd": "Code shutdown sau có vấn đề gì cho production?",
+              "payload": {
+                "code": "srv := &http.Server{Addr: \":8080\", Handler: mux}\nlog.Fatal(srv.ListenAndServe())",
+                "language": "go", "question": "Vấn đề chính:",
+                "options": [
+                  { "id": "a", "text": "Thiếu graceful shutdown — SIGTERM kill ngay, drop in-flight requests" },
+                  { "id": "b", "text": "Sai port" },
+                  { "id": "c", "text": "Thiếu TLS" },
+                  { "id": "d", "text": "Mux không init" }
+                ],
+                "correctId": "a"
+              },
+              "explanationMd": "Production cần: `signal.NotifyContext → <-ctx.Done() → srv.Shutdown(timeoutCtx)`. K8s rolling deploy sẽ kill pod thường xuyên.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 8, "title": "CRD + controller-runtime + kubebuilder",
+          "summary": "First custom resource definition, reconciler loop, owner refs, finalizers.",
+          "goals": ["FeatureFlag operator scaffold", "envtest passing"], "keywords": ["CRD","reconciler","kubebuilder","finalizer"], "estHours": 8,
+          "modules": [{ "title": "K8s Operators", "lessons": [{
+            "slug": "reconciler-idempotent", "title": "Reconciler Must Be Idempotent",
+            "introMd": "Reconcile được gọi LẶP LẠI cho cùng object (watch events, requeue, periodic). Logic phải idempotent — chạy 2 lần KHÔNG được tạo 2 resources. Use `CreateOrUpdate`, owner refs.",
+            "estMinutes": 7,
+            "skillsAdvanced": [{ "skillSlug": "k8s-operator", "contributesToLevel": "S", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Test reconciler idempotent: run reconcile 2 lần liên tiếp cùng input → expected?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Tạo 2 ConfigMap" },
+                  { "id": "b", "text": "Không có diff — state ổn định, no-op lần 2" },
+                  { "id": "c", "text": "Error" },
+                  { "id": "d", "text": "Tuỳ" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Idempotent = lần 2 phải no-op. Đó cũng là level-triggered design vs edge-triggered.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 9, "title": "Operator Production: Webhooks + Metrics",
+          "summary": "Validating + mutating webhooks, leader election cho HA, Prometheus metrics, deploy via Helm.",
+          "goals": ["Validation webhook", "Leader election"], "keywords": ["webhook","leader election","cert-manager","metrics"], "estHours": 8,
+          "modules": [{ "title": "Operator HA", "lessons": [{
+            "slug": "leader-election-why", "title": "Why Leader Election for Operators",
+            "introMd": "Run 3 operator replicas cho HA, nhưng chỉ 1 leader reconcile. Khác → 3 concurrent reconciles cùng 1 CR = race conditions + duplicate side-effects.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "k8s-operator", "contributesToLevel": "S", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Run 3 operator replicas WITHOUT leader election. Khi 3 cùng reconcile 1 CR tạo external resource — kết quả?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Tạo 3 resource external duplicate" },
+                  { "id": "b", "text": "K8s tự dedupe" },
+                  { "id": "c", "text": "Operator framework block" },
+                  { "id": "d", "text": "Không sao" }
+                ],
+                "correctId": "a", "shuffle": true
+              },
+              "explanationMd": "Operator framework controller-runtime cần `LeaderElection: true`. Khi đó chỉ leader chạy reconcile loop, 2 replicas idle standby.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 10, "title": "Custom Terraform Provider (Plugin Framework)",
+          "summary": "Terraform plugin-framework v1 (not SDKv2 legacy), Schema → CRUD → ImportState → acceptance tests.",
+          "goals": ["Working provider v0.1.0", "make testacc green"], "keywords": ["TF provider","plugin-framework","acceptance test"], "estHours": 8,
+          "modules": [{ "title": "Building a Provider", "lessons": [{
+            "slug": "plugin-framework-vs-sdkv2", "title": "Plugin Framework v1 vs SDKv2 Legacy",
+            "introMd": "HashiCorp recommend **plugin-framework** cho providers mới (2024+). Schema kiểu type-safe Go, better diff handling. SDKv2 vẫn maintained nhưng legacy.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "tf-custom-provider", "contributesToLevel": "S", "weight": 1 }],
+            "exercises": [{
+              "kind": "type_answer", "promptMd": "Lệnh chạy acceptance tests cho TF provider (cần TF_ACC=1):",
+              "payload": {
+                "accepts": ["^TF_ACC=1\\s+go\\s+test"], "matchKind": "regex",
+                "hint": "TF_ACC=1 go test ..."
+              },
+              "explanationMd": "Acceptance tests apply thật lên cloud — tốn $, slow. Chỉ chạy khi `TF_ACC=1` được set.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 11, "title": "Multi-tenancy + Quotas + PSS + Kyverno",
+          "summary": "Namespace tenancy, ResourceQuota/LimitRange, Pod Security Standards, Kyverno policies cluster-wide.",
+          "goals": ["Default-deny PSP via Kyverno", "Quota per team namespace"], "keywords": ["namespace","quota","PSS","Kyverno"], "estHours": 8,
+          "modules": [{ "title": "Cluster Tenancy", "lessons": [{
+            "slug": "kyverno-vs-opa-gatekeeper", "title": "Kyverno vs OPA Gatekeeper 2026",
+            "introMd": "**Kyverno**: YAML policies, K8s-native, easier for ops. **OPA/Gatekeeper**: Rego language, more powerful, used cho Terraform too. 2026: Kyverno popular cho K8s-only; OPA cho multi-target.",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "kyverno", "contributesToLevel": "S", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Team K8s ops không muốn học Rego. Recommend policy engine?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "OPA Gatekeeper" },
+                  { "id": "b", "text": "Kyverno — YAML policies, no new DSL" },
+                  { "id": "c", "text": "Native PSP (deprecated)" },
+                  { "id": "d", "text": "Falco" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Kyverno = YAML policies (familiar to K8s ops). Falco là runtime detection, không phải admission policy.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 12, "title": "CKA Crunch + Capstone",
+          "summary": "killer.sh sessions, etcd backup/restore, kubectl --dry-run patterns, exam strategy.",
+          "goals": ["CKA exam pass", "Phase 2 retro"], "keywords": ["CKA","killer.sh","etcd","exam"], "estHours": 8,
+          "modules": [{ "title": "CKA Prep", "lessons": [{
+            "slug": "cka-time-strategy", "title": "CKA Time Strategy",
+            "introMd": "CKA 17 questions, 2 hours. ~7 min/question. Strategy: skip hard ones, do easy first, use `kubectl --dry-run=client -o yaml > x.yaml` aggressively, alias `k=kubectl`.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "k8s-core", "contributesToLevel": "S", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "CKA tip quan trọng nhất để pass time pressure?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Học thuộc YAML" },
+                  { "id": "b", "text": "Master `kubectl --dry-run=client -o yaml` + alias k=kubectl + bookmark k8s docs trong exam env" },
+                  { "id": "c", "text": "Pre-write scripts" },
+                  { "id": "d", "text": "Multiple monitors" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Exam cho phép tab k8s docs. --dry-run sinh YAML template + alias = save 30s/question = 17 phút total.",
+              "xpAward": 10
+            }]
+          }]}]
+        }
       ]
     },
 

@@ -12,6 +12,7 @@ import {
   SkillsTableClient,
   type SkillRow,
 } from '@/components/skills/skills-table-client';
+import { ExportMenu } from '@/components/skills/export-menu';
 
 export default async function SkillsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -83,13 +84,18 @@ export default async function SkillsPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="mx-auto max-w-7xl p-6 md:p-8 space-y-6">
-      <header className="flex items-center gap-3">
-        <Grid3x3 className="size-6 text-cyan-400" />
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Skills Matrix</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {skillRows.length} skills · click a row to self-assess
-          </p>
+      <header className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+        <div className="flex items-center gap-3">
+          <Grid3x3 className="size-6 text-cyan-400" />
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Skills Matrix</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {skillRows.length} skills · click a row to self-assess
+            </p>
+          </div>
+        </div>
+        <div className="md:ml-auto">
+          <ExportMenu workspaceSlug={ws.slug} />
         </div>
       </header>
 

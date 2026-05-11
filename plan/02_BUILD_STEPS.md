@@ -17,15 +17,15 @@
 | 5 | Templates catalog + Onboarding + Fork | ⬜ todo (M1) | `/templates`, `/onboarding`, fork action |
 | 6 | Skills Matrix table + filter/search | ✅ done | `skills/page.tsx` + `skills-table-client.tsx` |
 | 7 | Skill Drawer + auto-save assessment | ✅ done | `skill-drawer.tsx` + `actions/assessments.ts` |
-| 8 | Framework Editor + Import/Export | 🟡 readonly skeleton (M2) | `framework/page.tsx` |
+| 8 | Framework Editor + Import/Export | ✅ done | `framework-editor.tsx` + `actions/framework.ts` + `actions/exports.ts` |
 | 9 | Course Map (Duolingo curved SVG) | ✅ done | `course-path.tsx` + `learn/page.tsx` |
 | 10 | Week Detail | ✅ done | `learn/[lvl]/[wk]/page.tsx` |
 | 11 | Lesson Runner core + 3 exercise types | ✅ done | `exercise-runner/*` (mcq, fill, type) |
 | 12 | Remaining exercise types + review queue | ✅ done | `order-steps`, `code-block-review` + review queue |
 | 13 | Gamification (XP + streak + crowns + badges + unlock) | ✅ done | `streak.ts`, `crowns.ts`, `badge-evaluator.ts`, `unlock-rules.ts` |
 | 14 | Dashboard charts + Today block | ✅ done | `radar-coverage`, `skill-heatmap`, `progress-ring`, dashboard page |
-| 15 | Profile + Settings + Roadmap placeholder | ✅ profile polish + sonner; settings stub | profile/settings pages |
-| 16 | Tests + CI + Polish | ⬜ remaining (vitest unit, Playwright smoke, GH Actions) | tests/* |
+| 15 | Profile + Settings + Roadmap placeholder | ✅ done — heatmap + settings forms wired | profile + settings + activity-heatmap |
+| 16 | Tests + CI + Polish | ✅ done — Vitest (4 suites), Playwright smoke, GH Actions CI, out-of-hearts modal | tests/* + .github/workflows/ci.yml |
 
 ---
 

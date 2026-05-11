@@ -36,6 +36,7 @@ import { FillBlankExercise } from './fill-blank';
 import { TypeAnswerExercise } from './type-answer';
 import { OrderStepsExercise } from './order-steps';
 import { CodeBlockReviewExercise } from './code-block-review';
+import { OutOfHeartsModal } from './out-of-hearts-modal';
 
 type Phase = 'intro' | 'exercise' | 'feedback' | 'end';
 
@@ -56,6 +57,8 @@ export function LessonRunner({ workspaceSlug, data, backHref }: Props) {
   const [isReviewing, setIsReviewing] = useState(false);
   const [totalXp, setTotalXp] = useState(0);
   const [heartsLeft, setHeartsLeft] = useState(5);
+  const [practiceMode, setPracticeMode] = useState(false);
+  const [showOutOfHearts, setShowOutOfHearts] = useState(false);
   const [completeData, setCompleteData] = useState<{
     xp: number;
     streakTicked: boolean;
@@ -105,6 +108,11 @@ export function LessonRunner({ workspaceSlug, data, backHref }: Props) {
         setReviewQueue((q) => [...q, current]);
       }
       setPhase('feedback');
+
+      // Out-of-hearts gating (only enforce outside practice mode)
+      if (res.heartsLeft <= 0 && !practiceMode) {
+        setShowOutOfHearts(true);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -280,6 +288,24 @@ export function LessonRunner({ workspaceSlug, data, backHref }: Props) {
           </div>
         </footer>
       )}
+
+      {/* Out-of-hearts gate */}
+      <OutOfHeartsModal
+        open={showOutOfHearts}
+        onOpenChange={setShowOutOfHearts}
+        onPracticeMode={() => {
+          setPracticeMode(true);
+          setShowOutOfHearts(false);
+          toast.success('Practice mode enabled', {
+            description: 'XP and crowns are paused, but you can keep learning.',
+          });
+        }}
+        onQuit={() => {
+          setShowOutOfHearts(false);
+          router.push(backHref);
+        }}
+        nextRefillAt={new Date(Date.now() + 4 * 3600 * 1000).toISOString()}
+      />
     </div>
   );
 }

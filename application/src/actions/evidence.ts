@@ -116,9 +116,7 @@ export async function submitEvidence(
   const hasManager = allGrades.some((g) => g.kind === 'manager_review');
   const shouldVerify = hasManager && confidence.score >= VERIFIED_MIN_SCORE;
 
-  // Upsert user_skill_progress. The existing schema's level_source enum has
-  // 'self_claimed' | 'learned' | 'both' — we map V8 "verified" to 'both' until
-  // a follow-up migration adds a dedicated 'verified' value.
+  // Upsert user_skill_progress. M6.5: enum extended with 'verified'.
   const existing = await db
     .select({ id: userSkillProgress.id, levelSource: userSkillProgress.levelSource })
     .from(userSkillProgress)
@@ -132,10 +130,10 @@ export async function submitEvidence(
     .limit(1);
 
   const prevSource = existing[0]?.levelSource ?? null;
-  const nextSource: 'self_claimed' | 'learned' | 'both' = shouldVerify
-    ? 'both'
-    : prevSource === 'both'
-      ? 'both'
+  const nextSource: 'self_claimed' | 'learned' | 'both' | 'verified' = shouldVerify
+    ? 'verified'
+    : prevSource === 'verified' || prevSource === 'both'
+      ? prevSource
       : 'learned';
 
   if (existing[0]) {

@@ -3,7 +3,9 @@
  * Required for SSR auth to work properly with Server Components.
  */
 import { type NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+
+type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request });
@@ -16,9 +18,11 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          cookiesToSet.forEach(({ name, value, options }) =>
+        setAll(cookiesToSet: CookieToSet[]) {
+          cookiesToSet.forEach(({ name, value }: CookieToSet) =>
+            request.cookies.set(name, value),
+          );
+          cookiesToSet.forEach(({ name, value, options }: CookieToSet) =>
             response.cookies.set(name, value, options),
           );
         },

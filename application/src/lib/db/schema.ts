@@ -27,7 +27,7 @@ import {
 export const orgRoleEnum = pgEnum('org_role', ['owner', 'admin', 'member', 'viewer']);
 export const visibilityEnum = pgEnum('workspace_visibility', ['private', 'public-readonly']);
 export const templateAuthorEnum = pgEnum('template_author_kind', ['system', 'community']);
-export const levelSourceEnum = pgEnum('level_source', ['self_claimed', 'learned', 'both']);
+export const levelSourceEnum = pgEnum('level_source', ['self_claimed', 'learned', 'both', 'verified']);
 export const lessonStatusEnum = pgEnum('lesson_status', [
   'not_started',
   'in_progress',

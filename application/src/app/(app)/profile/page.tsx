@@ -45,14 +45,15 @@ export default async function ProfilePage() {
 
   // Daily XP buckets last 84 days for heatmap
   const sinceIso = new Date(Date.now() - 84 * 24 * 3600 * 1000).toISOString();
+  const dayExpr = dsql<string>`to_char(${xpEvents.createdAt} at time zone 'UTC', 'YYYY-MM-DD')`;
   const dailyRows = await db
     .select({
-      day: dsql<string>`to_char(${xpEvents.createdAt} at time zone 'UTC', 'YYYY-MM-DD')`,
+      day: dayExpr,
       total: sum(xpEvents.amount),
     })
     .from(xpEvents)
     .where(dsql`${xpEvents.userId} = ${user.id} AND ${xpEvents.createdAt} >= ${sinceIso}`)
-    .groupBy(dsql`day`);
+    .groupBy(dayExpr);
   const heatmapData: DailyXp[] = dailyRows.map((r) => ({
     date: r.day,
     xp: Number(r.total ?? 0),

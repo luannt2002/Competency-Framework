@@ -100,6 +100,20 @@ export default function SignInPage() {
         <p className="mt-6 text-xs text-muted-foreground text-center">
           New here? Just sign in — we'll create your account automatically.
         </p>
+
+        {/* Dev bypass hint — visible when DEV_AUTH_BYPASS_USER_ID set */}
+        {process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_DEV_BYPASS_HINT === '1' && (
+          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+            <p className="font-medium text-amber-300">🔓 Dev bypass active</p>
+            <p className="mt-1 text-muted-foreground">
+              Auth shortcut enabled. Go directly to{' '}
+              <Link href="/w/devops-test" className="underline text-amber-200">
+                /w/devops-test
+              </Link>
+              .
+            </p>
+          </div>
+        )}
       </div>
     </main>
   );

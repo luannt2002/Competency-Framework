@@ -54,9 +54,13 @@
 - [x] `drizzle/seeds/devops.json` — 4 levels với career-stage labels (Intern/Junior/Mid/Senior Tech Lead)
 - [x] 6-stage career ladder array (Intern → Tech Lead) cho UI mapping
 - [x] 10 categories + 42 skills
-- [x] **Level XS: 12/12 weeks có content** — 12 modules · 22 lessons · 34 exercises (6 exercise kinds covered)
-- [ ] S/M/L: weeks có title+summary+goals nhưng modules[] rỗng — sẽ expand tương tự XS khi user cần
-- [x] Content lấy từ `02_PHASE1_AWS_TERRAFORM_DEEP_DIVE_Q1.md` (real DevOps domain knowledge)
+- [x] **All 4 levels × 12/12 weeks = 48/48 weeks có content**
+- [x] XS: 22 lessons · 34 exercises (Phase 1 — AWS/Terraform/Go basics)
+- [x] S: 13 lessons · 14 exercises (Phase 2 — K8s/EKS/Go advanced)
+- [x] M: 12 lessons · 12 exercises (Phase 3 — DevSecOps/GitOps/Supply chain)
+- [x] L: 12 lessons · 12 exercises (Phase 4 — Platform Eng/Multi-region)
+- [x] **Total: 59 lessons · 72 exercises · 120 KB JSON**
+- [x] Content lấy từ 5 file `0X_*.md` roadmap (real DevOps domain knowledge)
 
 ### ✅ Step 3 — Auth + workspace
 - [x] `src/lib/auth/supabase-server.ts` — server-side client

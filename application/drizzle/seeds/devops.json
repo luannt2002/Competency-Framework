@@ -1445,18 +1445,299 @@
       "title": "Strong Track",
       "description": "DevSecOps + GitOps + supply chain SLSA L3 + compliance scanner Go tool.",
       "weeks": [
-        { "index": 1, "title": "Argo CD Foundation + GitOps Mindset", "summary": "App-of-Apps, sync, RBAC.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 2, "title": "Progressive Delivery: Argo Rollouts", "summary": "Canary + blue/green + analysis.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 3, "title": "Supply Chain: SBOM, Sign, Verify (Sigstore)", "summary": "Syft, Cosign, Kyverno verify-images.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 4, "title": "Vault + External Secrets", "summary": "Dynamic RDS creds, Kubernetes auth.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 5, "title": "Policy as Code: OPA/Conftest + Kyverno", "summary": "TF gating + cluster policies.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 6, "title": "Runtime Security: Falco + Audit Logs", "summary": "eBPF detection, SIEM forward.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 7, "title": "Go Compliance Scanner (Tool #4)", "summary": "shopscan: AWS+K8s+repo audit.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 8, "title": "Advanced GH Actions + DORA Metrics", "summary": "Reusable workflows + DORA collector.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 9, "title": "Disaster Recovery + Backup (Velero)", "summary": "Velero, AWS Backup, drills.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 10, "title": "Cost Optimization (Pre-FinOps) + DevOps Pro prep", "summary": "OpenCost, CUR Athena.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 11, "title": "CKS Prep + Hardening", "summary": "kube-bench, kube-hunter, prowler.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 12, "title": "AWS DevOps Pro + Capstone", "summary": "DOP-C02 exam + final polish.", "goals": ["DevOps Pro pass"], "keywords": [], "estHours": 8, "modules": [] }
+        {
+          "index": 1, "title": "Argo CD Foundation + GitOps Mindset",
+          "summary": "Declarative, versioned, automated, observable. App-of-Apps, RBAC, sync waves.",
+          "goals": ["Argo CD running on EKS", "Migrate apps to GitOps"],
+          "keywords": ["Argo CD","GitOps","App-of-Apps","sync waves"], "estHours": 8,
+          "modules": [{"title":"Pull vs Push","lessons":[{
+            "slug": "pull-based-vs-push", "title": "Pull-based GitOps vs Push CI/CD",
+            "introMd": "**Push CI/CD**: CI server has K8s credentials → kubectl apply. **Pull-based GitOps**: Argo CD inside cluster polls git repo → applies itself. Pull eliminates credential leakage + auto-reconciles drift.",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "argocd", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Push CI/CD vs Pull GitOps — vấn đề an ninh chính của push:",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Chậm" },
+                  { "id": "b", "text": "CI/CD server cần long-lived K8s admin credentials (high blast radius nếu compromise)" },
+                  { "id": "c", "text": "Yêu cầu cluster public" },
+                  { "id": "d", "text": "Không có vấn đề" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Pull (GitOps): Argo CD inside cluster có RBAC scope hẹp, không expose credentials ra ngoài. Push: CI bị compromise = cluster compromise.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 2, "title": "Progressive Delivery: Argo Rollouts",
+          "summary": "Canary (% traffic split + analysis gates), blue/green, automatic rollback on metric breach.",
+          "goals": ["Canary 10→50→100 with Prom gate", "Auto-rollback demo"], "keywords": ["canary","blue/green","AnalysisTemplate"], "estHours": 8,
+          "modules": [{"title":"Safe Releases","lessons":[{
+            "slug": "canary-metric-gate", "title": "Metric-Gated Canary",
+            "introMd": "AnalysisTemplate query Prometheus mid-rollout: error rate < 0.5%, p99 < 200ms. Khi metric breach → Argo Rollouts AUTO-rollback. Khác hẳn với canary mù (thời gian sleep + manual).",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "argo-rollouts", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Sau khi config canary 10% → wait 5min → 50%, deploy version có bug → expected?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "10% users see bug 5min, manual rollback" },
+                  { "id": "b", "text": "Nếu có AnalysisTemplate query error rate → tự rollback < 1min" },
+                  { "id": "c", "text": "100% deploy" },
+                  { "id": "d", "text": "Pause forever" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "AnalysisTemplate là khác biệt: tự đo, tự quyết. Không có nó = chỉ là sleep-based canary.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 3, "title": "Supply Chain: SBOM + Sign + Verify (Sigstore)",
+          "summary": "Syft cho SBOM, Cosign keyless sign với OIDC, Kyverno verifyImages chặn unsigned ở admission. SLSA L3.",
+          "goals": ["All images signed", "Admission block unsigned"], "keywords": ["SBOM","Cosign","Sigstore","SLSA","Fulcio","Rekor"], "estHours": 8,
+          "modules": [{"title":"Supply Chain Security","lessons":[{
+            "slug": "cosign-keyless", "title": "Cosign Keyless Signing (no private key)",
+            "introMd": "Keyless: GH Action OIDC token → Fulcio CA → short-lived x509 cert → sign image → store sig in Rekor transparency log. Không có key để leak. Verify pin identity (GH org/repo).",
+            "estMinutes": 7,
+            "skillsAdvanced": [{ "skillSlug": "slsa-supply-chain", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Ưu điểm chính của Cosign keyless vs traditional gpg signing?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Nhanh hơn" },
+                  { "id": "b", "text": "Không có private key để leak/mất; identity bound to OIDC issuer (GH/Google); transparency log Rekor" },
+                  { "id": "c", "text": "Free" },
+                  { "id": "d", "text": "Smaller binary" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Keyless = ephemeral cert + transparency log. Identity verify dựa trên `subject` claim trong cert (vd: repo:ORG/REPO).",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 4, "title": "Vault + External Secrets Operator",
+          "summary": "Vault HA + auto-unseal KMS, K8s auth, dynamic RDS creds, ESO sync secrets vào K8s.",
+          "goals": ["Vault running on EKS", "Dynamic Postgres creds"], "keywords": ["Vault","ESO","dynamic secrets","K8s auth"], "estHours": 8,
+          "modules": [{"title":"Secrets Done Right","lessons":[{
+            "slug": "dynamic-vs-static-secrets", "title": "Dynamic vs Static Secrets",
+            "introMd": "**Static**: 1 password sống mãi → khi leak phải rotate tay. **Dynamic**: Vault tạo username/password mới mỗi request, TTL 1h. Compromise = revoke 1 lease, không ảnh hưởng cái khác.",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "vault-secrets", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "DB credentials leak vào logs. Setup nào giảm blast radius nhất?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Static password trong K8s Secret" },
+                  { "id": "b", "text": "Vault dynamic creds TTL 1h" },
+                  { "id": "c", "text": "Encrypt log files" },
+                  { "id": "d", "text": "Rotate weekly cron" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Dynamic creds TTL ngắn = leak chỉ valid ≤ 1h. Static = forever valid until manual rotate.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 5, "title": "Policy as Code: OPA/Conftest + Kyverno",
+          "summary": "Rego cho Terraform gating, Kyverno cluster policies (baseline + restricted PSS).",
+          "goals": ["Conftest blocks bad TF PR", "Kyverno enforce baseline"], "keywords": ["OPA","Rego","Conftest","Kyverno","PSS"], "estHours": 8,
+          "modules": [{"title":"Guardrails","lessons":[{
+            "slug": "conftest-tf-gate", "title": "Conftest Gating Terraform PRs",
+            "introMd": "Pipeline: `terraform plan -out=tfplan && terraform show -json tfplan > plan.json && conftest test plan.json --policy=./policies`. Block PR khi policy fail (vd: S3 unencrypted, SG 0.0.0.0/0 unusual port).",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "opa-conftest", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Conftest policy nào tốt nhất chặn drift TF?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Require all S3 buckets encrypted with KMS + block port 22 from 0.0.0.0/0 + require tags CostCenter/Owner" },
+                  { "id": "b", "text": "Audit only, log mọi thứ" },
+                  { "id": "c", "text": "Block all" },
+                  { "id": "d", "text": "Không cần" }
+                ],
+                "correctId": "a", "shuffle": true
+              },
+              "explanationMd": "Baseline security rules + cost tagging. Conftest có unit tests trong Rego → test policies trước khi apply.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 6, "title": "Runtime Security: Falco + Audit Logs",
+          "summary": "Falco eBPF rules cho container runtime, K8s audit logs, forward SIEM.",
+          "goals": ["Detect reverse shell in pod", "Audit log forwarded"], "keywords": ["Falco","eBPF","audit","MITRE ATT&CK"], "estHours": 8,
+          "modules": [{"title":"Runtime Detection","lessons":[{
+            "slug": "falco-vs-admission", "title": "Falco (runtime) vs Kyverno (admission)",
+            "introMd": "**Admission** (Kyverno): block trước khi pod start. **Runtime** (Falco): detect AFTER pod start, ví dụ malicious exec, file mod, network connection. Cần CẢ HAI.",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "falco-runtime", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Attacker compromise app, run `nc -lvp 4444` trong pod. Phòng vệ nào DETECT?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Kyverno admission policy" },
+                  { "id": "b", "text": "Falco runtime rule 'unexpected listening port' → alert SIEM" },
+                  { "id": "c", "text": "NetworkPolicy" },
+                  { "id": "d", "text": "RBAC" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Kyverno block ở admission (image, securityContext). Sau khi pod chạy = ngoài tầm Kyverno. Falco eBPF nhìn syscall → catch.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 7, "title": "Go Compliance Scanner (Tool #4)",
+          "summary": "Build shopscan Go tool: scan AWS (CIS), K8s (CIS), GitHub repos, output SARIF.",
+          "goals": ["10+ checks running", "GH Action nightly + SARIF upload"], "keywords": ["compliance","CIS","SARIF","Go"], "estHours": 8,
+          "modules": [{"title":"Internal Tooling","lessons":[{
+            "slug": "sarif-format", "title": "SARIF — Standard Findings Format",
+            "introMd": "SARIF (Static Analysis Results Interchange Format) = JSON schema cho findings. GitHub Code Scanning, GitLab, defectdojo đều import. Output từ scanner → upload → unified UI.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "go-cli", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "type_answer", "promptMd": "GH Action step upload SARIF cho Code Scanning:",
+              "payload": {
+                "accepts": ["github/codeql-action/upload-sarif"], "matchKind": "regex",
+                "hint": "github/codeql-action/upload-..."
+              },
+              "explanationMd": "`uses: github/codeql-action/upload-sarif@v3` upload file SARIF → GH Security tab.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 8, "title": "Advanced GH Actions + DORA Metrics",
+          "summary": "Reusable workflows, composite actions, self-hosted runners on EKS via ARC, DORA collector Go service.",
+          "goals": ["Reusable workflow", "DORA dashboard 30 days"], "keywords": ["GH Actions","reusable","ARC","DORA"], "estHours": 8,
+          "modules": [{"title":"Pipeline Excellence","lessons":[{
+            "slug": "dora-4-keys", "title": "DORA 4 Keys",
+            "introMd": "DORA (DevOps Research and Assessment) 4 metrics định nghĩa elite engineering: **Deployment Frequency**, **Lead Time for Changes**, **Change Failure Rate**, **MTTR** (Time to Restore Service).",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "gh-actions", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq_multi", "promptMd": "Đâu là 4 DORA keys? (chọn 4)",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Deployment Frequency" },
+                  { "id": "b", "text": "Lead Time for Changes" },
+                  { "id": "c", "text": "Number of bugs" },
+                  { "id": "d", "text": "Change Failure Rate" },
+                  { "id": "e", "text": "Mean Time to Restore (MTTR)" },
+                  { "id": "f", "text": "Code coverage %" }
+                ],
+                "correctIds": ["a","b","d","e"]
+              },
+              "explanationMd": "Elite teams (per DORA 2024): deploy multiple/day, lead time < 1 day, CFR < 15%, MTTR < 1h.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 9, "title": "Disaster Recovery + Backup (Velero)",
+          "summary": "Velero backup K8s namespaces + PVs, AWS Backup centralized cross-region, restore drills.",
+          "goals": ["Restore drill complete", "Cross-region copy"], "keywords": ["Velero","backup","RTO","RPO"], "estHours": 8,
+          "modules": [{"title":"DR Patterns","lessons":[{
+            "slug": "rto-vs-rpo", "title": "RTO vs RPO — Don't Confuse",
+            "introMd": "**RTO** = Recovery Time Objective: how fast back online. **RPO** = Recovery Point Objective: how much data loss tolerable. Mỗi tier cần khác: tier-1 RTO < 5min RPO < 1min vs tier-3 RTO 24h RPO 24h.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "rds-postgres", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "App tài chính: RTO 5 phút, RPO 0. Recommend?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Daily snapshot" },
+                  { "id": "b", "text": "Hourly backup" },
+                  { "id": "c", "text": "Multi-AZ DB với sync replica + active-active app" },
+                  { "id": "d", "text": "Cold storage S3 Glacier" }
+                ],
+                "correctId": "c", "shuffle": true
+              },
+              "explanationMd": "RPO 0 = no data loss = sync replica BẮT BUỘC. RTO 5min = active-active hoặc auto-failover < 5min.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 10, "title": "Cost Optimization (Pre-FinOps) + DevOps Pro Prep",
+          "summary": "OpenCost dashboard per namespace, CUR + Athena queries, Savings Plans strategy, exam prep.",
+          "goals": ["OpenCost live", "20%+ savings identified"], "keywords": ["OpenCost","CUR","Athena","Savings Plans"], "estHours": 8,
+          "modules": [{"title":"Cost Visibility","lessons":[{
+            "slug": "savings-plans-vs-ri", "title": "Savings Plans vs Reserved Instances",
+            "introMd": "**RIs** instance-specific: m5.xlarge ap-southeast-1 — không flex. **Savings Plans Compute**: 1y/3y commit, ANY instance family/region/OS. Flex >>> RI cho production thay đổi. SP Compute thường = pick 2026.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "savings-plans", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Production fleet 80% EC2, occasional Fargate/Lambda, có thể đổi instance type theo workload. Recommend?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Convertible RI" },
+                  { "id": "b", "text": "Compute Savings Plans (1Y commit, applies EC2+Fargate+Lambda)" },
+                  { "id": "c", "text": "Standard RI" },
+                  { "id": "d", "text": "On-demand only" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "SP Compute apply across compute services + family flex. Discount tương đương Standard RI nhưng linh hoạt hơn.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 11, "title": "CKS Prep + Hardening",
+          "summary": "Certified Kubernetes Security Specialist exam topics; kube-bench + prowler + kube-hunter scans.",
+          "goals": ["kube-bench ≥ 90% pass", "0 critical findings prowler"], "keywords": ["CKS","kube-bench","prowler","hardening"], "estHours": 8,
+          "modules": [{"title":"CKS Crunch","lessons":[{
+            "slug": "cks-key-tools", "title": "CKS Key Tools",
+            "introMd": "CKS exam tools: **kube-bench** (CIS K8s benchmark), **trivy** (image scan), **falco** (runtime), **opa/gatekeeper** (admission). Tất cả ở /usr/local/bin trong exam env.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "kyverno", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "type_answer", "promptMd": "Lệnh trivy scan image `nginx:latest` for HIGH+CRITICAL vulnerabilities:",
+              "payload": {
+                "accepts": ["trivy\\s+image.*--severity\\s+HIGH,CRITICAL.*nginx:latest"], "matchKind": "regex",
+                "hint": "trivy image --severity HIGH,CRITICAL ..."
+              },
+              "explanationMd": "`trivy image --severity HIGH,CRITICAL nginx:latest` — exit code 1 nếu tìm thấy → useful trong CI gate.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 12, "title": "AWS DevOps Pro + Phase 3 Capstone",
+          "summary": "AWS Certified DevOps Engineer Professional (DOP-C02) prep, Phase 3 retro + capstone blog.",
+          "goals": ["DOP-C02 pass", "Compliance scanner v0.1.0 published"], "keywords": ["DevOps Pro","DOP-C02","capstone"], "estHours": 8,
+          "modules": [{"title":"Cert + Retro","lessons":[{
+            "slug": "dop-c02-domains", "title": "DOP-C02 Six Domains",
+            "introMd": "DOP-C02 (2023+ version): SDLC Automation, Config/IaC, Resilient Cloud Solutions, Monitoring/Logging, Incident/Event Response, Security/Compliance. Weights ~16-22% each.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "tech-writing", "contributesToLevel": "M", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "DOP-C02 đặc trưng nhất so với SAA-C03 là?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Nhiều câu về AWS services" },
+                  { "id": "b", "text": "Scenarios end-to-end: cho 1 pipeline broken → debug → fix dùng CodePipeline/CodeBuild/CodeDeploy + Systems Manager + EventBridge" },
+                  { "id": "c", "text": "Nhiều math" },
+                  { "id": "d", "text": "Cùng scope" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "DOP-C02 thiên về workflow scenarios, không học thuộc service. Cần hands-on với CodeBuild/CodeDeploy/CodePipeline.",
+              "xpAward": 10
+            }]
+          }]}]
+        }
       ]
     },
 
@@ -1465,18 +1746,307 @@
       "title": "Expert Track",
       "description": "Platform Engineering + Multi-region + IDP with Backstage + Crossplane + Go production services.",
       "weeks": [
-        { "index": 1, "title": "Platform Engineering + Backstage Install", "summary": "Catalog, TechDocs, plugins.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 2, "title": "Backstage Software Templates + Scaffolder", "summary": "New Go service template.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 3, "title": "Crossplane v2 + Compositions", "summary": "PostgresInstance composition.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 4, "title": "Multi-Region Architecture Design", "summary": "Active-active ADR.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 5, "title": "Multi-Region Deployment + Failover", "summary": "Aurora Global, drill.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 6, "title": "Chaos Engineering: Chaos Mesh + FIS", "summary": "First game day.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 7, "title": "Go Production: cost-optimizer (Tool #5)", "summary": "CUR ingestion + recommendations.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 8, "title": "Go Production: deployment-manager (Tool #6)", "summary": "Slack approval flow.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 9, "title": "platform-api (Tool #7) + OpenFeature", "summary": "Aggregator service.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 10, "title": "FinOps Automation: Anomaly + Right-size", "summary": "Off-hours stop, unused EBS cleaner.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 11, "title": "Career Polish: Resume, ADRs, Mock Interview", "summary": "Mid/Senior prep.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
-        { "index": 12, "title": "Final Capstone + Job Applications", "summary": "Apply, OSS PR, year-end blog.", "goals": ["5 applications submitted"], "keywords": [], "estHours": 8, "modules": [] }
+        {
+          "index": 1, "title": "Platform Engineering + Backstage Install",
+          "summary": "Backstage Software Catalog as the IDP frontend, TechDocs, plugin model, GitHub OAuth.",
+          "goals": ["Backstage live on EKS", "Catalog 5+ components"],
+          "keywords": ["Backstage","Catalog","TechDocs","platform"], "estHours": 8,
+          "modules": [{"title":"IDP Foundation","lessons":[{
+            "slug": "backstage-vs-port", "title": "Backstage vs Port vs Cortex",
+            "introMd": "**Backstage**: open-source CNCF, self-host, plugin-heavy, dev work needed. **Port**/Cortex: SaaS, faster start, less custom. For 50+ eng org, Backstage wins long-term (control + plugins).",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "backstage", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Org 50 engineers, 200 services, muốn IDP để self-service infra. Recommend?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Skip IDP" },
+                  { "id": "b", "text": "Backstage self-hosted + Crossplane abstractions + scaffolder templates" },
+                  { "id": "c", "text": "Spinnaker" },
+                  { "id": "d", "text": "Jenkins" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Backstage = catalog + TechDocs + scaffolder. Crossplane = K8s-native cloud abstraction. Combo dominant trong 2026 platform engineering.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 2, "title": "Backstage Software Templates + Scaffolder",
+          "summary": "Scaffolder template form → generate repo + CI + chart + dashboard. Self-service developer experience.",
+          "goals": ["1 working template 'New Go Service'", "End-to-end < 10min"], "keywords": ["scaffolder","template","golden path"], "estHours": 8,
+          "modules": [{"title":"Golden Paths","lessons":[{
+            "slug": "scaffolder-actions", "title": "Scaffolder Built-in Actions",
+            "introMd": "Scaffolder ships actions: `fetch:template` (cookiecutter), `publish:github` (create repo), `catalog:register`, `github:actions:secret`. Chain qua YAML steps trong template.yaml.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "backstage", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "order_steps", "promptMd": "Scaffolder template 'New Go Service' chạy đúng thứ tự bước nào?",
+              "payload": {
+                "steps": [
+                  { "id": "1", "text": "User fills form (name, owner, port)" },
+                  { "id": "2", "text": "fetch:template — render cookiecutter skeleton" },
+                  { "id": "3", "text": "publish:github — create new repo from rendered files" },
+                  { "id": "4", "text": "catalog:register — add Component to Backstage Catalog" }
+                ],
+                "correctOrder": ["1","2","3","4"]
+              },
+              "explanationMd": "Form → render → publish → register. Optional thêm: secrets, ArgoCD app create.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 3, "title": "Crossplane v2 + Compositions",
+          "summary": "Crossplane = K8s-native cloud abstraction. XRD = API contract; Composition = implementation; Composition Functions cho dynamic logic.",
+          "goals": ["PostgresInstance Composition self-service"], "keywords": ["Crossplane","XRD","Composition","Functions"], "estHours": 8,
+          "modules": [{"title":"Cloud as K8s API","lessons":[{
+            "slug": "crossplane-vs-terraform", "title": "Crossplane vs Terraform — Cùng tồn tại",
+            "introMd": "**Terraform**: bootstrap foundation (VPC, EKS, IAM org). **Crossplane**: app-level on-demand provisioning. Dev claim `kind: PostgresInstance` → Crossplane composer giải bằng RDS + secret. Vẫn dùng cả 2.",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "crossplane", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Dev cần Postgres DB cho microservice mới. 2026 best DX?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Mở ticket cho platform team" },
+                  { "id": "b", "text": "Apply manifest `kind: PostgresInstance` claim → Crossplane Composition tự tạo RDS + secret, < 5min" },
+                  { "id": "c", "text": "Tự apply Terraform" },
+                  { "id": "d", "text": "ConsoleOps" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Crossplane self-service = developer velocity. Platform team viết Composition 1 lần, dev claim N lần.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 4, "title": "Multi-Region Architecture Design",
+          "summary": "Active-active vs active-passive trade-offs, Aurora Global, DynamoDB Global, Route 53 routing.",
+          "goals": ["ADR-001 published", "Aurora Global cluster up"], "keywords": ["multi-region","Aurora Global","Route 53","active-active"], "estHours": 8,
+          "modules": [{"title":"Multi-Region Patterns","lessons":[{
+            "slug": "active-active-tradeoffs", "title": "Active-Active Trade-offs",
+            "introMd": "Active-active: 100% uptime cho regional failure, nhưng 1.5-2x cost, write conflicts (last-write-wins / app-level resolution), DNS routing complexity.",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "vpc-networking", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Active-active 2 regions có write conflicts. Strategy nào BẮT BUỘC quyết trước build?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Last-write-wins (timestamp-based) hoặc app-level CRDTs / vector clocks" },
+                  { "id": "b", "text": "Đừng allow writes" },
+                  { "id": "c", "text": "Manual reconcile" },
+                  { "id": "d", "text": "Hi-throughput single-leader chuyển sang leader-follower" }
+                ],
+                "correctId": "a", "shuffle": true
+              },
+              "explanationMd": "Conflict resolution là design decision, không phải tactical. Aurora Global = single-writer; DynamoDB Global = LWW; cell-based active-active app-level.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 5, "title": "Multi-Region Deployment + Failover Drill",
+          "summary": "Deploy 2 regions từ TF, Argo CD multi-cluster ApplicationSet, Route 53 failover, drill.",
+          "goals": ["Failover < 5min RTO", "Runbook published"], "keywords": ["failover","drill","Route 53","ApplicationSet"], "estHours": 8,
+          "modules": [{"title":"Drill or Die","lessons":[{
+            "slug": "drill-vs-paper", "title": "Drill > Backup Count",
+            "introMd": "Backup count không cứu bạn. Untested restore = no restore. Schedule failover drill quarterly: actual flip traffic, time it, capture learnings, update runbook.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "rds-postgres", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "DR maturity: which signals top-quartile org?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Daily backups" },
+                  { "id": "b", "text": "Quarterly game day với actual failover, measured RTO, written retro" },
+                  { "id": "c", "text": "Multi-AZ" },
+                  { "id": "d", "text": "Pager rotation" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Practice the failover until boring. Untested = won't work in real incident.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 6, "title": "Chaos Engineering: Chaos Mesh + AWS FIS",
+          "summary": "Hypothesis-driven experiments, blast radius control, first team game day.",
+          "goals": ["5 chaos experiments documented", "1 game day completed"], "keywords": ["Chaos Mesh","FIS","game day","steady-state"], "estHours": 8,
+          "modules": [{"title":"Break Things","lessons":[{
+            "slug": "chaos-hypothesis", "title": "Chaos Engineering Hypothesis Format",
+            "introMd": "1 chaos experiment = Hypothesis + Fault + Steady-state metric + Blast radius + Abort condition. KHÔNG được 'random kill stuff' — phải có expected outcome.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "k8s-core", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Đâu là chaos experiment chính xác?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Kill all pods, see what happens" },
+                  { "id": "b", "text": "Hypothesis: killing 30% pods of product service should NOT breach SLO 99.9%. Fault: pod-kill 30%. Steady-state: SLO trên Grafana. Blast: only dev. Abort: error rate > 5%." },
+                  { "id": "c", "text": "Production-only test" },
+                  { "id": "d", "text": "Wait for real incident" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Hypothesis-driven + controlled blast radius + clear abort = chaos engineering. Không có structure = vandalism.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 7, "title": "Go Production: cost-optimizer service (Tool #5)",
+          "summary": "Ingest CUR via Athena, store Postgres, anomaly detection (z-score), Backstage plugin dashboard.",
+          "goals": ["10+ recommendations generated", "PR auto-opened with right-size"], "keywords": ["Go","CUR","Athena","anomaly","Backstage"], "estHours": 8,
+          "modules": [{"title":"Build Internal Tools","lessons":[{
+            "slug": "z-score-anomaly", "title": "Z-Score Anomaly Detection",
+            "introMd": "Simple anomaly: compute mean + stddev of last 30 days cost per service. Today > mean + 3·stddev = anomaly. Cheap, no ML needed.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "go-grpc", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "AWS service X bình thường $100/ngày, stddev $10. Hôm nay $200. Anomaly?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "No — within range" },
+                  { "id": "b", "text": "Yes — 10 stddev away (z=10), strong outlier" },
+                  { "id": "c", "text": "Maybe" },
+                  { "id": "d", "text": "Need more data" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Z = (200 - 100) / 10 = 10. Common threshold z > 3 đã alert. Z = 10 = chắc chắn cần investigate.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 8, "title": "Go Production: deployment-manager (Tool #6)",
+          "summary": "Slack /deploy command → PR to gitops repo → 2 approvers → merge → Argo CD sync → status back to Slack.",
+          "goals": ["Slack /deploy E2E", "Audit log"], "keywords": ["Go","Slack","state machine","approval"], "estHours": 8,
+          "modules": [{"title":"Workflow Engines","lessons":[{
+            "slug": "deploy-state-machine", "title": "Deploy State Machine",
+            "introMd": "State: requested → validated → approval-pending → merged → syncing → success/failed. Each transition logged immutable in DB. Slack notifications per transition.",
+            "estMinutes": 6,
+            "skillsAdvanced": [{ "skillSlug": "go-grpc", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Deploy được approve nhưng merge bị fail (CI red). State machine xử lý sao?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Stuck forever" },
+                  { "id": "b", "text": "Transition 'merge_failed' với reason; allow retry hoặc cancel; emit Slack notif" },
+                  { "id": "c", "text": "Auto merge bypass CI" },
+                  { "id": "d", "text": "Crash service" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "State machine phải handle mọi failure mode explicitly. Don't bypass CI tự động — đó là incident pattern.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 9, "title": "platform-api (Tool #7) + OpenFeature",
+          "summary": "Aggregate Backstage + cost-optimizer + deployment-manager + compliance-scanner under 1 facade. OpenFeature SDK cho feature flags.",
+          "goals": ["platform-api v0.1", "OpenFeature migrate"], "keywords": ["facade","OpenFeature","Casbin"], "estHours": 8,
+          "modules": [{"title":"Platform as Product","lessons":[{
+            "slug": "openfeature-vs-custom", "title": "OpenFeature vs Custom Flags",
+            "introMd": "OpenFeature là CNCF spec cho feature flags — provider-agnostic. Today bạn dùng flagd; mai chuyển sang LaunchDarkly mà KHÔNG đổi app code. Standard interface.",
+            "estMinutes": 5,
+            "skillsAdvanced": [{ "skillSlug": "go-cli", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Vì sao OpenFeature tốt hơn custom feature flag client?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Nhanh hơn" },
+                  { "id": "b", "text": "Vendor lock-in avoidance — swap provider sau này không đổi app code; community telemetry hooks; cross-language consistency" },
+                  { "id": "c", "text": "Free" },
+                  { "id": "d", "text": "AWS native" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "OpenFeature standardize interface (`client.getBooleanValue(...)`). Provider swappable: flagd OSS → LaunchDarkly SaaS không cần refactor.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 10, "title": "FinOps Automation: Anomaly + Right-size",
+          "summary": "Off-hours stop (dev env 22-7), unused EBS/EIP cleaner, weekly right-size PR, exec dashboard.",
+          "goals": ["30%+ dev cost reduction", "Weekly cleanup PR"], "keywords": ["FinOps","right-size","Compute Optimizer"], "estHours": 8,
+          "modules": [{"title":"FinOps in Practice","lessons":[{
+            "slug": "off-hours-stop-roi", "title": "Off-Hours Stop ROI",
+            "introMd": "Dev env 24/7 = wasted $$$. Stop weeknight 22-7 + weekend = 65 hour active vs 168 = 39% utilization → 61% saving. Easy automation = highest ROI FinOps action.",
+            "estMinutes": 4,
+            "skillsAdvanced": [{ "skillSlug": "savings-plans", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Dev env tốn $5k/month, on 24/7. Stop weeknight 22-7 + weekend. Approx savings?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "~$1500" },
+                  { "id": "b", "text": "~$3000 (~60%)" },
+                  { "id": "c", "text": "~$500" },
+                  { "id": "d", "text": "Không tiết kiệm" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "168 - 65 = 103 inactive hours = 61%. Tiết kiệm $5k * 0.61 ≈ $3k. EC2/RDS/ECS stop được; S3/DynamoDB không cần.",
+              "xpAward": 10
+            }]
+          }]}]
+        },
+        {
+          "index": 11, "title": "Career Polish: Resume + ADRs + Mock Interview",
+          "summary": "1-page resume project-led, LinkedIn rebrand, 5 ADRs, mock interviews Pramp/interviewing.io.",
+          "goals": ["3 mock interviews", "5 ADRs published"], "keywords": ["resume","ADR","interview"], "estHours": 8,
+          "modules": [{"title":"Career Signal","lessons":[{
+            "slug": "resume-quantify", "title": "Quantify Everything on Resume",
+            "introMd": "Bad: 'Worked on AWS infrastructure.' Good: 'Reduced AWS spend 35% (~$50k/yr) by building Go cost-optimizer tool; right-sized 200+ EC2 + automated dev off-hours.'",
+            "estMinutes": 4,
+            "skillsAdvanced": [{ "skillSlug": "tech-writing", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Resume bullet nào TỐT nhất cho Senior DevOps?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "Used Terraform, AWS, K8s" },
+                  { "id": "b", "text": "Built EKS multi-region active-active platform serving 50M req/day at p99 < 200ms; reduced deploy time 4h → 8min via GitOps + Argo Rollouts" },
+                  { "id": "c", "text": "Senior engineer 5 years" },
+                  { "id": "d", "text": "Knowledge of AWS and Kubernetes" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Specific scale numbers + concrete improvement + tech context = senior signal. Generic verbs = junior signal.",
+              "xpAward": 15
+            }]
+          }]}]
+        },
+        {
+          "index": 12, "title": "Final Capstone + Job Applications",
+          "summary": "15-min Loom demo end-to-end, year-end blog 3000+ words, 5+ applications, 1 OSS PR.",
+          "goals": ["5 applications submitted", "1 OSS PR opened", "Year-end blog public"], "keywords": ["capstone","apply","OSS","blog"], "estHours": 8,
+          "modules": [{"title":"Ship Your Career","lessons":[{
+            "slug": "demo-loom-script", "title": "15-min Capstone Demo Script",
+            "introMd": "Recipe: 0-2min intro + journey, 2-5min architecture tour, 5-9min self-service demo (Backstage scaffold), 9-12min pipeline demo (canary), 12-15min Q&A close. Practice 3x.",
+            "estMinutes": 4,
+            "skillsAdvanced": [{ "skillSlug": "tech-writing", "contributesToLevel": "L", "weight": 1 }],
+            "exercises": [{
+              "kind": "mcq", "promptMd": "Capstone demo recipe nào hiệu quả nhất với recruiter/hiring manager?",
+              "payload": {
+                "options": [
+                  { "id": "a", "text": "30 phút deep-dive code" },
+                  { "id": "b", "text": "15 phút Loom: intro → architecture → live self-service → pipeline → chaos drill → close. Practice 3x." },
+                  { "id": "c", "text": "Static PDF" },
+                  { "id": "d", "text": "Just GitHub link" }
+                ],
+                "correctId": "b", "shuffle": true
+              },
+              "explanationMd": "Hiring managers watch 2-3 min then decide. Strong opening + visual + outcomes-focused. Practice removes ums, dead-air.",
+              "xpAward": 15
+            }]
+          }]}]
+        }
       ]
     }
   ],

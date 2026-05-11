@@ -20,6 +20,7 @@ import { LevelBadge } from '@/components/skills/level-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Clock, Target, BookOpen, CheckCircle2, PlayCircle } from 'lucide-react';
+import { AiGenerateButton } from '@/components/learn/ai-generate-button';
 
 export default async function WeekDetailPage({
   params,
@@ -218,6 +219,19 @@ export default async function WeekDetailPage({
               </section>
             );
           })}
+
+          {/* AI Generate Content — placeholder for now; wires to first lesson if exists */}
+          {lessonRows[0] && (
+            <div className="surface p-4 flex items-center gap-3 border-dashed border-violet-500/30 bg-violet-500/5">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">Want more exercises?</p>
+                <p className="text-xs text-muted-foreground">
+                  Use AI to generate additional practice problems for the first lesson.
+                </p>
+              </div>
+              <AiGenerateButton workspaceSlug={slug} lessonId={lessonRows[0].id} count={2} />
+            </div>
+          )}
         </div>
 
         {/* Sidebar — skills advanced */}

@@ -24,6 +24,9 @@ import { requireUser } from '@/lib/auth/supabase-server';
 import { evaluateExercise, type ExerciseKind } from '@/lib/learn/exercise-evaluator';
 import { XP } from '@/lib/learn/xp-rules';
 import { tickStreak } from '@/lib/gamification/streak';
+import { awardCrowns, type CrownAdvance } from '@/lib/gamification/crowns';
+import { evaluateBadges, type GrantedBadge } from '@/lib/gamification/badge-evaluator';
+import { recomputeUnlocks } from '@/lib/learn/unlock-rules';
 
 async function resolveWorkspace(slug: string, userId: string) {
   const rows = await db
@@ -235,6 +238,11 @@ export type CompleteResult = {
   bonusReason: 'lesson_complete' | 'lesson_mastered';
   streakTicked: boolean;
   newStreak: number;
+  crowns: CrownAdvance[];
+  badges: GrantedBadge[];
+  weekCompleted: boolean;
+  levelCompleted: boolean;
+  newlyUnlockedLevelCodes: string[];
 };
 
 export async function completeLesson(input: z.infer<typeof completeInput>): Promise<CompleteResult> {
@@ -306,13 +314,46 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
     payload: { lessonId: parsed.lessonId, scorePct: parsed.scorePct, mastered },
   });
 
+  // ===== Side effects: crowns + unlock + bonuses + badges =====
+  const crowns = await awardCrowns(ws.id, user.id, parsed.lessonId, mastered);
+  const unlock = await recomputeUnlocks(ws.id, user.id, parsed.lessonId);
+
+  let extraBonus = 0;
+  if (unlock.weekCompleted) {
+    extraBonus += XP.WEEK_COMPLETE_BONUS;
+    await db.insert(xpEvents).values({
+      workspaceId: ws.id,
+      userId: user.id,
+      amount: XP.WEEK_COMPLETE_BONUS,
+      reason: 'week_complete',
+    });
+  }
+  if (unlock.levelCompleted) {
+    extraBonus += XP.LEVEL_COMPLETE_BONUS;
+    await db.insert(xpEvents).values({
+      workspaceId: ws.id,
+      userId: user.id,
+      amount: XP.LEVEL_COMPLETE_BONUS,
+      reason: 'level_complete',
+    });
+  }
+
+  const badgesEarned = await evaluateBadges(ws.id, user.id);
+
   revalidatePath(`/w/${ws.slug}`);
   revalidatePath(`/w/${ws.slug}/learn`);
+  revalidatePath(`/w/${ws.slug}/skills`);
 
   return {
-    xpAwarded: bonus + (streak.ticked ? XP.DAILY_STREAK_TICK : 0),
+    xpAwarded: bonus + (streak.ticked ? XP.DAILY_STREAK_TICK : 0) + extraBonus +
+      badgesEarned.length * XP.BADGE_EARNED,
     bonusReason: mastered ? 'lesson_mastered' : 'lesson_complete',
     streakTicked: streak.ticked,
     newStreak: streak.newStreak,
+    crowns,
+    badges: badgesEarned,
+    weekCompleted: unlock.weekCompleted,
+    levelCompleted: unlock.levelCompleted,
+    newlyUnlockedLevelCodes: unlock.newlyUnlockedLevelCodes,
   };
 }

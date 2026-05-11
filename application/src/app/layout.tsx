@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
+import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/components/layout/theme-provider';
 import '@/styles/globals.css';
 
@@ -20,6 +21,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh bg-background text-foreground font-sans">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           {children}
+          <Toaster
+            position="top-right"
+            theme="dark"
+            toastOptions={{
+              classNames: {
+                toast: 'bg-card border-border text-foreground',
+                title: 'font-medium',
+                description: 'text-muted-foreground text-xs',
+              },
+            }}
+          />
         </ThemeProvider>
       </body>
     </html>

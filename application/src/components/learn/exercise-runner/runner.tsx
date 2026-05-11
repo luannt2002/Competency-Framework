@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   ArrowRight,
   CheckCircle2,
@@ -33,6 +34,8 @@ import {
 import { McqExercise } from './mcq';
 import { FillBlankExercise } from './fill-blank';
 import { TypeAnswerExercise } from './type-answer';
+import { OrderStepsExercise } from './order-steps';
+import { CodeBlockReviewExercise } from './code-block-review';
 
 type Phase = 'intro' | 'exercise' | 'feedback' | 'end';
 
@@ -57,6 +60,11 @@ export function LessonRunner({ workspaceSlug, data, backHref }: Props) {
     xp: number;
     streakTicked: boolean;
     newStreak: number;
+    crowns: number;
+    badges: Array<{ name: string; icon: string | null }>;
+    weekCompleted: boolean;
+    levelCompleted: boolean;
+    newlyUnlockedLevelCodes: string[];
   } | null>(null);
   const startedAtRef = useRef<number>(Date.now());
 
@@ -136,7 +144,22 @@ export function LessonRunner({ workspaceSlug, data, backHref }: Props) {
       xp: completeRes.xpAwarded,
       streakTicked: completeRes.streakTicked,
       newStreak: completeRes.newStreak,
+      crowns: completeRes.crowns.reduce((sum, c) => sum + c.delta, 0),
+      badges: completeRes.badges.map((b) => ({ name: b.name, icon: b.icon })),
+      weekCompleted: completeRes.weekCompleted,
+      levelCompleted: completeRes.levelCompleted,
+      newlyUnlockedLevelCodes: completeRes.newlyUnlockedLevelCodes,
     });
+    // Toast each new badge
+    for (const b of completeRes.badges) {
+      toast.success(`🏅 ${b.name}`, { description: b.description ?? 'New badge earned!' });
+    }
+    if (completeRes.levelCompleted && completeRes.newlyUnlockedLevelCodes.length > 0) {
+      toast.success(
+        `🚀 Level Up!`,
+        { description: `Unlocked: ${completeRes.newlyUnlockedLevelCodes.join(', ')}` },
+      );
+    }
     setTotalXp((x) => x + completeRes.xpAwarded);
     setPhase('end');
   };
@@ -187,12 +210,22 @@ export function LessonRunner({ workspaceSlug, data, backHref }: Props) {
               total={currentList.length}
               isReview={isReviewing}
             >
-              {current.kind === 'mcq' || current.kind === 'code_block_review' ? (
+              {current.kind === 'mcq' ? (
                 <McqExercise payload={current.payload} answer={answer} onChange={setAnswer} />
+              ) : current.kind === 'mcq_multi' ? (
+                <McqExercise
+                  payload={{ ...(current.payload as object), multi: true }}
+                  answer={answer}
+                  onChange={setAnswer}
+                />
               ) : current.kind === 'fill_blank' ? (
                 <FillBlankExercise payload={current.payload} answer={answer} onChange={setAnswer} />
               ) : current.kind === 'type_answer' ? (
                 <TypeAnswerExercise payload={current.payload} answer={answer} onChange={setAnswer} />
+              ) : current.kind === 'order_steps' ? (
+                <OrderStepsExercise payload={current.payload} answer={answer} onChange={setAnswer} />
+              ) : current.kind === 'code_block_review' ? (
+                <CodeBlockReviewExercise payload={current.payload} answer={answer} onChange={setAnswer} />
               ) : (
                 <UnsupportedKind kind={current.kind} />
               )}
@@ -356,7 +389,16 @@ function EndScreen({
   totalXp: number;
   wrongCount: number;
   total: number;
-  completeData: { xp: number; streakTicked: boolean; newStreak: number } | null;
+  completeData: {
+    xp: number;
+    streakTicked: boolean;
+    newStreak: number;
+    crowns: number;
+    badges: Array<{ name: string; icon: string | null }>;
+    weekCompleted: boolean;
+    levelCompleted: boolean;
+    newlyUnlockedLevelCodes: string[];
+  } | null;
   backHref: string;
 }) {
   const router = useRouter();
@@ -373,7 +415,7 @@ function EndScreen({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div className="surface p-5">
           <div className="text-3xl font-bold tabular-nums accent-gradient-text">+{totalXp}</div>
           <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
@@ -387,10 +429,47 @@ function EndScreen({
           </div>
           <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
             <Flame className="size-3 text-orange-400" />
-            Day streak {completeData?.streakTicked ? '· +1!' : ''}
+            Streak {completeData?.streakTicked ? '+1!' : ''}
           </div>
         </div>
+        <div className="surface p-5">
+          <div className="text-3xl font-bold tabular-nums text-amber-300">
+            +{completeData?.crowns ?? 0}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">👑 Crowns</div>
+        </div>
       </div>
+
+      {/* Badges earned */}
+      {completeData && completeData.badges.length > 0 && (
+        <div className="surface p-4 space-y-2">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+            🏅 New badges
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {completeData.badges.map((b, i) => (
+              <div
+                key={i}
+                className="rounded-full bg-gradient-to-br from-amber-500/20 to-violet-500/20 border border-amber-400/30 px-3 py-1.5 text-sm font-medium"
+              >
+                {b.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Week/level unlock */}
+      {completeData?.weekCompleted && (
+        <div className="surface p-3 border-emerald-500/30 bg-emerald-500/5 text-sm">
+          ✅ Week completed — next week unlocked
+        </div>
+      )}
+      {completeData?.levelCompleted && completeData.newlyUnlockedLevelCodes.length > 0 && (
+        <div className="surface p-3 border-violet-500/30 bg-violet-500/5 text-sm">
+          🚀 Level up! Unlocked: {completeData.newlyUnlockedLevelCodes.join(', ')}
+        </div>
+      )}
 
       <div className="flex gap-2 justify-center">
         <Button variant="outline" onClick={() => router.push(backHref)}>

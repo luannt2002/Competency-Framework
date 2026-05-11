@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { CheckCircle2, ExternalLink, Loader2, Sparkles, Target } from 'lucide-react';
 import {
   Sheet,
@@ -124,7 +125,9 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
         setError(null);
       } catch (e) {
         setSaveState('error');
-        setError(e instanceof Error ? e.message : 'Save failed');
+        const msg = e instanceof Error ? e.message : 'Save failed';
+        setError(msg);
+        toast.error('Could not save', { description: msg });
       }
     }, 700);
     return () => {

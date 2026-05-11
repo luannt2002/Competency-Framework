@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "guard:no-mock": "tsx scripts/guard-no-mock.ts",
+    "quality:check": "pnpm guard:no-mock && pnpm lint && pnpm typecheck && pnpm test",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "db:generate": "drizzle-kit generate",

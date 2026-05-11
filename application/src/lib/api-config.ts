@@ -1,8 +1,7 @@
 /**
- * API config — env toggle Mock vs Real.
+ * API config.
  *
- * Set `NEXT_PUBLIC_USE_MOCK=true` in .env.local to use mock data layer.
- * Default: false (real DB via Server Actions).
+ * Guardrail: this app must always use real backend data (DB/API routes).
+ * Mock mode is intentionally disabled in runtime.
  */
-export const USE_MOCK =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_USE_MOCK === 'true') || false;
+export const API_BASE = '/api';

@@ -14,6 +14,7 @@ import {
   User,
   Boxes,
   Sparkles,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +31,7 @@ export function AppSidebar({
   const base = `/w/${workspaceSlug}`;
   const items: Item[] = [
     { href: base, label: 'Dashboard', icon: LayoutDashboard },
+    { href: `${base}/daily`, label: 'Daily', icon: Calendar },
     { href: `${base}/skills`, label: 'Skills Matrix', icon: Grid3x3 },
     { href: `${base}/learn`, label: 'Learn', icon: GraduationCap },
     { href: `${base}/framework`, label: 'Framework', icon: Boxes },

@@ -10,36 +10,44 @@
   "levels": [
     {
       "code": "XS",
-      "label": "Foundational",
+      "label": "Intern · Foundational",
       "numeric": 0,
       "color": "#64748B",
-      "description": "Hiểu khái niệm cốt lõi, có thể giải thích cho người mới.",
-      "examples": "Đọc tài liệu hiểu được; trả lời câu hỏi cơ bản; làm theo guide step-by-step."
+      "description": "Hiểu khái niệm cốt lõi, đã đọc tài liệu, có thể giải thích cho người mới. Tương đương Intern / Fresher mới ra trường.",
+      "examples": "Đọc tài liệu hiểu được; trả lời câu hỏi cơ bản; làm theo guide step-by-step có giám sát."
     },
     {
       "code": "S",
-      "label": "Working",
+      "label": "Junior · Working",
       "numeric": 33,
       "color": "#0EA5E9",
-      "description": "Làm được task dưới sự hỗ trợ. Theo tutorial hoàn thành được.",
+      "description": "Làm được task dưới sự hỗ trợ. Theo tutorial hoàn thành được. Tương đương Junior 1–2 năm kinh nghiệm.",
       "examples": "Build 1 project end-to-end theo guide; debug lỗi thông thường; biết khi nào hỏi senior."
     },
     {
       "code": "M",
-      "label": "Strong",
+      "label": "Mid · Strong",
       "numeric": 66,
       "color": "#10B981",
-      "description": "Làm độc lập trên production. Debug được issue trung bình một mình.",
-      "examples": "Design + ship 1 service production; review code đồng nghiệp; on-call được."
+      "description": "Làm độc lập trên production. Debug được issue trung bình một mình. Tương đương Mid / Senior 3–5 năm kinh nghiệm.",
+      "examples": "Design + ship 1 service production; review code đồng nghiệp; on-call được; mentor junior."
     },
     {
       "code": "L",
-      "label": "Expert",
+      "label": "Senior Tech Lead · Expert",
       "numeric": 100,
       "color": "#8B5CF6",
-      "description": "Thiết kế hệ thống lớn, mentor người khác, đóng góp upstream open source.",
-      "examples": "Lead 1 platform initiative; speak ở meetup/conference; contribute meaningful PR vào CNCF/HashiCorp."
+      "description": "Thiết kế hệ thống lớn, mentor team, đóng góp upstream open source, set technical direction. Tương đương Senior 6+ / Tech Lead / Staff.",
+      "examples": "Lead 1 platform initiative; speak ở meetup/conference; contribute meaningful PR vào CNCF/HashiCorp; viết ADR/RFC."
     }
+  ],
+  "careerStages": [
+    { "code": "intern",    "name": "Intern",            "minNumeric": 0,   "icon": "🌱", "description": "Học hỏi cơ bản, có người hướng dẫn" },
+    { "code": "fresher",   "name": "Fresher",           "minNumeric": 15,  "icon": "🌿", "description": "Mới ra trường, làm task có giám sát" },
+    { "code": "junior",    "name": "Junior",            "minNumeric": 33,  "icon": "🌳", "description": "1–2 năm, làm task độc lập với hỗ trợ" },
+    { "code": "mid",       "name": "Mid",               "minNumeric": 55,  "icon": "💼", "description": "3–4 năm, ship feature production một mình" },
+    { "code": "senior",    "name": "Senior",            "minNumeric": 75,  "icon": "🚀", "description": "5–7 năm, design system + mentor" },
+    { "code": "tech_lead", "name": "Senior Tech Lead",  "minNumeric": 92,  "icon": "👑", "description": "8+ năm, set direction + lead platform" }
   ],
 
   "categories": [
@@ -314,17 +322,776 @@
           ]
         },
 
-        { "index": 2, "title": "Terraform Foundation + State + Provider", "summary": "HCL2, providers, S3+DynamoDB backend, state surgery.", "goals": ["Hiểu terraform plan flow", "Setup remote state"], "keywords": ["HCL","state","backend"], "estHours": 8, "modules": [] },
-        { "index": 3, "title": "VPC Networking + Terraform Modules", "summary": "3-tier VPC, subnets, NAT, endpoints; module pattern.", "goals": ["Build self-VPC module"], "keywords": ["VPC","module"], "estHours": 8, "modules": [] },
-        { "index": 4, "title": "Compute (EC2, ALB) + for_each/count/dynamic", "summary": "ASG, ALB target groups, dynamic blocks.", "goals": ["Module web-asg"], "keywords": ["EC2","ALB"], "estHours": 8, "modules": [] },
-        { "index": 5, "title": "Go Foundations + AWS SDK v2 (CLI Tool #1)", "summary": "Cobra CLI shopctl: whoami, list-ec2, find-untagged.", "goals": ["Build first Go CLI"], "keywords": ["Go","cobra","SDK v2"], "estHours": 8, "modules": [] },
-        { "index": 6, "title": "RDS + Secrets Manager + Remote State Data", "summary": "Multi-AZ RDS, secrets, cross-stack data.", "goals": ["RDS module"], "keywords": ["RDS","Secrets Manager"], "estHours": 8, "modules": [] },
-        { "index": 7, "title": "ECS Fargate + ECR + GitHub Actions OIDC", "summary": "Dockerize Go service, deploy via ECS, CI with OIDC.", "goals": ["Deploy product service"], "keywords": ["ECS","ECR","OIDC"], "estHours": 8, "modules": [] },
-        { "index": 8, "title": "S3 + CloudFront + Route 53 + ACM", "summary": "Static frontend with HTTPS, OAC, CloudFront.", "goals": ["Frontend module"], "keywords": ["S3","CloudFront","ACM"], "estHours": 8, "modules": [] },
-        { "index": 9, "title": "Observability (CloudWatch, OTel) + Go Tool #2", "summary": "Dashboards, alarms, X-Ray, cost-report CLI.", "goals": ["Cost report Go tool"], "keywords": ["CloudWatch","OTel"], "estHours": 8, "modules": [] },
-        { "index": 10, "title": "Terraform Advanced: Modules pro, Terratest, Drift", "summary": "Module patterns, Terratest, tflint, checkov.", "goals": ["Terratest passing"], "keywords": ["Terratest","tflint"], "estHours": 8, "modules": [] },
-        { "index": 11, "title": "Multi-Environment + Secrets Hygiene", "summary": "Dev/Stg/Prod, promotion, gitleaks.", "goals": ["3 envs deployed"], "keywords": ["multi-env","gitleaks"], "estHours": 8, "modules": [] },
-        { "index": 12, "title": "Cert Crunch + Capstone (SAA + TF Associate)", "summary": "AWS SAA-C03 + HashiCorp Terraform Associate prep, capstone polish.", "goals": ["SAA pass","TF Associate pass"], "keywords": ["SAA","TF Associate"], "estHours": 8, "modules": [] }
+        {
+          "index": 2,
+          "title": "Terraform Foundation + State + Provider",
+          "summary": "HCL2 syntax, providers, remote state với S3 + DynamoDB lock, state surgery.",
+          "goals": ["Hiểu terraform plan flow end-to-end", "Setup remote state S3+DynamoDB", "Master state mv/import"],
+          "keywords": ["HCL2","state","backend","S3","DynamoDB","import"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "HCL2 & Provider Setup",
+              "summary": "Cú pháp HCL2, providers, version pinning, plugin cache.",
+              "lessons": [
+                {
+                  "slug": "hcl2-basics",
+                  "title": "HCL2 Syntax & Provider Block",
+                  "introMd": "**HCL2** là ngôn ngữ cấu hình của Terraform. Bạn sẽ học block, expressions, interpolation, và cách khai báo provider với version pinning.",
+                  "estMinutes": 8,
+                  "skillsAdvanced": [{ "skillSlug": "tf-basics", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Đâu là block khai báo provider AWS đúng cú pháp 2026?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "provider \"aws\" { region = \"ap-southeast-1\" }" },
+                          { "id": "b", "text": "provider aws { region: ap-southeast-1 }" },
+                          { "id": "c", "text": "providers.aws.region = 'ap-southeast-1'" },
+                          { "id": "d", "text": "aws.provider(region='ap-southeast-1')" }
+                        ],
+                        "correctId": "a",
+                        "shuffle": true
+                      },
+                      "explanationMd": "HCL2 dùng block: `provider \"aws\" { region = \"...\" }`. Tên provider trong dấu nháy, body dùng `=`.",
+                      "xpAward": 10
+                    },
+                    {
+                      "kind": "fill_blank",
+                      "promptMd": "Để pin version provider AWS ~> 5.0, điền vào: `required_providers { aws = { source = ___ , version = ___ } }`",
+                      "payload": {
+                        "template": "required_providers { aws = { source = ___ , version = ___ } }",
+                        "blanks": [
+                          { "id": 1, "accepts": ["\"hashicorp/aws\"", "hashicorp/aws"], "matchKind": "exact_ci" },
+                          { "id": 2, "accepts": ["\"~> 5.0\"", "~> 5.0"], "matchKind": "exact_ci" }
+                        ]
+                      },
+                      "explanationMd": "Source là namespace registry (`hashicorp/aws`), version dùng pessimistic constraint `~> 5.0` cho phép 5.x nhưng không lên 6.",
+                      "xpAward": 10
+                    }
+                  ]
+                },
+                {
+                  "slug": "remote-state-s3-dynamodb",
+                  "title": "Remote State với S3 + DynamoDB Lock",
+                  "introMd": "**Remote state** lưu file `terraform.tfstate` trên S3 (versioned, encrypted) + DynamoDB table để **lock** tránh concurrent apply gây corruption.",
+                  "estMinutes": 9,
+                  "skillsAdvanced": [{ "skillSlug": "tf-remote-state", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Tại sao DynamoDB cần thiết cho state lock, dù S3 đã có versioning?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "S3 không hỗ trợ versioning với .tfstate" },
+                          { "id": "b", "text": "DynamoDB conditional write cho phép atomic lock — S3 không có lock primitive" },
+                          { "id": "c", "text": "Để backup state" },
+                          { "id": "d", "text": "Để encrypt state" }
+                        ],
+                        "correctId": "b",
+                        "shuffle": true
+                      },
+                      "explanationMd": "DynamoDB dùng `ConditionExpression` để atomic acquire lock; S3 không có lock primitive. Versioning S3 chỉ là backup, không ngăn 2 người apply cùng lúc.",
+                      "xpAward": 10
+                    },
+                    {
+                      "kind": "order_steps",
+                      "promptMd": "Sắp xếp các bước bootstrap Terraform remote backend đúng thứ tự:",
+                      "payload": {
+                        "steps": [
+                          { "id": "1", "text": "Tạo S3 bucket + DynamoDB table bằng AWS CLI hoặc Terraform local" },
+                          { "id": "2", "text": "Bật versioning + encryption cho S3 bucket" },
+                          { "id": "3", "text": "Khai báo backend \"s3\" trong terraform block" },
+                          { "id": "4", "text": "Chạy `terraform init` — TF migrate state local lên S3" }
+                        ],
+                        "correctOrder": ["1", "2", "3", "4"]
+                      },
+                      "explanationMd": "Bootstrap chicken-and-egg: tạo bucket/table trước, mới khai báo backend, mới init.",
+                      "xpAward": 10
+                    },
+                    {
+                      "kind": "type_answer",
+                      "promptMd": "Lệnh terraform để xem state hiện tại có resources nào?",
+                      "payload": {
+                        "accepts": ["^terraform\\s+state\\s+list$"],
+                        "matchKind": "regex",
+                        "hint": "terraform state ..."
+                      },
+                      "explanationMd": "`terraform state list` liệt kê tất cả resource trong state. Dùng `state show <addr>` để xem chi tiết.",
+                      "xpAward": 10
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "title": "VPC Networking + Terraform Modules",
+          "summary": "3-tier VPC, subnets, NAT vs VPC endpoints, security groups, Terraform module pattern.",
+          "goals": ["Build VPC module from scratch", "Hiểu NAT vs VPC Endpoints cost", "Module versioning SemVer"],
+          "keywords": ["VPC","subnets","NAT","module","SemVer","NACL"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "AWS VPC Architecture",
+              "summary": "Public/private/isolated subnets, route tables, NAT, IGW, endpoints.",
+              "lessons": [
+                {
+                  "slug": "vpc-3-tier-architecture",
+                  "title": "VPC 3-Tier Architecture",
+                  "introMd": "VPC production chuẩn: 3 AZs × (public + private + db) = 9 subnets. Public ra IGW, private qua NAT, db không có route ra ngoài.",
+                  "estMinutes": 8,
+                  "skillsAdvanced": [{ "skillSlug": "vpc-networking", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Tại sao private subnet KHÔNG cần route 0.0.0.0/0 đến IGW?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "Private subnet không cần internet" },
+                          { "id": "b", "text": "Private subnet route 0.0.0.0/0 qua NAT Gateway để outbound an toàn, IGW chỉ dùng cho public subnet" },
+                          { "id": "c", "text": "AWS không cho phép" },
+                          { "id": "d", "text": "Để tiết kiệm chi phí" }
+                        ],
+                        "correctId": "b",
+                        "shuffle": true
+                      },
+                      "explanationMd": "Private subnet vẫn cần outbound (vd để pull image, gọi API). Route qua NAT Gateway (1-way: out yes, in no) là pattern bảo mật.",
+                      "xpAward": 10
+                    },
+                    {
+                      "kind": "mcq",
+                      "promptMd": "VPC Endpoint S3 (gateway type) miễn phí. VPC Endpoint ECR (interface type) tốn $7/tháng. Tại sao S3 free?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "S3 endpoint là route table entry, không tốn hourly compute" },
+                          { "id": "b", "text": "AWS tài trợ S3" },
+                          { "id": "c", "text": "Không free thực tế" },
+                          { "id": "d", "text": "S3 là service nội bộ" }
+                        ],
+                        "correctId": "a",
+                        "shuffle": true
+                      },
+                      "explanationMd": "Gateway endpoint (S3, DynamoDB) là entry trong route table — không có ENI, không hourly. Interface endpoint dùng ENI + AWS PrivateLink → tính phí.",
+                      "xpAward": 10
+                    }
+                  ]
+                },
+                {
+                  "slug": "tf-modules-basics",
+                  "title": "Terraform Module Pattern",
+                  "introMd": "Module = đơn vị tái sử dụng. Có inputs (variables), outputs, và body. Versioning qua git tag SemVer (`v1.2.0`).",
+                  "estMinutes": 7,
+                  "skillsAdvanced": [{ "skillSlug": "tf-modules", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "code_block_review",
+                      "promptMd": "Module source sau có vấn đề gì cho production?",
+                      "payload": {
+                        "code": "module \"vpc\" {\n  source = \"terraform-aws-modules/vpc/aws\"\n  # no version pin\n}",
+                        "language": "hcl",
+                        "question": "Vấn đề chính:",
+                        "options": [
+                          { "id": "a", "text": "Source sai" },
+                          { "id": "b", "text": "Thiếu version constraint → upstream breaking change có thể vỡ infra" },
+                          { "id": "c", "text": "Thiếu provider block" },
+                          { "id": "d", "text": "Không có gì sai" }
+                        ],
+                        "correctId": "b"
+                      },
+                      "explanationMd": "Production luôn pin version: `version = \"~> 5.0\"`. Không pin = roulette với upstream release.",
+                      "xpAward": 15
+                    },
+                    {
+                      "kind": "fill_blank",
+                      "promptMd": "Khai báo variable bắt buộc tên `az_count` kiểu number, default 3, validate min 2:\n```\nvariable \"az_count\" {\n  type    = ___\n  default = ___\n  validation { condition = var.az_count >= 2 }\n}\n```",
+                      "payload": {
+                        "template": "type = ___, default = ___",
+                        "blanks": [
+                          { "id": 1, "accepts": ["number"], "matchKind": "exact_ci" },
+                          { "id": 2, "accepts": ["3"], "matchKind": "exact_ci" }
+                        ]
+                      },
+                      "explanationMd": "Type `number` (không quote), default integer literal. Validation block check business rule.",
+                      "xpAward": 10
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "title": "Compute (EC2, ALB) + for_each / count / dynamic",
+          "summary": "EC2 instance types, Auto Scaling Group, Application Load Balancer, Terraform meta-arguments.",
+          "goals": ["Deploy ASG behind ALB", "Hiểu khi nào dùng count vs for_each", "Master dynamic blocks"],
+          "keywords": ["EC2","ASG","ALB","for_each","count","dynamic","IMDSv2"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "ASG + ALB Deep Dive",
+              "lessons": [
+                {
+                  "slug": "alb-vs-nlb",
+                  "title": "ALB vs NLB — Khi nào dùng cái nào",
+                  "introMd": "**ALB** layer 7 (HTTP): path/host routing, WAF, OAuth. **NLB** layer 4 (TCP/UDP): static IP, ultra low latency, millions RPS. Chọn ALB cho HTTP app, NLB cho non-HTTP hoặc cần static IP.",
+                  "estMinutes": 6,
+                  "skillsAdvanced": [{ "skillSlug": "vpc-networking", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "API service public HTTP cần path-based routing (/api/v1 vs /api/v2). Chọn LB nào?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "NLB" },
+                          { "id": "b", "text": "ALB" },
+                          { "id": "c", "text": "Classic ELB" },
+                          { "id": "d", "text": "Cả 2 đều như nhau" }
+                        ],
+                        "correctId": "b",
+                        "shuffle": true
+                      },
+                      "explanationMd": "ALB layer 7 hỗ trợ path-based routing. NLB không hiểu HTTP path.",
+                      "xpAward": 10
+                    }
+                  ]
+                },
+                {
+                  "slug": "count-vs-foreach",
+                  "title": "count vs for_each",
+                  "introMd": "**count** dùng cho N resources giống hệt (index-based). **for_each** dùng khi cần unique key + heterogeneous config. for_each an toàn hơn khi reorder.",
+                  "estMinutes": 7,
+                  "skillsAdvanced": [{ "skillSlug": "tf-basics", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Bạn có list `var.users = [\"alice\", \"bob\", \"carol\"]` để tạo IAM users. Sau đó remove \"bob\" → kết quả gì với count vs for_each?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "count: alice và carol bị recreate (index thay đổi). for_each: chỉ bob bị xoá." },
+                          { "id": "b", "text": "Cả 2 đều như nhau" },
+                          { "id": "c", "text": "for_each không hỗ trợ list" },
+                          { "id": "d", "text": "count: bob bị xoá an toàn" }
+                        ],
+                        "correctId": "a",
+                        "shuffle": true
+                      },
+                      "explanationMd": "count dùng index nên reorder list → diff massive. for_each dùng key (cần `toset()` cho list) → ổn định.",
+                      "xpAward": 15
+                    },
+                    {
+                      "kind": "type_answer",
+                      "promptMd": "Để convert list sang set cho for_each: `for_each = ___(var.users)`",
+                      "payload": {
+                        "accepts": ["^toset$"],
+                        "matchKind": "regex",
+                        "hint": "to..."
+                      },
+                      "explanationMd": "`toset()` convert list → set, mỗi value làm key trong for_each.",
+                      "xpAward": 10
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "title": "Go Foundations + AWS SDK v2 (CLI Tool #1)",
+          "summary": "Go syntax, error handling, goroutines, build first CLI tool dùng AWS SDK v2.",
+          "goals": ["Master Go basics đến goroutine", "Build CLI shopctl với cobra", "Tương tác AWS SDK v2"],
+          "keywords": ["Go","cobra","SDK v2","goroutine","interface"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "Go Foundations cho DevOps",
+              "lessons": [
+                {
+                  "slug": "go-error-handling",
+                  "title": "Go Error Handling Idiom",
+                  "introMd": "Go không có exception. Mọi function trả về `(result, error)`. Idiom: `if err != nil { return err }`. Wrap errors với `fmt.Errorf(\"...: %w\", err)`.",
+                  "estMinutes": 7,
+                  "skillsAdvanced": [{ "skillSlug": "go-basics", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Để wrap 1 error trong Go 1.13+ giữ stack info, dùng:",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "fmt.Errorf(\"context: %s\", err)" },
+                          { "id": "b", "text": "fmt.Errorf(\"context: %w\", err)" },
+                          { "id": "c", "text": "errors.New(err.Error())" },
+                          { "id": "d", "text": "panic(err)" }
+                        ],
+                        "correctId": "b",
+                        "shuffle": true
+                      },
+                      "explanationMd": "`%w` verb wrap error, có thể unwrap với `errors.Is` / `errors.As`. `%s` chỉ string-format, mất chain.",
+                      "xpAward": 10
+                    }
+                  ]
+                },
+                {
+                  "slug": "aws-sdk-v2-basics",
+                  "title": "AWS SDK Go v2 Basics",
+                  "introMd": "SDK v2 dùng `config.LoadDefaultConfig(ctx)` để chain credentials (env → shared file → IRSA). Gọi service: `ec2.NewFromConfig(cfg).DescribeInstances(...)`.",
+                  "estMinutes": 8,
+                  "skillsAdvanced": [{ "skillSlug": "go-cli", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "type_answer",
+                      "promptMd": "Lệnh AWS CLI tương đương `aws sts get-caller-identity` để in account ID + ARN:",
+                      "payload": {
+                        "accepts": ["^aws\\s+sts\\s+get-caller-identity$"],
+                        "matchKind": "regex",
+                        "hint": "aws sts ..."
+                      },
+                      "explanationMd": "`sts:GetCallerIdentity` không cần permission, dùng để debug danh tính.",
+                      "xpAward": 10
+                    },
+                    {
+                      "kind": "mcq",
+                      "promptMd": "AWS SDK Go v2 dùng pattern nào để config options?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "Functional options: config.LoadDefaultConfig(ctx, config.WithRegion(\"...\"))" },
+                          { "id": "b", "text": "Struct literal: config.Config{Region: \"...\"}" },
+                          { "id": "c", "text": "Builder pattern: config.New().Region(\"...\").Build()" },
+                          { "id": "d", "text": "Global var: aws.Region = \"...\"" }
+                        ],
+                        "correctId": "a",
+                        "shuffle": true
+                      },
+                      "explanationMd": "v2 functional options khác hẳn v1. Dễ extend, immutable.",
+                      "xpAward": 10
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 6,
+          "title": "RDS + Secrets Manager + Cross-Stack Data",
+          "summary": "Multi-AZ RDS Postgres, Secrets Manager rotation, cross-stack sharing via SSM Parameter Store.",
+          "goals": ["Deploy production RDS Multi-AZ", "Rotation secrets Lambda", "Cross-stack pattern"],
+          "keywords": ["RDS","Multi-AZ","Secrets Manager","SSM","IAM auth"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "RDS Production Patterns",
+              "lessons": [
+                {
+                  "slug": "rds-multi-az",
+                  "title": "RDS Multi-AZ vs Read Replicas",
+                  "introMd": "**Multi-AZ**: HA (synchronous replica AZ khác, auto-failover < 1 min). **Read Replica**: scale read (async, có lag). Khác mục đích — đừng confuse.",
+                  "estMinutes": 6,
+                  "skillsAdvanced": [{ "skillSlug": "rds-postgres", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "App OLTP cần RPO < 1 phút và RTO < 5 phút khi AZ fail. Chọn:",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "Single-AZ + daily snapshot" },
+                          { "id": "b", "text": "Multi-AZ (sync replica + auto-failover)" },
+                          { "id": "c", "text": "Read Replica cross-region" },
+                          { "id": "d", "text": "Aurora Serverless v2" }
+                        ],
+                        "correctId": "b",
+                        "shuffle": true
+                      },
+                      "explanationMd": "Multi-AZ là HA với failover ~30s-1m. Read Replica là async, không phải HA.",
+                      "xpAward": 10
+                    },
+                    {
+                      "kind": "fill_blank",
+                      "promptMd": "Để tự rotate password RDS qua Secrets Manager mỗi 30 ngày: bật `RotationRules { AutomaticallyAfterDays = ___ }` và attach Lambda template ___",
+                      "payload": {
+                        "template": "AutomaticallyAfterDays = ___, Lambda template: ___",
+                        "blanks": [
+                          { "id": 1, "accepts": ["30"], "matchKind": "exact_ci" },
+                          { "id": 2, "accepts": ["SecretsManagerRDSPostgreSQLRotationSingleUser", "SecretsManagerRDSRotation"], "matchKind": "exact_ci" }
+                        ]
+                      },
+                      "explanationMd": "Secrets Manager có Lambda templates sẵn cho RDS. Single user pattern đơn giản; alternating user an toàn hơn cho zero-downtime.",
+                      "xpAward": 15
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 7,
+          "title": "ECS Fargate + ECR + GitHub Actions OIDC",
+          "summary": "Dockerize Go service, push ECR, deploy ECS Fargate qua GitHub Actions OIDC (no static keys).",
+          "goals": ["Multi-stage Dockerfile distroless", "ECS task + service", "GH OIDC trust policy"],
+          "keywords": ["ECS","Fargate","ECR","OIDC","distroless","Trivy"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "Container Pipeline với OIDC",
+              "lessons": [
+                {
+                  "slug": "ecs-task-vs-execution-role",
+                  "title": "Task Role vs Execution Role",
+                  "introMd": "Hai role hay confuse: **Execution Role** dùng cho ECS agent (pull image, push log). **Task Role** dùng cho code app trong container (gọi S3/DynamoDB...).",
+                  "estMinutes": 7,
+                  "skillsAdvanced": [{ "skillSlug": "ecs-fargate", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "App Go trong ECS Fargate cần đọc S3 bucket. IAM role nào cần `s3:GetObject` permission?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "Execution Role" },
+                          { "id": "b", "text": "Task Role" },
+                          { "id": "c", "text": "Cả 2" },
+                          { "id": "d", "text": "Cluster Role" }
+                        ],
+                        "correctId": "b",
+                        "shuffle": true
+                      },
+                      "explanationMd": "**Task Role** = quyền của code app. Execution Role chỉ cần ECR pull + CloudWatch logs.",
+                      "xpAward": 15
+                    }
+                  ]
+                },
+                {
+                  "slug": "gh-oidc-aws",
+                  "title": "GitHub OIDC ↔ AWS — Tại sao bỏ Access Key",
+                  "introMd": "GH OIDC: action JWT → AWS STS AssumeRole → temporary credentials. Không cần long-lived `AWS_SECRET_ACCESS_KEY` trong GH secrets. Trust policy validate `sub` claim (repo + branch).",
+                  "estMinutes": 8,
+                  "skillsAdvanced": [{ "skillSlug": "gh-actions", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "code_block_review",
+                      "promptMd": "Trust policy sau có vấn đề gì?",
+                      "payload": {
+                        "code": "{\n  \"Effect\": \"Allow\",\n  \"Principal\": {\"Federated\": \"arn:aws:iam::123:oidc-provider/token.actions.githubusercontent.com\"},\n  \"Action\": \"sts:AssumeRoleWithWebIdentity\",\n  \"Condition\": {\n    \"StringLike\": {\"token.actions.githubusercontent.com:sub\": \"repo:*\"}\n  }\n}",
+                        "language": "json",
+                        "question": "Vấn đề chính:",
+                        "options": [
+                          { "id": "a", "text": "Thiếu Effect" },
+                          { "id": "b", "text": "Condition quá rộng — `repo:*` cho phép BẤT KỲ repo trong tổ chức assume role" },
+                          { "id": "c", "text": "Sai Principal" },
+                          { "id": "d", "text": "Sai Action" }
+                        ],
+                        "correctId": "b"
+                      },
+                      "explanationMd": "Phải pin: `repo:OWNER/REPO:ref:refs/heads/main`. Pattern `repo:*` = ai cũng assume được.",
+                      "xpAward": 15
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 8,
+          "title": "S3 + CloudFront + Route 53 + ACM",
+          "summary": "Static site hosting với S3 private + CloudFront + OAC + HTTPS qua ACM us-east-1.",
+          "goals": ["S3 private + OAC pattern (không dùng OAI legacy)", "ACM us-east-1 cho CF", "Route 53 alias record"],
+          "keywords": ["S3","CloudFront","OAC","ACM","Route 53","TLS"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "Edge & DNS",
+              "lessons": [
+                {
+                  "slug": "acm-us-east-1",
+                  "title": "Tại sao ACM cho CloudFront phải ở us-east-1?",
+                  "introMd": "CloudFront là **global** service nhưng AWS quản lý cert qua us-east-1 ACM. Edge locations pull cert từ region đó. Region khác → CF không thấy được.",
+                  "estMinutes": 5,
+                  "skillsAdvanced": [{ "skillSlug": "s3-cloudfront", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Bạn ở ap-southeast-1. Tạo ACM cert ở SG attach vào CloudFront — kết quả?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "Work bình thường" },
+                          { "id": "b", "text": "CloudFront không thấy cert, phải tạo lại ở us-east-1" },
+                          { "id": "c", "text": "Latency tăng" },
+                          { "id": "d", "text": "Cert tự sync sang us-east-1" }
+                        ],
+                        "correctId": "b",
+                        "shuffle": true
+                      },
+                      "explanationMd": "ACM cho CloudFront BẮT BUỘC ở us-east-1. ACM cho ALB/NLB thì cùng region với LB.",
+                      "xpAward": 10
+                    }
+                  ]
+                },
+                {
+                  "slug": "oac-vs-oai",
+                  "title": "OAC (Origin Access Control) vs OAI Legacy",
+                  "introMd": "**OAC** (2022+) thay thế OAI: SigV4 native, hỗ trợ SSE-KMS, dynamic content. AWS khuyến nghị dùng OAC, không OAI mới.",
+                  "estMinutes": 6,
+                  "skillsAdvanced": [{ "skillSlug": "s3-cloudfront", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Bucket policy mẫu OAC đúng cho CloudFront pull S3 object:",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "Principal: '*' + Action s3:GetObject" },
+                          { "id": "b", "text": "Principal: Service cloudfront.amazonaws.com + Condition StringEquals AWS:SourceArn = CF distribution ARN" },
+                          { "id": "c", "text": "Principal CanonicalUser OAI ID" },
+                          { "id": "d", "text": "Public bucket policy" }
+                        ],
+                        "correctId": "b",
+                        "shuffle": true
+                      },
+                      "explanationMd": "OAC dùng service principal `cloudfront.amazonaws.com` + condition `aws:SourceArn` = distribution arn. Tránh confused deputy.",
+                      "xpAward": 15
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 9,
+          "title": "Observability (CloudWatch + OTel) + Cost Report Tool",
+          "summary": "CloudWatch metrics/logs/alarms, X-Ray, OpenTelemetry SDK Go, viết shopctl cost-report CLI.",
+          "goals": ["Dashboard as code", "OTel SDK Go", "Cost Explorer API"],
+          "keywords": ["CloudWatch","X-Ray","OTel","SLO","Cost Explorer"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "Metrics + Logs + Traces",
+              "lessons": [
+                {
+                  "slug": "use-vs-red-method",
+                  "title": "USE vs RED Method",
+                  "introMd": "**USE** (Util/Saturation/Errors) cho resource (CPU, disk). **RED** (Rate/Errors/Duration) cho service (API endpoint). Hai mặt của cùng 1 vấn đề.",
+                  "estMinutes": 6,
+                  "skillsAdvanced": [{ "skillSlug": "prometheus-grafana", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Bạn monitor 1 HTTP API. Dùng method nào?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "USE — CPU, memory, disk" },
+                          { "id": "b", "text": "RED — request rate, error rate, latency p99" },
+                          { "id": "c", "text": "Cả 2 — USE cho infra, RED cho service" },
+                          { "id": "d", "text": "Không cần monitor" }
+                        ],
+                        "correctId": "c",
+                        "shuffle": true
+                      },
+                      "explanationMd": "RED cho API endpoint (rate/errors/duration). USE cho resource bên dưới. Production cần cả 2.",
+                      "xpAward": 10
+                    }
+                  ]
+                },
+                {
+                  "slug": "cloudwatch-retention-trap",
+                  "title": "CloudWatch Log Group Retention Trap",
+                  "introMd": "Default CloudWatch log retention = **Never Expire**. Logs tích luỹ → bill bill bill. Luôn set retention rõ ràng khi tạo log group.",
+                  "estMinutes": 4,
+                  "skillsAdvanced": [{ "skillSlug": "prometheus-grafana", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "type_answer",
+                      "promptMd": "Property Terraform `aws_cloudwatch_log_group` để set retention 30 ngày:",
+                      "payload": {
+                        "accepts": ["^retention_in_days\\s*=\\s*30$", "retention_in_days = 30"],
+                        "matchKind": "regex",
+                        "hint": "retention_in_days = ..."
+                      },
+                      "explanationMd": "`retention_in_days = 30`. Có sẵn các giá trị 1, 3, 5, 7, 14, 30, 60, 90, ...",
+                      "xpAward": 10
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 10,
+          "title": "Terraform Advanced — Modules pro + Terratest + Drift",
+          "summary": "Module design patterns, Terratest tests Go, tflint, checkov pre-commit, drift detection.",
+          "goals": ["Terratest passing on real cloud", "Pre-commit hooks", "Module versioning"],
+          "keywords": ["Terratest","tflint","checkov","drift","terraform-docs"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "TF Testing & Quality",
+              "lessons": [
+                {
+                  "slug": "terratest-vs-validate",
+                  "title": "Plan-only test vs Terratest apply",
+                  "introMd": "**Validate/Plan tests** (fmt, validate, plan, tflint, checkov): nhanh, không tốn cloud. **Terratest**: apply thật → assert outputs → destroy. Tốn $ + thời gian.",
+                  "estMinutes": 6,
+                  "skillsAdvanced": [{ "skillSlug": "tf-testing", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Khi nào đủ với plan-only test, không cần Terratest?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "Khi module chỉ là composition (gọi resource đơn giản, không có logic conditional)" },
+                          { "id": "b", "text": "Luôn cần Terratest" },
+                          { "id": "c", "text": "Không bao giờ cần Terratest" },
+                          { "id": "d", "text": "Khi module có dynamic block phức tạp" }
+                        ],
+                        "correctId": "a",
+                        "shuffle": true
+                      },
+                      "explanationMd": "Module đơn giản: plan đủ phát hiện lỗi. Module phức tạp (dynamic, for_each, output dependency) → Terratest apply thật để verify behaviour.",
+                      "xpAward": 15
+                    }
+                  ]
+                },
+                {
+                  "slug": "drift-detection",
+                  "title": "Drift Detection Strategy",
+                  "introMd": "**Drift** = state ≠ real cloud. Nguyên nhân: ConsoleOps, multi-actor. Detect bằng `terraform plan` schedule cron — nếu diff không expected → alert.",
+                  "estMinutes": 5,
+                  "skillsAdvanced": [{ "skillSlug": "tf-remote-state", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Drift detection nightly best practice nào?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "GitHub Actions cron 2am: terraform plan → if non-empty diff, post to Slack" },
+                          { "id": "b", "text": "Tự apply auto khi có drift" },
+                          { "id": "c", "text": "Disable console truy cập production" },
+                          { "id": "d", "text": "Không cần detect" }
+                        ],
+                        "correctIds": ["a", "c"],
+                        "shuffle": true,
+                        "correctId": "a"
+                      },
+                      "explanationMd": "Plan rồi alert (a), không auto-apply (nguy hiểm). Disable console là phòng ngừa tốt nhất (c).",
+                      "xpAward": 10
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 11,
+          "title": "Multi-Environment + Secrets Hygiene",
+          "summary": "Dev/Stg/Prod separation, PR → dev → stg → prod promotion, gitleaks pre-commit.",
+          "goals": ["Folder-per-env pattern", "Cross-account OIDC assume", "Zero secrets in git"],
+          "keywords": ["multi-env","workspaces","gitleaks","promotion"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "Environment Strategy",
+              "lessons": [
+                {
+                  "slug": "folder-vs-workspace",
+                  "title": "Folder-per-env vs Terraform workspaces",
+                  "introMd": "**Workspaces** legacy: 1 backend, nhiều state. Risky cho prod (1 mistake = wrong env). **Folder-per-env**: separate backend per env, separate role, separate review. Recommended cho production.",
+                  "estMinutes": 7,
+                  "skillsAdvanced": [{ "skillSlug": "tf-modules", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Tại sao `terraform workspace` KHÔNG khuyến nghị cho prod separation?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "Cùng backend, cùng IAM role — 1 typo (`terraform workspace select prod`) có thể apply lên prod nhầm" },
+                          { "id": "b", "text": "Workspace chậm hơn" },
+                          { "id": "c", "text": "Không tồn tại" },
+                          { "id": "d", "text": "Không hỗ trợ S3 backend" }
+                        ],
+                        "correctId": "a",
+                        "shuffle": true
+                      },
+                      "explanationMd": "Workspace tốt cho ephemeral dev/feature branches. Prod cần backend riêng + role riêng = folder pattern.",
+                      "xpAward": 10
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 12,
+          "title": "Cert Crunch + Capstone (SAA-C03 + TF Associate)",
+          "summary": "AWS SAA-C03 prep, HashiCorp TF Associate (003), capstone polish, blog post + Loom demo.",
+          "goals": ["Pass AWS SAA-C03", "Pass TF Associate 003", "Publish capstone blog post"],
+          "keywords": ["SAA","Terraform Associate","capstone","blog"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "Cert prep & retro",
+              "lessons": [
+                {
+                  "slug": "saa-key-domains",
+                  "title": "SAA-C03 Key Domains",
+                  "introMd": "SAA-C03 4 domains: Secure Architectures (30%), Resilient Architectures (26%), High-Performing Architectures (24%), Cost-Optimized Architectures (20%). Tập trung security weight cao nhất.",
+                  "estMinutes": 5,
+                  "skillsAdvanced": [{ "skillSlug": "iam-deep", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Domain nào có weight cao nhất trong SAA-C03?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "High-Performing" },
+                          { "id": "b", "text": "Cost-Optimized" },
+                          { "id": "c", "text": "Secure Architectures (30%)" },
+                          { "id": "d", "text": "Resilient" }
+                        ],
+                        "correctId": "c",
+                        "shuffle": true
+                      },
+                      "explanationMd": "Secure = 30%. AWS 2026 nhấn mạnh security baseline.",
+                      "xpAward": 10
+                    }
+                  ]
+                },
+                {
+                  "slug": "phase-1-retro",
+                  "title": "Phase 1 Retrospective",
+                  "introMd": "Cuối Q1 viết retro: 5 thứ đã học, 3 sai lầm, 3 focus tiếp theo. Đăng public blog post → cement học + signal cho recruiter.",
+                  "estMinutes": 4,
+                  "skillsAdvanced": [{ "skillSlug": "tech-writing", "contributesToLevel": "XS", "weight": 1 }],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Lý do quan trọng nhất để viết blog post mỗi tháng trong roadmap 12 tháng?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "Forced writing = forced understanding (Feynman); signal cho recruiter; build personal brand" },
+                          { "id": "b", "text": "Để kiếm tiền từ blog" },
+                          { "id": "c", "text": "Để giết thời gian" },
+                          { "id": "d", "text": "Không cần thiết" }
+                        ],
+                        "correctId": "a",
+                        "shuffle": true
+                      },
+                      "explanationMd": "Viết blog buộc bạn structure suy nghĩ → hiểu sâu hơn. Là CV động hơn cert. Recruiter Google bạn → tìm thấy blog → strong signal.",
+                      "xpAward": 10
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
       ]
     },
 

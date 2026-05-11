@@ -1,17 +1,36 @@
+/**
+ * Landing page — fetches framework templates from DB (no hardcoded list).
+ */
 import Link from 'next/link';
+import { eq } from 'drizzle-orm';
 import { ArrowRight, Boxes, GraduationCap, Grid3x3, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { db } from '@/lib/db/client';
+import { frameworkTemplates } from '@/lib/db/schema';
 
-const FRAMEWORKS = [
-  { slug: 'devops', name: 'DevOps Mastery', status: 'active', skills: 40, weeks: 48, icon: '☁️' },
-  { slug: 'frontend', name: 'Frontend Engineer', status: 'soon', skills: 0, weeks: 0, icon: '🎨' },
-  { slug: 'backend', name: 'Backend Engineer', status: 'soon', skills: 0, weeks: 0, icon: '⚙️' },
-  { slug: 'data-eng', name: 'Data Engineer', status: 'soon', skills: 0, weeks: 0, icon: '📊' },
-  { slug: 'sre', name: 'Site Reliability', status: 'soon', skills: 0, weeks: 0, icon: '🛡️' },
-];
+const COMING_SOON = [
+  { name: 'Frontend Engineer', icon: '🎨' },
+  { name: 'Backend Engineer', icon: '⚙️' },
+  { name: 'Data Engineer', icon: '📊' },
+  { name: 'Site Reliability', icon: '🛡️' },
+] as const;
 
-export default function Landing() {
+export default async function Landing() {
+  // Pull live templates from DB
+  const templates = await db
+    .select({
+      id: frameworkTemplates.id,
+      slug: frameworkTemplates.slug,
+      name: frameworkTemplates.name,
+      description: frameworkTemplates.description,
+      domain: frameworkTemplates.domain,
+      forksCount: frameworkTemplates.forksCount,
+      payload: frameworkTemplates.payload,
+    })
+    .from(frameworkTemplates)
+    .where(eq(frameworkTemplates.isPublished, true));
+
   return (
     <main className="min-h-dvh">
       {/* Hero */}
@@ -28,8 +47,7 @@ export default function Landing() {
             Master the level.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base md:text-lg text-muted-foreground leading-relaxed">
-            Đo năng lực theo cấp độ XS / S / M / L, học theo lộ trình từng tuần với bài tập tương tác kiểu Duolingo,
-            đạt streak — tất cả workspace-first, customize được như roadmap.sh.
+            Đo năng lực Intern → Senior Tech Lead, học theo lộ trình từng tuần với bài tập tương tác kiểu Duolingo, đạt streak — workspace-first, customize được.
           </p>
           <div className="mt-10 flex justify-center gap-3">
             <Button asChild size="lg">
@@ -47,49 +65,58 @@ export default function Landing() {
       {/* Value props */}
       <section className="border-b border-border">
         <div className="mx-auto max-w-5xl px-6 py-16 grid md:grid-cols-3 gap-6">
-          <ValueProp
-            icon={Grid3x3}
-            title="Measure"
-            desc="Skills Matrix dày, filter cực mạnh. Đánh giá XS / S / M / L với evidence + note Markdown."
-          />
-          <ValueProp
-            icon={GraduationCap}
-            title="Learn"
-            desc="Course Map kiểu Duolingo: path curved 12 tuần × 4 levels, lesson 5–10 phút, exercise interactive."
-          />
-          <ValueProp
-            icon={Boxes}
-            title="Master"
-            desc="XP, streak, hearts, crowns, badges. Hoàn thành lesson → unlock cấp tiếp."
-          />
+          <ValueProp icon={Grid3x3} title="Measure" desc="Skills Matrix dày, filter cực mạnh. Đánh giá XS / S / M / L với evidence + note Markdown." />
+          <ValueProp icon={GraduationCap} title="Learn" desc="Course Map kiểu Duolingo: 4 levels × 12 tuần curved SVG path, lesson 5–10 phút, 6 exercise types interactive." />
+          <ValueProp icon={Boxes} title="Master" desc="XP, streak, hearts, crowns, badges auto-grant. Hoàn thành lesson → unlock cấp tiếp." />
         </div>
       </section>
 
-      {/* Frameworks strip */}
+      {/* Frameworks strip — from DB */}
       <section className="mx-auto max-w-5xl px-6 py-16">
         <h2 className="text-2xl font-semibold mb-2">Available frameworks</h2>
-        <p className="text-muted-foreground mb-8">DevOps đầu tiên — Frontend, Backend, Data Eng đang được build.</p>
+        <p className="text-muted-foreground mb-8">
+          {templates.length} active framework{templates.length !== 1 ? 's' : ''} · more coming soon
+        </p>
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {FRAMEWORKS.map((fw) => (
-            <article
-              key={fw.slug}
-              className="surface p-5 surface-hover relative overflow-hidden group"
-            >
-              {fw.status === 'soon' && (
-                <Badge variant="outline" className="absolute right-3 top-3 text-[10px]">
-                  Coming soon
-                </Badge>
-              )}
-              <div className="text-3xl mb-3">{fw.icon}</div>
-              <h3 className="font-semibold text-lg">{fw.name}</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {fw.skills > 0 ? `${fw.skills} skills · ${fw.weeks} weeks` : 'Roadmap in design'}
-              </p>
-              {fw.status === 'active' && (
+          {templates.map((fw) => {
+            const payload = fw.payload as { categories?: unknown[]; tracks?: Array<{ weeks?: unknown[] }> } | null;
+            const skillCount = payload?.categories
+              ? payload.categories.reduce((n: number, c: unknown) => {
+                  const cat = c as { skills?: unknown[] };
+                  return n + (cat.skills?.length ?? 0);
+                }, 0)
+              : 0;
+            const weekCount = payload?.tracks
+              ? payload.tracks.reduce((n: number, t) => n + (t.weeks?.length ?? 0), 0)
+              : 0;
+            return (
+              <article key={fw.id} className="surface p-5 surface-hover relative overflow-hidden group">
+                <div className="text-3xl mb-3">☁️</div>
+                <h3 className="font-semibold text-lg">{fw.name}</h3>
+                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                  {fw.description ?? `${skillCount} skills · ${weekCount} weeks`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {skillCount} skills · {weekCount} weeks · {fw.forksCount ?? 0} forks
+                </p>
                 <Button asChild variant="outline" size="sm" className="mt-4 w-full">
                   <Link href="/sign-in">Fork & start</Link>
                 </Button>
-              )}
+              </article>
+            );
+          })}
+
+          {COMING_SOON.map((fw) => (
+            <article
+              key={fw.name}
+              className="surface p-5 surface-hover relative overflow-hidden opacity-60"
+            >
+              <Badge variant="outline" className="absolute right-3 top-3 text-[10px]">
+                Coming soon
+              </Badge>
+              <div className="text-3xl mb-3">{fw.icon}</div>
+              <h3 className="font-semibold text-lg">{fw.name}</h3>
+              <p className="text-sm text-muted-foreground mt-1">Roadmap in design</p>
             </article>
           ))}
         </div>

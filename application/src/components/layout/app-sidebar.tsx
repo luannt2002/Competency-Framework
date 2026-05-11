@@ -15,6 +15,7 @@ import {
   Boxes,
   Sparkles,
   Calendar,
+  Network,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +35,7 @@ export function AppSidebar({
     { href: `${base}/daily`, label: 'Daily', icon: Calendar },
     { href: `${base}/skills`, label: 'Skills Matrix', icon: Grid3x3 },
     { href: `${base}/learn`, label: 'Learn', icon: GraduationCap },
+    { href: `${base}/roadmap-tree`, label: 'Roadmap Tree', icon: Network },
     { href: `${base}/framework`, label: 'Framework', icon: Boxes },
   ];
 

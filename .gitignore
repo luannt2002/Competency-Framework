@@ -1,0 +1,52 @@
+# Top-level gitignore for the entire devops-roadmap project
+# (application/ has its own .gitignore with framework specifics)
+
+# Node
+node_modules/
+.pnp
+.pnp.*
+.yarn/cache
+.yarn/install-state.gz
+
+# Next.js build artifacts
+.next/
+out/
+build/
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+
+# Editor / OS
+.DS_Store
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# Env files (never commit secrets)
+.env
+.env.local
+.env*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Drizzle generated migrations metadata
+application/drizzle/migrations/meta/_journal.json.bak
+
+# Raw CSVs from Google Sheets (user-specific data — keep local)
+application/drizzle/seeds/raw-csv/*.csv
+
+# Generated seed (only commit hand-curated devops.json baseline; CSV-derived diffs stay local if user prefers)
+# Comment the next line if you want generated seeds tracked
+# application/drizzle/seeds/devops.generated.json

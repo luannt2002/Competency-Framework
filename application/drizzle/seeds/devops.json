@@ -1,0 +1,404 @@
+{
+  "schemaVersion": "2.0",
+  "slug": "devops",
+  "name": "DevOps Mastery",
+  "domain": "engineering",
+  "description": "Competency framework for DevOps Engineer 2026 — AWS, Terraform, Kubernetes, Golang, DevSecOps, Platform Engineering. Sourced from the 12-month DevOps roadmap & 2 Google Sheets (gid=1970847068 skills, gid=1890838692 levels).",
+  "icon": "Cloud",
+  "color": "#22D3EE",
+
+  "levels": [
+    {
+      "code": "XS",
+      "label": "Foundational",
+      "numeric": 0,
+      "color": "#64748B",
+      "description": "Hiểu khái niệm cốt lõi, có thể giải thích cho người mới.",
+      "examples": "Đọc tài liệu hiểu được; trả lời câu hỏi cơ bản; làm theo guide step-by-step."
+    },
+    {
+      "code": "S",
+      "label": "Working",
+      "numeric": 33,
+      "color": "#0EA5E9",
+      "description": "Làm được task dưới sự hỗ trợ. Theo tutorial hoàn thành được.",
+      "examples": "Build 1 project end-to-end theo guide; debug lỗi thông thường; biết khi nào hỏi senior."
+    },
+    {
+      "code": "M",
+      "label": "Strong",
+      "numeric": 66,
+      "color": "#10B981",
+      "description": "Làm độc lập trên production. Debug được issue trung bình một mình.",
+      "examples": "Design + ship 1 service production; review code đồng nghiệp; on-call được."
+    },
+    {
+      "code": "L",
+      "label": "Expert",
+      "numeric": 100,
+      "color": "#8B5CF6",
+      "description": "Thiết kế hệ thống lớn, mentor người khác, đóng góp upstream open source.",
+      "examples": "Lead 1 platform initiative; speak ở meetup/conference; contribute meaningful PR vào CNCF/HashiCorp."
+    }
+  ],
+
+  "categories": [
+    {
+      "slug": "aws",
+      "name": "AWS",
+      "color": "#FF9900",
+      "icon": "Cloud",
+      "description": "Core AWS services for production-grade workloads.",
+      "skills": [
+        { "slug": "iam-deep", "name": "IAM Deep (trust, conditions, boundaries)", "tags": ["security","aws"], "description": "IAM policies, roles, SCPs, Permission Boundaries — production-grade access control." },
+        { "slug": "vpc-networking", "name": "VPC Networking (subnets, NAT, endpoints)", "tags": ["network","aws"], "description": "3-tier VPC design, route tables, NAT vs VPC Endpoints, Security Groups." },
+        { "slug": "ecs-fargate", "name": "ECS Fargate", "tags": ["compute","aws"], "description": "Task definitions, services, ALB integration, capacity providers." },
+        { "slug": "rds-postgres", "name": "RDS PostgreSQL", "tags": ["data","aws"], "description": "Multi-AZ, backups, parameter groups, IAM auth, performance tuning." },
+        { "slug": "s3-cloudfront", "name": "S3 + CloudFront + OAC", "tags": ["edge","aws"], "description": "Static hosting, OAC, cache policies, signed URLs." }
+      ]
+    },
+    {
+      "slug": "terraform",
+      "name": "Terraform / IaC",
+      "color": "#7C3AED",
+      "icon": "Boxes",
+      "description": "Infrastructure as Code with Terraform / OpenTofu.",
+      "skills": [
+        { "slug": "tf-basics", "name": "HCL2 + providers + state", "tags": ["iac"] },
+        { "slug": "tf-modules", "name": "Module Design & Composition", "tags": ["iac"] },
+        { "slug": "tf-remote-state", "name": "Remote State + Locking", "tags": ["iac"] },
+        { "slug": "tf-testing", "name": "Terratest + tflint + checkov", "tags": ["iac","testing"] },
+        { "slug": "tf-custom-provider", "name": "Custom Provider (Plugin Framework)", "tags": ["iac","go"] }
+      ]
+    },
+    {
+      "slug": "kubernetes",
+      "name": "Kubernetes & EKS",
+      "color": "#3B82F6",
+      "icon": "Container",
+      "description": "Container orchestration with Kubernetes & AWS EKS.",
+      "skills": [
+        { "slug": "k8s-core", "name": "Core objects (Pod, Deploy, Svc)", "tags": ["k8s"] },
+        { "slug": "k8s-networking", "name": "Networking + NetworkPolicy + Gateway API", "tags": ["k8s","network"] },
+        { "slug": "eks-prod", "name": "EKS Production (IRSA, addons, access entries)", "tags": ["k8s","aws"] },
+        { "slug": "karpenter", "name": "Karpenter autoscaling", "tags": ["k8s","cost"] },
+        { "slug": "k8s-operator", "name": "Custom Operator (kubebuilder, Go)", "tags": ["k8s","go"] }
+      ]
+    },
+    {
+      "slug": "golang",
+      "name": "Golang for DevOps",
+      "color": "#00ADD8",
+      "icon": "Code2",
+      "description": "Go for CLI tools, REST/gRPC services, operators, custom providers.",
+      "skills": [
+        { "slug": "go-basics", "name": "Syntax, errors, goroutines, context", "tags": ["go"] },
+        { "slug": "go-cli", "name": "CLI tools (cobra, viper, AWS SDK v2)", "tags": ["go"] },
+        { "slug": "go-http-server", "name": "HTTP server production-grade", "tags": ["go"] },
+        { "slug": "go-grpc", "name": "gRPC + protobuf + buf", "tags": ["go"] },
+        { "slug": "go-testing", "name": "Table-driven tests + testcontainers", "tags": ["go","testing"] }
+      ]
+    },
+    {
+      "slug": "cicd",
+      "name": "CI/CD & GitOps",
+      "color": "#F472B6",
+      "icon": "GitBranch",
+      "description": "Continuous Integration, Continuous Deployment, GitOps with Argo CD.",
+      "skills": [
+        { "slug": "gh-actions", "name": "GitHub Actions advanced (OIDC, reusable)", "tags": ["cicd"] },
+        { "slug": "argocd", "name": "Argo CD App-of-Apps + ApplicationSets", "tags": ["gitops"] },
+        { "slug": "argo-rollouts", "name": "Argo Rollouts canary + blue/green", "tags": ["gitops"] }
+      ]
+    },
+    {
+      "slug": "devsecops",
+      "name": "DevSecOps",
+      "color": "#EF4444",
+      "icon": "ShieldCheck",
+      "description": "Supply chain security, policy as code, runtime detection.",
+      "skills": [
+        { "slug": "slsa-supply-chain", "name": "SLSA L3 supply chain (Cosign, SBOM)", "tags": ["security"] },
+        { "slug": "opa-conftest", "name": "OPA / Conftest for Terraform", "tags": ["security","policy"] },
+        { "slug": "kyverno", "name": "Kyverno cluster policies", "tags": ["security","k8s"] },
+        { "slug": "falco-runtime", "name": "Falco runtime detection", "tags": ["security","k8s"] },
+        { "slug": "vault-secrets", "name": "Vault dynamic secrets", "tags": ["security"] }
+      ]
+    },
+    {
+      "slug": "observability",
+      "name": "Observability",
+      "color": "#EAB308",
+      "icon": "LineChart",
+      "description": "Metrics, logs, traces, SLO/SLI.",
+      "skills": [
+        { "slug": "prometheus-grafana", "name": "Prometheus + Grafana", "tags": ["obs"] },
+        { "slug": "loki-tempo", "name": "Loki (logs) + Tempo (traces)", "tags": ["obs"] },
+        { "slug": "otel", "name": "OpenTelemetry SDK", "tags": ["obs"] },
+        { "slug": "slo-design", "name": "SLO/SLI design + Sloth", "tags": ["obs"] }
+      ]
+    },
+    {
+      "slug": "finops",
+      "name": "FinOps",
+      "color": "#22C55E",
+      "icon": "DollarSign",
+      "description": "Cost optimization, allocation, automation.",
+      "skills": [
+        { "slug": "cost-tags", "name": "Cost allocation tags strategy", "tags": ["cost"] },
+        { "slug": "cur-athena", "name": "CUR + Athena queries", "tags": ["cost"] },
+        { "slug": "opencost", "name": "OpenCost (Kubernetes cost)", "tags": ["cost","k8s"] },
+        { "slug": "savings-plans", "name": "Savings Plans strategy", "tags": ["cost"] }
+      ]
+    },
+    {
+      "slug": "platform",
+      "name": "Platform Engineering",
+      "color": "#A855F7",
+      "icon": "Layers",
+      "description": "Internal Developer Platform (IDP) building.",
+      "skills": [
+        { "slug": "backstage", "name": "Backstage (Catalog, TechDocs, Templates)", "tags": ["platform"] },
+        { "slug": "crossplane", "name": "Crossplane v2 Compositions", "tags": ["platform"] },
+        { "slug": "dora-metrics", "name": "DORA metrics implementation", "tags": ["platform"] }
+      ]
+    },
+    {
+      "slug": "soft-skills",
+      "name": "Soft Skills",
+      "color": "#94A3B8",
+      "icon": "Users",
+      "description": "Communication, writing, leadership for senior DevOps.",
+      "skills": [
+        { "slug": "tech-writing", "name": "Technical writing (RFC, ADR, runbook)", "tags": ["soft"] },
+        { "slug": "incident-cmd", "name": "Incident command basics", "tags": ["soft"] },
+        { "slug": "mentoring", "name": "Mentoring + code review", "tags": ["soft"] }
+      ]
+    }
+  ],
+
+  "tracks": [
+    {
+      "levelCode": "XS",
+      "title": "Foundational Track",
+      "description": "Build your DevOps base — AWS, Terraform fundamentals, Go basics.",
+      "weeks": [
+        {
+          "index": 1,
+          "title": "Setup, AWS Foundations, IAM Deep Dive",
+          "summary": "Tuần 1 — môi trường dev, AWS account hygiene, IAM cơ bản đến nâng cao.",
+          "goals": [
+            "Thiết lập AWS Org + 3 accounts + Budget Alarm",
+            "Hiểu IAM evaluation logic (deny > allow > implicit deny)",
+            "Phân biệt SCP / Permission Boundary / IAM Policy / Session Policy"
+          ],
+          "keywords": ["IAM","SCP","Permission Boundary","MFA","SSO","STS"],
+          "estHours": 8,
+          "modules": [
+            {
+              "title": "AWS Account Hygiene",
+              "summary": "Setup AWS Organizations, Identity Center, MFA, Budget Alarm — không dùng root, không tạo IAM User.",
+              "lessons": [
+                {
+                  "slug": "iam-identity-center",
+                  "title": "IAM Identity Center & MFA",
+                  "introMd": "**IAM Identity Center** (trước đây là AWS SSO) là cách quản lý user tập trung của AWS 2026. Trong lesson này bạn sẽ học vì sao **không bao giờ** nên tạo IAM Users cho dev, và cách dùng SSO + permission sets.",
+                  "estMinutes": 7,
+                  "skillsAdvanced": [
+                    { "skillSlug": "iam-deep", "contributesToLevel": "XS", "weight": 1 }
+                  ],
+                  "exercises": [
+                    {
+                      "kind": "mcq",
+                      "promptMd": "Đâu là cách quản lý dev access AWS **khuyến nghị 2026**?",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "Tạo IAM User + Access Key cho mỗi dev" },
+                          { "id": "b", "text": "IAM Identity Center + SSO + temporary credentials" },
+                          { "id": "c", "text": "Share root account credentials" },
+                          { "id": "d", "text": "Tạo 1 IAM User chung cho cả team" }
+                        ],
+                        "correctId": "b",
+                        "shuffle": true
+                      },
+                      "explanationMd": "IAM Identity Center cấp credentials **tạm thời** (1-12h) qua SSO, không có long-lived access key bị rò rỉ. Đây là chuẩn 2026.",
+                      "xpAward": 10
+                    },
+                    {
+                      "kind": "mcq_multi",
+                      "promptMd": "Thứ tự đánh giá IAM policy nào ĐÚNG? (chọn tất cả áp dụng)",
+                      "payload": {
+                        "options": [
+                          { "id": "a", "text": "Explicit deny > Explicit allow" },
+                          { "id": "b", "text": "Implicit allow > Explicit deny" },
+                          { "id": "c", "text": "Explicit allow > Implicit deny" },
+                          { "id": "d", "text": "SCP > IAM Policy > Permission Boundary" }
+                        ],
+                        "correctIds": ["a", "c"],
+                        "shuffle": false
+                      },
+                      "explanationMd": "Quy tắc: **explicit deny > explicit allow > implicit deny**. SCP/Permission Boundary đều có thể chặn (intersection of all permissions).",
+                      "xpAward": 10
+                    },
+                    {
+                      "kind": "fill_blank",
+                      "promptMd": "Hoàn thành câu: 'Khi user assume role, credentials trả về có thời hạn tối đa ___ giờ (mặc định 1, tối đa cấu hình được lên 12).'",
+                      "payload": {
+                        "template": "Credentials assume role có thời hạn tối đa ___ giờ.",
+                        "blanks": [
+                          { "id": 1, "accepts": ["12", "twelve"], "matchKind": "exact_ci" }
+                        ]
+                      },
+                      "explanationMd": "STS `AssumeRole` có max session duration 12 giờ (configurable trên role).",
+                      "xpAward": 10
+                    }
+                  ]
+                },
+                {
+                  "slug": "iam-policy-eval",
+                  "title": "IAM Policy Evaluation Logic",
+                  "introMd": "Hiểu cách AWS đánh giá quyền: SCP → Permission Boundary → IAM Policy → Session Policy. Tất cả 4 lớp phải đồng ý → request được allow.",
+                  "estMinutes": 8,
+                  "skillsAdvanced": [
+                    { "skillSlug": "iam-deep", "contributesToLevel": "XS", "weight": 1 }
+                  ],
+                  "exercises": [
+                    {
+                      "kind": "order_steps",
+                      "promptMd": "Sắp xếp 4 layer permission AWS đánh giá theo thứ tự (top-down, từ org đến session):",
+                      "payload": {
+                        "steps": [
+                          { "id": "1", "text": "Service Control Policy (SCP) — org level" },
+                          { "id": "2", "text": "Permission Boundary — account level" },
+                          { "id": "3", "text": "IAM Policy (identity-based + resource-based)" },
+                          { "id": "4", "text": "Session Policy — STS request" }
+                        ],
+                        "correctOrder": ["1", "2", "3", "4"]
+                      },
+                      "explanationMd": "Tất cả 4 layer phải đồng ý → action được allow. 1 explicit deny ở bất kỳ layer = deny.",
+                      "xpAward": 10
+                    },
+                    {
+                      "kind": "type_answer",
+                      "promptMd": "Lệnh AWS CLI nào in ra danh tính hiện tại (account, user/role, ARN)?",
+                      "payload": {
+                        "accepts": ["^aws\\s+sts\\s+get-caller-identity$"],
+                        "matchKind": "regex",
+                        "hint": "aws sts ..."
+                      },
+                      "explanationMd": "`aws sts get-caller-identity` là lệnh debug đầu tiên khi cấu hình credentials.",
+                      "xpAward": 10
+                    },
+                    {
+                      "kind": "code_block_review",
+                      "promptMd": "Vấn đề bảo mật của IAM policy sau là gì?",
+                      "payload": {
+                        "code": "{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": [\n    {\n      \"Effect\": \"Allow\",\n      \"Action\": \"*\",\n      \"Resource\": \"*\"\n    }\n  ]\n}",
+                        "language": "json",
+                        "question": "Lỗi gì?",
+                        "options": [
+                          { "id": "a", "text": "Thiếu Version" },
+                          { "id": "b", "text": "Over-privileged: cho phép mọi action trên mọi resource" },
+                          { "id": "c", "text": "Sai cú pháp JSON" },
+                          { "id": "d", "text": "Thiếu Condition" }
+                        ],
+                        "correctId": "b"
+                      },
+                      "explanationMd": "Policy `Action: *` + `Resource: *` = admin god mode. Vi phạm least-privilege. Cần liệt kê action cụ thể + resource cụ thể.",
+                      "xpAward": 15
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+
+        { "index": 2, "title": "Terraform Foundation + State + Provider", "summary": "HCL2, providers, S3+DynamoDB backend, state surgery.", "goals": ["Hiểu terraform plan flow", "Setup remote state"], "keywords": ["HCL","state","backend"], "estHours": 8, "modules": [] },
+        { "index": 3, "title": "VPC Networking + Terraform Modules", "summary": "3-tier VPC, subnets, NAT, endpoints; module pattern.", "goals": ["Build self-VPC module"], "keywords": ["VPC","module"], "estHours": 8, "modules": [] },
+        { "index": 4, "title": "Compute (EC2, ALB) + for_each/count/dynamic", "summary": "ASG, ALB target groups, dynamic blocks.", "goals": ["Module web-asg"], "keywords": ["EC2","ALB"], "estHours": 8, "modules": [] },
+        { "index": 5, "title": "Go Foundations + AWS SDK v2 (CLI Tool #1)", "summary": "Cobra CLI shopctl: whoami, list-ec2, find-untagged.", "goals": ["Build first Go CLI"], "keywords": ["Go","cobra","SDK v2"], "estHours": 8, "modules": [] },
+        { "index": 6, "title": "RDS + Secrets Manager + Remote State Data", "summary": "Multi-AZ RDS, secrets, cross-stack data.", "goals": ["RDS module"], "keywords": ["RDS","Secrets Manager"], "estHours": 8, "modules": [] },
+        { "index": 7, "title": "ECS Fargate + ECR + GitHub Actions OIDC", "summary": "Dockerize Go service, deploy via ECS, CI with OIDC.", "goals": ["Deploy product service"], "keywords": ["ECS","ECR","OIDC"], "estHours": 8, "modules": [] },
+        { "index": 8, "title": "S3 + CloudFront + Route 53 + ACM", "summary": "Static frontend with HTTPS, OAC, CloudFront.", "goals": ["Frontend module"], "keywords": ["S3","CloudFront","ACM"], "estHours": 8, "modules": [] },
+        { "index": 9, "title": "Observability (CloudWatch, OTel) + Go Tool #2", "summary": "Dashboards, alarms, X-Ray, cost-report CLI.", "goals": ["Cost report Go tool"], "keywords": ["CloudWatch","OTel"], "estHours": 8, "modules": [] },
+        { "index": 10, "title": "Terraform Advanced: Modules pro, Terratest, Drift", "summary": "Module patterns, Terratest, tflint, checkov.", "goals": ["Terratest passing"], "keywords": ["Terratest","tflint"], "estHours": 8, "modules": [] },
+        { "index": 11, "title": "Multi-Environment + Secrets Hygiene", "summary": "Dev/Stg/Prod, promotion, gitleaks.", "goals": ["3 envs deployed"], "keywords": ["multi-env","gitleaks"], "estHours": 8, "modules": [] },
+        { "index": 12, "title": "Cert Crunch + Capstone (SAA + TF Associate)", "summary": "AWS SAA-C03 + HashiCorp Terraform Associate prep, capstone polish.", "goals": ["SAA pass","TF Associate pass"], "keywords": ["SAA","TF Associate"], "estHours": 8, "modules": [] }
+      ]
+    },
+
+    {
+      "levelCode": "S",
+      "title": "Working Track",
+      "description": "Kubernetes deep + EKS + Go advanced (operators, controllers, custom TF provider).",
+      "weeks": [
+        { "index": 1, "title": "Kubernetes Fundamentals (kind cluster)", "summary": "Core objects, kubectl mastery, first Helm chart.", "goals": [], "keywords": ["k8s","kind","helm"], "estHours": 8, "modules": [] },
+        { "index": 2, "title": "Kubernetes Networking + Storage", "summary": "Gateway API, NetworkPolicy, StatefulSet.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 3, "title": "Helm Advanced + Kustomize", "summary": "Library charts, overlays, hybrid.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 4, "title": "EKS Production Setup (Terraform)", "summary": "IRSA, Pod Identity, addons.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 5, "title": "Karpenter + Cost Optimization", "summary": "NodePool, Spot, consolidation.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 6, "title": "Istio + Observability Stack", "summary": "Istio ambient, kube-prom-stack, Loki, Tempo.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 7, "title": "Golang Advanced: HTTP/gRPC Production", "summary": "chi, grpc, testcontainers, pprof.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 8, "title": "CRD + controller-runtime + kubebuilder", "summary": "FeatureFlag operator scaffold.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 9, "title": "Operator Production: Webhooks + Metrics", "summary": "Validating webhook, leader election.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 10, "title": "Custom Terraform Provider (Plugin Framework)", "summary": "Resource CRUD + acceptance tests.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 11, "title": "Multi-tenancy, Quotas, PSS, Kyverno basics", "summary": "Namespace tenancy + policies.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 12, "title": "CKA Crunch + Capstone", "summary": "killer.sh + CKA exam.", "goals": ["CKA pass"], "keywords": [], "estHours": 8, "modules": [] }
+      ]
+    },
+
+    {
+      "levelCode": "M",
+      "title": "Strong Track",
+      "description": "DevSecOps + GitOps + supply chain SLSA L3 + compliance scanner Go tool.",
+      "weeks": [
+        { "index": 1, "title": "Argo CD Foundation + GitOps Mindset", "summary": "App-of-Apps, sync, RBAC.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 2, "title": "Progressive Delivery: Argo Rollouts", "summary": "Canary + blue/green + analysis.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 3, "title": "Supply Chain: SBOM, Sign, Verify (Sigstore)", "summary": "Syft, Cosign, Kyverno verify-images.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 4, "title": "Vault + External Secrets", "summary": "Dynamic RDS creds, Kubernetes auth.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 5, "title": "Policy as Code: OPA/Conftest + Kyverno", "summary": "TF gating + cluster policies.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 6, "title": "Runtime Security: Falco + Audit Logs", "summary": "eBPF detection, SIEM forward.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 7, "title": "Go Compliance Scanner (Tool #4)", "summary": "shopscan: AWS+K8s+repo audit.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 8, "title": "Advanced GH Actions + DORA Metrics", "summary": "Reusable workflows + DORA collector.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 9, "title": "Disaster Recovery + Backup (Velero)", "summary": "Velero, AWS Backup, drills.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 10, "title": "Cost Optimization (Pre-FinOps) + DevOps Pro prep", "summary": "OpenCost, CUR Athena.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 11, "title": "CKS Prep + Hardening", "summary": "kube-bench, kube-hunter, prowler.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 12, "title": "AWS DevOps Pro + Capstone", "summary": "DOP-C02 exam + final polish.", "goals": ["DevOps Pro pass"], "keywords": [], "estHours": 8, "modules": [] }
+      ]
+    },
+
+    {
+      "levelCode": "L",
+      "title": "Expert Track",
+      "description": "Platform Engineering + Multi-region + IDP with Backstage + Crossplane + Go production services.",
+      "weeks": [
+        { "index": 1, "title": "Platform Engineering + Backstage Install", "summary": "Catalog, TechDocs, plugins.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 2, "title": "Backstage Software Templates + Scaffolder", "summary": "New Go service template.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 3, "title": "Crossplane v2 + Compositions", "summary": "PostgresInstance composition.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 4, "title": "Multi-Region Architecture Design", "summary": "Active-active ADR.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 5, "title": "Multi-Region Deployment + Failover", "summary": "Aurora Global, drill.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 6, "title": "Chaos Engineering: Chaos Mesh + FIS", "summary": "First game day.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 7, "title": "Go Production: cost-optimizer (Tool #5)", "summary": "CUR ingestion + recommendations.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 8, "title": "Go Production: deployment-manager (Tool #6)", "summary": "Slack approval flow.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 9, "title": "platform-api (Tool #7) + OpenFeature", "summary": "Aggregator service.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 10, "title": "FinOps Automation: Anomaly + Right-size", "summary": "Off-hours stop, unused EBS cleaner.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 11, "title": "Career Polish: Resume, ADRs, Mock Interview", "summary": "Mid/Senior prep.", "goals": [], "keywords": [], "estHours": 8, "modules": [] },
+        { "index": 12, "title": "Final Capstone + Job Applications", "summary": "Apply, OSS PR, year-end blog.", "goals": ["5 applications submitted"], "keywords": [], "estHours": 8, "modules": [] }
+      ]
+    }
+  ],
+
+  "badges": [
+    { "slug": "first-step",       "name": "First Step",       "description": "Hoàn thành lesson đầu tiên.", "icon": "Footprints",  "rule": { "kind": "lesson_completed", "value": 1 } },
+    { "slug": "committed",        "name": "Committed",        "description": "Hoàn thành 10 lessons.",     "icon": "Award",       "rule": { "kind": "lesson_completed", "value": 10 } },
+    { "slug": "week-warrior",     "name": "Week Warrior",     "description": "Hoàn thành 1 tuần.",         "icon": "Trophy",      "rule": { "kind": "week_completed", "value": 1 } },
+    { "slug": "level-up-xs",      "name": "Foundational",     "description": "Hoàn thành Level XS.",       "icon": "Sparkles",    "rule": { "kind": "level_completed", "value": "XS" } },
+    { "slug": "streak-7",         "name": "On Fire",          "description": "7 ngày streak liên tiếp.",  "icon": "Flame",       "rule": { "kind": "streak", "value": 7 } },
+    { "slug": "streak-30",        "name": "Unstoppable",      "description": "30 ngày streak liên tiếp.", "icon": "Zap",         "rule": { "kind": "streak", "value": 30 } },
+    { "slug": "crown-collector",  "name": "Crown Collector",  "description": "10 crowns trên các skills.","icon": "Crown",       "rule": { "kind": "crowns_total", "value": 10 } },
+    { "slug": "aws-foundational", "name": "AWS Foundational", "description": "All AWS skills ≥ S.",       "icon": "Cloud",       "rule": { "kind": "category_level", "category": "aws", "level": "S" } },
+    { "slug": "matrix-master",    "name": "Matrix Master",    "description": "Đánh giá tất cả skills.",   "icon": "Grid3x3",     "rule": { "kind": "all_skills_assessed" } },
+    { "slug": "xp-centurion",     "name": "XP Centurion",     "description": "100,000 XP all-time.",      "icon": "Star",        "rule": { "kind": "total_xp", "value": 100000 } }
+  ]
+}

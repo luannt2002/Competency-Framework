@@ -10,11 +10,25 @@
  * - Notes (markdown plain)
  * - Target level
  * - Auto-save 700ms debounce; "Saved ✓" indicator
+ * - V8 evidence-based verification section (collapsible) with confidence score,
+ *   source pill, list of submitted evidence grades, and a "Submit new evidence"
+ *   dialog wrapping `<EvidenceForm />`.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { CheckCircle2, ExternalLink, Loader2, Sparkles, Target } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Loader2,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  Target,
+} from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -22,10 +36,25 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { LevelBadge } from './level-badge';
+import { EvidenceForm } from '@/components/evidence/evidence-form';
 import { updateAssessment } from '@/actions/assessments';
+import {
+  computeConfidence,
+  listEvidenceForSkill,
+  type EvidenceRow,
+} from '@/actions/evidence';
+import type { ConfidenceResult, ConfidenceSource } from '@/lib/evidence/confidence';
 import { cn } from '@/lib/utils';
 
 export type LevelCode = 'XS' | 'S' | 'M' | 'L';
@@ -63,6 +92,7 @@ type Props = {
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) {
+  const router = useRouter();
   const [level, setLevel] = useState<LevelCode | null>(data?.currentLevel ?? null);
   const [target, setTarget] = useState<LevelCode | null>(data?.targetLevel ?? null);
   const [why, setWhy] = useState(data?.whyThisLevel ?? '');
@@ -71,6 +101,15 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // V8 evidence panel state
+  const [verifiedOpen, setVerifiedOpen] = useState(false);
+  const [evidenceRows, setEvidenceRows] = useState<EvidenceRow[] | null>(null);
+  const [confidence, setConfidence] = useState<ConfidenceResult | null>(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
+  const [, startEvidenceRefresh] = useTransition();
 
   // Reset form when skill changes
   useEffect(() => {
@@ -82,7 +121,39 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
     setEvidenceText((data.evidenceUrls ?? []).join('\n'));
     setSaveState('idle');
     setError(null);
+    setVerifiedOpen(false);
+    setEvidenceRows(null);
+    setConfidence(null);
+    setEvidenceError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.skillId]);
+
+  const refreshEvidence = useCallback(async () => {
+    if (!data) return;
+    setEvidenceLoading(true);
+    setEvidenceError(null);
+    try {
+      const [rows, conf] = await Promise.all([
+        listEvidenceForSkill(workspaceSlug, data.skillId),
+        computeConfidence(workspaceSlug, data.skillId),
+      ]);
+      setEvidenceRows(rows);
+      setConfidence(conf);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load evidence';
+      setEvidenceError(msg);
+    } finally {
+      setEvidenceLoading(false);
+    }
+  }, [data, workspaceSlug]);
+
+  // Lazy-load evidence the first time the section is opened.
+  useEffect(() => {
+    if (!verifiedOpen) return;
+    if (!data) return;
+    if (evidenceRows !== null) return;
+    void refreshEvidence();
+  }, [verifiedOpen, data, evidenceRows, refreshEvidence]);
 
   const evidenceUrls = useMemo(
     () =>
@@ -316,6 +387,126 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
             )}
           </section>
 
+          {/* EVIDENCE-BASED VERIFICATION (V8) */}
+          <section>
+            <button
+              type="button"
+              onClick={() => setVerifiedOpen((o) => !o)}
+              aria-expanded={verifiedOpen}
+              className="w-full flex items-center gap-2 text-left group"
+            >
+              {verifiedOpen ? (
+                <ChevronDown className="size-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="size-4 text-muted-foreground" />
+              )}
+              <ShieldCheck className="size-4 text-cyan-400" aria-hidden />
+              <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold group-hover:text-foreground transition-colors">
+                Verified evidence (V8)
+              </h3>
+              <Badge variant="secondary" className="ml-1 font-mono">
+                {evidenceRows?.length ?? 0}
+              </Badge>
+              {confidence && (
+                <span className="ml-auto flex items-center gap-1.5">
+                  <ConfidenceBadge score={confidence.score} />
+                  <SourcePill source={confidence.source} />
+                </span>
+              )}
+            </button>
+
+            {verifiedOpen && (
+              <div className="mt-3 space-y-3">
+                {evidenceLoading && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" /> Loading evidence…
+                  </div>
+                )}
+                {evidenceError && (
+                  <p className="text-xs text-destructive">{evidenceError}</p>
+                )}
+                {!evidenceLoading && !evidenceError && evidenceRows && evidenceRows.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No verified evidence yet. Submit a lab, project, peer review, or
+                    manager review to build confidence.
+                  </p>
+                )}
+                {!evidenceLoading && !evidenceError && evidenceRows && evidenceRows.length > 0 && (
+                  <ul className="space-y-2">
+                    {evidenceRows.map((row) => (
+                      <li
+                        key={row.id}
+                        className="rounded-xl border border-border bg-secondary/30 px-3 py-2 text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <KindBadge kind={row.kind} />
+                          <span className="font-mono tabular-nums">{row.score}/100</span>
+                          {row.reviewerUserId && (
+                            <span className="text-muted-foreground">
+                              · reviewer ✓
+                            </span>
+                          )}
+                          <span className="ml-auto text-muted-foreground tabular-nums">
+                            {formatShortDate(row.createdAt)}
+                          </span>
+                        </div>
+                        {row.evidenceUrl && (
+                          <a
+                            href={row.evidenceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 flex items-center gap-1 text-primary hover:underline truncate"
+                          >
+                            <ExternalLink className="size-3 shrink-0" />
+                            <span className="truncate">{row.evidenceUrl}</span>
+                          </a>
+                        )}
+                        {row.note && (
+                          <p className="mt-1 text-muted-foreground line-clamp-2">{row.note}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEvidenceDialogOpen(true)}
+                  className="w-full"
+                >
+                  <Plus className="size-3" />
+                  Submit new evidence
+                </Button>
+              </div>
+            )}
+
+            <Dialog open={evidenceDialogOpen} onOpenChange={setEvidenceDialogOpen}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Submit evidence — {data.skillName}</DialogTitle>
+                  <DialogDescription>
+                    Each submission contributes to your confidence score for this
+                    skill. Manager reviews unlock the &ldquo;verified&rdquo; state.
+                  </DialogDescription>
+                </DialogHeader>
+                <EvidenceForm
+                  workspaceSlug={workspaceSlug}
+                  skillId={data.skillId}
+                  skillName={data.skillName}
+                  onSubmitted={() => {
+                    setEvidenceDialogOpen(false);
+                    startEvidenceRefresh(() => {
+                      void refreshEvidence();
+                    });
+                    router.refresh();
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          </section>
+
           {/* NOTE */}
           <section>
             <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2 block">
@@ -332,6 +523,89 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
       </SheetContent>
     </Sheet>
   );
+}
+
+function ConfidenceBadge({ score }: { score: number }) {
+  const tone =
+    score >= 70
+      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+      : score >= 40
+        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+        : 'bg-red-500/15 text-red-300 border-red-500/30';
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums',
+        tone,
+      )}
+      title={`Confidence ${score} / 100`}
+    >
+      {score}
+    </span>
+  );
+}
+
+function SourcePill({ source }: { source: ConfidenceSource }) {
+  if (source === 'verified') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full border border-transparent bg-gradient-to-r from-cyan-400/30 to-violet-500/30 px-2 py-0.5 text-[10px] font-medium text-foreground"
+        title="Verified — manager review on file"
+      >
+        <ShieldCheck className="size-3" /> verified
+      </span>
+    );
+  }
+  if (source === 'learned') {
+    return (
+      <span className="inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-300">
+        learned
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+      self-claimed
+    </span>
+  );
+}
+
+const KIND_LABEL: Record<EvidenceRow['kind'], string> = {
+  lab: 'Lab',
+  project: 'Project',
+  peer_review: 'Peer',
+  manager_review: 'Manager',
+};
+
+const KIND_TONE: Record<EvidenceRow['kind'], string> = {
+  lab: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+  project: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+  peer_review: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  manager_review: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+};
+
+function KindBadge({ kind }: { kind: EvidenceRow['kind'] }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold',
+        KIND_TONE[kind],
+      )}
+    >
+      {KIND_LABEL[kind]}
+    </span>
+  );
+}
+
+function formatShortDate(d: Date | null | undefined): string {
+  if (!d) return '';
+  const date = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 function SaveIndicator({ state, error }: { state: SaveState; error: string | null }) {

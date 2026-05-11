@@ -177,28 +177,28 @@ export function LessonRunner({ workspaceSlug, data, backHref }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       {/* Topbar */}
-      <header className="flex items-center gap-4 border-b border-border px-4 py-3 md:px-6">
+      <header className="flex items-center gap-2 sm:gap-4 border-b border-border px-3 py-3 sm:px-4 md:px-6">
         <button
           type="button"
           onClick={() => router.push(backHref)}
-          className="rounded-lg p-1 hover:bg-secondary"
+          className="rounded-lg p-1 hover:bg-secondary shrink-0"
           aria-label="Quit lesson"
         >
           <X className="size-5" />
         </button>
 
-        <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
+        <div className="flex-1 min-w-0 h-2 rounded-full bg-secondary overflow-hidden">
           <div
             className="h-full accent-gradient transition-all duration-500"
             style={{ width: `${progress * 100}%` }}
           />
         </div>
 
-        <div className="flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2.5 py-1 text-xs font-semibold tabular-nums">
+        <div className="flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2 py-1 text-xs font-semibold tabular-nums shrink-0">
           <Heart className="size-3.5 text-red-400" />
           {heartsLeft}
         </div>
-        <div className="flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2.5 py-1 text-xs font-semibold tabular-nums">
+        <div className="flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2 py-1 text-xs font-semibold tabular-nums shrink-0">
           <Zap className="size-3.5 text-amber-400" />
           {totalXp}
         </div>

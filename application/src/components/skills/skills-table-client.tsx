@@ -10,11 +10,13 @@
  * Data is passed pre-resolved from the Server Component.
  */
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, Grid3x3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { LevelBadge } from '@/components/skills/level-badge';
 import { SkillDrawer, type SkillDrawerData, type LevelCode } from '@/components/skills/skill-drawer';
 
@@ -112,6 +114,22 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
 
   const hasFilter = catFilter.size > 0 || levelFilter.size > 0 || debounced.length > 0;
 
+  // Workspace has no skills at all — surface a rich empty state instead of an empty table.
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        icon={Grid3x3}
+        title="No skills in this workspace yet"
+        description="The framework template didn't seed any skills, or they were removed. Re-fork the framework to repopulate the matrix."
+        action={
+          <Button asChild variant="outline">
+            <Link href="/onboarding">Re-fork framework</Link>
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <>
       {/* Filter bar */}
@@ -136,6 +154,7 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
                 setCatFilter(new Set());
                 setLevelFilter(new Set());
               }}
+              className="self-end md:self-auto shrink-0"
             >
               <X className="size-3" />
               Clear all

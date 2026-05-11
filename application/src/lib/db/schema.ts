@@ -556,3 +556,8 @@ export type UserSkillProgress = typeof userSkillProgress.$inferSelect;
 export type Lesson = typeof lessons.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
 export type FrameworkTemplate = typeof frameworkTemplates.$inferSelect;
+
+/* ============================ V8 + V9 + ETL re-exports ============================ */
+export * from './schema-v8';
+export * from './schema-v9';
+export * from './schema-etl';

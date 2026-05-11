@@ -38,5 +38,8 @@ jobs:
       - name: Lint
         run: pnpm lint || echo "lint warnings allowed in MVP"
 
+      - name: Guard hardcode + mock
+        run: pnpm guard
+
       - name: Unit tests (Vitest)
         run: pnpm test

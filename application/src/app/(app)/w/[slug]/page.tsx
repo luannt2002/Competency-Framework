@@ -1,6 +1,11 @@
 /**
  * Workspace Dashboard — radar coverage by category, heatmap, progress ring,
  * top weakest, recent activity, today block.
+ *
+ * V8 additions:
+ * - "Career Gap vs Target Role" card: if the user has set a target role
+ *   (user_role_targets), render a current-vs-required radar with red highlights
+ *   on gaps. Otherwise, render an empty state with a CTA to /w/:slug/roles.
  */
 import Link from 'next/link';
 import { eq, and, count, desc, sum, asc, inArray } from 'drizzle-orm';
@@ -19,14 +24,17 @@ import {
   xpEvents,
   streaks as streaksT,
 } from '@/lib/db/schema';
+import { userRoleTargets, roleProfiles } from '@/lib/db/schema-v8';
 import { requireWorkspaceAccess } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
+import { computeGapAnalysis } from '@/actions/role-profiles';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { LevelBadge } from '@/components/skills/level-badge';
-import { ArrowRight, GraduationCap, Grid3x3, Sparkles, Trophy, Flame, Zap } from 'lucide-react';
+import { ArrowRight, Compass, Grid3x3, Sparkles, Trophy, Flame, Zap } from 'lucide-react';
 import { RadarCoverage, type RadarDatum } from '@/components/charts/radar-coverage';
+import { GapRadar, type GapRadarDatum } from '@/components/charts/gap-radar';
 import { SkillHeatmap, type HeatmapRow } from '@/components/charts/skill-heatmap';
 import { ProgressRing } from '@/components/charts/progress-ring';
 import { relativeTime } from '@/lib/utils';
@@ -179,6 +187,67 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   const totalXp = Number(xpTotalRow[0]?.s ?? 0);
   const currentStreak = streakRow[0]?.currentStreak ?? 0;
 
+  // ============== V8: Career Gap vs Target Role ==============
+  const targetRoleRow = await db
+    .select({
+      roleId: userRoleTargets.roleId,
+      roleName: roleProfiles.name,
+      roleSlug: roleProfiles.slug,
+      targetDate: userRoleTargets.targetDate,
+    })
+    .from(userRoleTargets)
+    .innerJoin(roleProfiles, eq(roleProfiles.id, userRoleTargets.roleId))
+    .where(
+      and(
+        eq(userRoleTargets.workspaceId, ws.id),
+        eq(userRoleTargets.userId, user.id),
+      ),
+    )
+    .orderBy(desc(userRoleTargets.createdAt))
+    .limit(1);
+
+  const targetRole = targetRoleRow[0] ?? null;
+  let gapRadarData: GapRadarDatum[] = [];
+  let gapBehindCount = 0;
+  if (targetRole) {
+    try {
+      const gaps = await computeGapAnalysis(ws.slug, targetRole.roleId);
+      const skillToCat = new Map(skillRows.map((s) => [s.id, s.categoryId]));
+      const perCat = new Map<
+        string,
+        { currentSum: number; requiredSum: number; n: number }
+      >();
+      for (const c of catRows) perCat.set(c.id, { currentSum: 0, requiredSum: 0, n: 0 });
+      for (const g of gaps) {
+        const catId = skillToCat.get(g.skillId);
+        if (!catId) continue;
+        const requiredNum = levelNumByCode.get(g.requiredLevel) ?? 0;
+        const currentNum = g.currentLevel ? (levelNumByCode.get(g.currentLevel) ?? 0) : 0;
+        const slot = perCat.get(catId);
+        if (slot) {
+          slot.currentSum += currentNum;
+          slot.requiredSum += requiredNum;
+          slot.n++;
+        }
+        if (g.gap < 0) gapBehindCount++;
+      }
+      gapRadarData = catRows
+        .map((c) => {
+          const slot = perCat.get(c.id);
+          if (!slot || slot.n === 0) return null;
+          return {
+            category: c.name,
+            current: Math.round(slot.currentSum / slot.n),
+            required: Math.round(slot.requiredSum / slot.n),
+          };
+        })
+        .filter((r): r is GapRadarDatum => r !== null);
+    } catch {
+      // Non-fatal — render empty state if computation fails.
+      gapRadarData = [];
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl p-6 md:p-8 space-y-8">
       {/* Hero */}
@@ -271,6 +340,63 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
           </CardHeader>
           <CardContent>
             <SkillHeatmap rows={heatmapRows} />
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Career Gap vs Target Role (V8) */}
+      <section>
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div className="space-y-1.5">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Compass className="size-4 text-violet-400" />
+                Career Gap vs Target Role
+              </CardTitle>
+              <CardDescription>
+                {targetRole
+                  ? `Aiming for ${targetRole.roleName}${
+                      targetRole.targetDate ? ` · by ${targetRole.targetDate}` : ''
+                    } — ${
+                      gapBehindCount > 0
+                        ? `${gapBehindCount} skill${gapBehindCount === 1 ? '' : 's'} behind target`
+                        : 'no gaps — on track'
+                    }`
+                  : 'Pick a target role to see where you stand'}
+              </CardDescription>
+            </div>
+            {targetRole && (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/w/${ws.slug}/roles`}>
+                  Change role <ArrowRight className="size-3" />
+                </Link>
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            {!targetRole ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Choose a role profile (e.g. Senior SRE, Platform Engineer) to
+                  compare your current levels against what the role requires.
+                </p>
+                <Button asChild>
+                  <Link href={`/w/${ws.slug}/roles`}>
+                    Set target role <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+              </div>
+            ) : gapRadarData.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No requirements defined for this role yet. Visit{' '}
+                <Link className="underline" href={`/w/${ws.slug}/roles`}>
+                  Roles
+                </Link>{' '}
+                to configure skill requirements.
+              </p>
+            ) : (
+              <GapRadar data={gapRadarData} />
+            )}
           </CardContent>
         </Card>
       </section>

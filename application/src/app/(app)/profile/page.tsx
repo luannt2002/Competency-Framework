@@ -15,7 +15,8 @@ import {
 } from '@/lib/db/schema';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Trophy, Flame, Zap, BookOpen, CalendarDays } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Plus, Trophy, Flame, Zap, BookOpen, CalendarDays, Boxes } from 'lucide-react';
 import { ActivityHeatmap, type DailyXp } from '@/components/charts/activity-heatmap';
 
 export default async function ProfilePage() {
@@ -147,13 +148,20 @@ export default async function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {workspaces.length === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              No workspaces yet.{' '}
-              <Link href="/onboarding" className="underline">
-                Fork a framework
-              </Link>
-              .
-            </div>
+            <EmptyState
+              className="border-0 bg-transparent shadow-none p-6"
+              icon={Boxes}
+              title="No workspaces yet"
+              description="Fork a competency framework to start tracking skills, climbing levels, and earning XP."
+              action={
+                <Button asChild>
+                  <Link href="/onboarding">
+                    <Plus className="size-4" />
+                    Fork a framework
+                  </Link>
+                </Button>
+              }
+            />
           ) : (
             workspaces.map((w) => (
               <Link

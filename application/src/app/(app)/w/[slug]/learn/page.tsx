@@ -14,9 +14,12 @@ import {
 } from '@/lib/db/schema';
 import { requireWorkspaceAccess } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
+import Link from 'next/link';
 import { LevelBadge } from '@/components/skills/level-badge';
-import { Lock, GraduationCap, ChevronDown } from 'lucide-react';
+import { Lock, GraduationCap, ChevronDown, Map as MapIcon } from 'lucide-react';
 import { CoursePath, type WeekNodeData } from '@/components/learn/course-path';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
 
 export default async function LearnPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -95,9 +98,16 @@ export default async function LearnPage({ params }: { params: Promise<{ slug: st
       </header>
 
       {tracks.length === 0 && (
-        <div className="surface p-12 text-center text-muted-foreground">
-          No course content yet. Re-fork the framework template.
-        </div>
+        <EmptyState
+          icon={MapIcon}
+          title="No course content yet"
+          description="This workspace has no levels or weeks defined. Re-fork the framework template to seed the curriculum."
+          action={
+            <Button asChild variant="outline">
+              <Link href="/onboarding">Re-fork framework</Link>
+            </Button>
+          }
+        />
       )}
 
       {tracks.map((track, ti) => {

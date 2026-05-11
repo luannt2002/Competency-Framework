@@ -47,6 +47,11 @@ application/drizzle/migrations/meta/_journal.json.bak
 # Raw CSVs from Google Sheets (user-specific data — keep local)
 application/drizzle/seeds/raw-csv/*.csv
 
+# Personal scratch notes — keep local only
+note.txt
+notes/
+*.scratch.md
+
 # Generated seed (only commit hand-curated devops.json baseline; CSV-derived diffs stay local if user prefers)
 # Comment the next line if you want generated seeds tracked
 # application/drizzle/seeds/devops.generated.json

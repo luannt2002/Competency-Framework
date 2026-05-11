@@ -15,14 +15,14 @@
 | 3 | Auth + workspace context | ✅ done (M0) | `src/lib/auth/*`, `src/lib/workspace.ts` |
 | 4 | Layout + theme + sidebar | ✅ done (M0) | `src/app/**/layout.tsx`, sidebar |
 | 5 | Templates catalog + Onboarding + Fork | ⬜ todo (M1) | `/templates`, `/onboarding`, fork action |
-| 6 | Skills Matrix table | ⬜ todo (M1) | `src/app/.../skills/page.tsx` |
-| 7 | Skill Drawer | ⬜ todo (M1) | `src/components/skills/skill-drawer.tsx` |
-| 8 | Framework Editor + Import/Export | ⬜ todo (M2) | `src/app/.../framework/page.tsx` |
-| 9 | Course Map (Duolingo path) | ⬜ todo (M3) | `src/components/learn/course-path.tsx` |
-| 10 | Week Detail | ⬜ todo (M3) | `src/app/.../learn/[lvl]/[wk]/page.tsx` |
-| 11 | Lesson Runner core + 3 exercise types | ⬜ todo (M4) | `src/components/learn/exercise-runner/*` |
-| 12 | Remaining exercise types + review queue | ⬜ todo (M4) | thêm 3 exercise components |
-| 13 | Gamification | ⬜ todo (M5) | XP, streak, hearts, crowns, badges |
+| 6 | Skills Matrix table + filter/search | ✅ done | `skills/page.tsx` + `skills-table-client.tsx` |
+| 7 | Skill Drawer + auto-save assessment | ✅ done | `skill-drawer.tsx` + `actions/assessments.ts` |
+| 8 | Framework Editor + Import/Export | 🟡 readonly skeleton (M2) | `framework/page.tsx` |
+| 9 | Course Map (Duolingo path) | 🟡 list-mode skeleton (M3) | `learn/page.tsx` |
+| 10 | Week Detail | ✅ done | `learn/[lvl]/[wk]/page.tsx` |
+| 11 | Lesson Runner core + 3 exercise types | ✅ done | `exercise-runner/*` (mcq, fill, type) |
+| 12 | Remaining exercise types + review queue | 🟡 review queue done; order_steps + code_block_review (M4) | needs 2 more components |
+| 13 | Gamification (XP + streak) | ✅ partial (XP + streak done; crowns + badges + hearts UI M5) | `streak.ts`, `xp-rules.ts`, `learn.ts` |
 | 14 | Dashboard charts + Today block | ⬜ todo (M5) | `src/components/charts/*` |
 | 15 | Profile + Settings + Roadmap placeholder | ⬜ todo (M5) | profile, settings pages |
 | 16 | Tests + CI + Polish | ⬜ todo (M5) | vitest, playwright, GH Actions |

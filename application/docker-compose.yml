@@ -16,7 +16,8 @@ services:
       # Enable pgcrypto + uuid extensions used by Drizzle schema (gen_random_uuid())
       POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
     ports:
-      - '5432:5432'
+      # Mapped to host 5433 to avoid conflict with other local Postgres on 5432
+      - '5433:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro

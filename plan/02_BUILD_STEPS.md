@@ -67,12 +67,15 @@
 - [x] Workspace context layout
 - [x] Sidebar component với nav items
 
-### ⬜ Step 5 — Templates + Onboarding + Fork (M1)
+### 🟡 Step 5 — Templates + Onboarding + Fork (M1) — PARTIALLY DONE
 
-**Files to create:**
+**Files done:**
+- ✅ `src/actions/workspaces.ts` — `forkTemplate` action (full transaction copying)
+- ✅ `src/lib/framework/payload-schema.ts` — Zod validation
+- ✅ `src/app/(app)/onboarding/page.tsx` — wired with real fork form
+
+**Files still to create (M1 next):**
 - `src/app/(marketing)/templates/page.tsx`
-- `src/app/(app)/onboarding/page.tsx`
-- `src/actions/workspaces.ts` — `createWorkspaceFromTemplate`
 - `src/components/templates/template-card.tsx`
 - `src/components/workspace/new-workspace-modal.tsx`
 

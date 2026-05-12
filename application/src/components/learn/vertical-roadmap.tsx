@@ -19,71 +19,55 @@
 import Link from 'next/link';
 import { Check, Lock } from 'lucide-react';
 import type { NodeWithStats } from '@/lib/tree/queries';
+import {
+  type RoadmapColor,
+  ROADMAP_COLORS,
+  nodeTypeLabel,
+  nodeTypeEmoji,
+} from '@/lib/tree/node-meta';
 
-export type RoadmapColor = 'cyan' | 'purple' | 'yellow' | 'green' | 'pink';
-const COLORS: RoadmapColor[] = ['cyan', 'purple', 'yellow', 'green', 'pink'];
-
-const TYPE_LABEL: Record<string, string> = {
-  course: 'Khoá học',
-  phase: 'Giai đoạn',
-  stage: 'Chặng',
-  week: 'Tuần',
-  session: 'Buổi',
-  module: 'Module',
-  lesson: 'Bài học',
-  theory: 'Lý thuyết',
-  lab: 'Lab',
-  project: 'Project',
-  task: 'Task',
-  milestone: 'Cột mốc',
-  exam: 'Kiểm tra',
-  capstone: 'Capstone',
-  custom: 'Tuỳ chỉnh',
-};
-
-const TYPE_EMOJI: Record<string, string> = {
-  course: '🎓',
-  phase: '📚',
-  stage: '🪜',
-  week: '🗓️',
-  session: '🎬',
-  module: '🧩',
-  lesson: '📖',
-  theory: '💡',
-  lab: '🧪',
-  project: '🛠️',
-  task: '✅',
-  milestone: '🏁',
-  exam: '📝',
-  capstone: '🎖️',
-  custom: '✨',
-};
+export type { RoadmapColor };
 
 export type RoadmapSection = {
   main: NodeWithStats;
   subs: NodeWithStats[];
 };
 
+/** Resolve `/n/<slug>` against the given base. */
+function nodeHref(linkBase: string, slug: string): string {
+  return `${linkBase.replace(/\/$/, '')}/${slug}`;
+}
+
 export function VerticalRoadmap({
   sections,
   workspaceSlug,
   startColorIndex = 0,
+  readOnly = false,
+  /** Base path used to construct each node's link.
+   *  Defaults to `/w/<slug>/n` (learn mode). Pass `/share/<slug>/n` for the
+   *  public showcase variant. Trailing slash is normalized. */
+  linkBase,
 }: {
   sections: RoadmapSection[];
   workspaceSlug: string;
   startColorIndex?: number;
+  /** When true: hide status-dependent UI (pulse, lock, crown, done check). */
+  readOnly?: boolean;
+  linkBase?: string;
 }) {
   if (sections.length === 0) return null;
+  const resolvedBase = linkBase ?? `/w/${workspaceSlug}/n`;
 
   return (
     <div className="rm-roadmap">
       {sections.map((sec, i) => {
-        const color = COLORS[(i + startColorIndex) % COLORS.length]!;
+        const color = ROADMAP_COLORS[(i + startColorIndex) % ROADMAP_COLORS.length]!;
         const isLast = i === sections.length - 1;
-        const label = TYPE_LABEL[sec.main.nodeType] ?? sec.main.nodeType;
+        const label = nodeTypeLabel(sec.main.nodeType);
         const sectionDone =
-          sec.main.status === 'done' ||
-          (sec.subs.length > 0 && sec.subs.every((s) => s.status === 'done'));
+          !readOnly &&
+          (sec.main.status === 'done' ||
+            (sec.subs.length > 0 && sec.subs.every((s) => s.status === 'done')));
 
         return (
           <div key={sec.main.id} className="rm-section">
@@ -93,13 +77,13 @@ export function VerticalRoadmap({
               </span>
             </div>
 
-            <MainPill node={sec.main} color={color} workspaceSlug={workspaceSlug} />
+            <MainPill node={sec.main} color={color} linkBase={resolvedBase} readOnly={readOnly} />
 
             {sec.subs.length > 0 && (
-              <DuolingoPath subs={sec.subs} color={color} workspaceSlug={workspaceSlug} />
+              <DuolingoPath subs={sec.subs} color={color} linkBase={resolvedBase} readOnly={readOnly} />
             )}
 
-            {sec.subs.length > 0 && (
+            {sec.subs.length > 0 && !readOnly && (
               <div className={`rm-crown${sectionDone ? '' : ' locked'}`} aria-hidden>
                 {sectionDone ? '👑' : '🔒'}
               </div>
@@ -116,14 +100,16 @@ export function VerticalRoadmap({
 function MainPill({
   node,
   color,
-  workspaceSlug,
+  linkBase,
+  readOnly,
 }: {
   node: NodeWithStats;
   color: RoadmapColor;
-  workspaceSlug: string;
+  linkBase: string;
+  readOnly?: boolean;
 }) {
-  const href = `/w/${workspaceSlug}/n/${node.slug}`;
-  const isDone = node.status === 'done';
+  const href = nodeHref(linkBase, node.slug);
+  const isDone = !readOnly && node.status === 'done';
   const pct =
     node.childrenCount > 0
       ? Math.round((node.doneChildren / node.childrenCount) * 100)
@@ -132,14 +118,22 @@ function MainPill({
         : 0;
   return (
     <Link href={href} className={`rm-main-node ${color}${isDone ? ' done' : ''}`}>
-      <span aria-hidden>{TYPE_EMOJI[node.nodeType] ?? '•'}</span>
+      <span aria-hidden>{nodeTypeEmoji(node.nodeType)}</span>
       <span className="rm-main-title">{node.title}</span>
-      {node.childrenCount > 0 && (
+      {!readOnly && node.childrenCount > 0 && (
         <span
           className="text-[11px] font-mono opacity-80 tabular-nums px-2 py-0.5 rounded-md ml-1"
           style={{ background: 'rgba(0,0,0,0.06)' }}
         >
           {node.doneChildren}/{node.childrenCount} · {pct}%
+        </span>
+      )}
+      {readOnly && node.childrenCount > 0 && (
+        <span
+          className="text-[11px] font-mono opacity-80 tabular-nums px-2 py-0.5 rounded-md ml-1"
+          style={{ background: 'rgba(0,0,0,0.06)' }}
+        >
+          {node.childrenCount} mục
         </span>
       )}
     </Link>
@@ -150,16 +144,17 @@ function MainPill({
 function DuolingoPath({
   subs,
   color,
-  workspaceSlug,
+  linkBase,
+  readOnly,
 }: {
   subs: NodeWithStats[];
   color: RoadmapColor;
-  workspaceSlug: string;
+  linkBase: string;
+  readOnly?: boolean;
 }) {
-  // Find first non-done as "current" (animates pulse).
-  const firstUndoneIdx = subs.findIndex((s) => s.status !== 'done');
-  // Anything after first undone is "locked" (Duolingo gates content sequentially —
-  // but our app doesn't actually gate so we just dim later items for visual rhythm).
+  // In learn mode: find first non-done as "current" (pulse).
+  // In read-only mode: no current, no locked.
+  const firstUndoneIdx = readOnly ? -1 : subs.findIndex((s) => s.status !== 'done');
 
   return (
     <div className="rm-path">
@@ -178,11 +173,11 @@ function DuolingoPath({
       <div className="rm-path-list">
         {subs.map((s, i) => {
           const side = i % 2 === 0 ? 'left' : 'right';
-          const isDone = s.status === 'done';
+          const isDone = !readOnly && s.status === 'done';
           const isCurrent = i === firstUndoneIdx;
-          const isLocked = firstUndoneIdx >= 0 && i > firstUndoneIdx + 2;
-          const href = `/w/${workspaceSlug}/n/${s.slug}`;
-          const emoji = TYPE_EMOJI[s.nodeType] ?? '•';
+          const isLocked = !readOnly && firstUndoneIdx >= 0 && i > firstUndoneIdx + 2;
+          const href = nodeHref(linkBase, s.slug);
+          const emoji = nodeTypeEmoji(s.nodeType);
           const idxBadge = `${i + 1}`;
           return (
             <div
@@ -208,10 +203,11 @@ function DuolingoPath({
                 <Link href={href} className={`rm-path-meta-card block ${color}`}>
                   <div className="rm-path-title">{s.title}</div>
                   <div className="rm-path-sub">
-                    {(TYPE_LABEL[s.nodeType] ?? s.nodeType)} · #{idxBadge}
-                    {s.childrenCount > 0 && (
+                    {nodeTypeLabel(s.nodeType)} · #{idxBadge}
+                    {!readOnly && s.childrenCount > 0 && (
                       <> · {s.doneChildren}/{s.childrenCount}</>
                     )}
+                    {readOnly && s.childrenCount > 0 && <> · {s.childrenCount} mục</>}
                     {s.estMinutes ? <> · ~{s.estMinutes}p</> : null}
                   </div>
                 </Link>

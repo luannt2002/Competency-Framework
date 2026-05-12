@@ -32,7 +32,7 @@ export type NodeWithStats = NodeRow & {
 };
 
 /** All root nodes in a workspace, with progress + immediate child counts. */
-export async function getRootNodes(workspaceId: string, userId: string): Promise<NodeWithStats[]> {
+export async function getRootNodes(workspaceId: string, userId: string | null): Promise<NodeWithStats[]> {
   const rows = await db
     .select()
     .from(roadmapTreeNodes)
@@ -49,7 +49,7 @@ export async function getRootNodes(workspaceId: string, userId: string): Promise
 /** Fetch a single node by its slug + its direct children. */
 export async function getNodeBySlug(
   workspaceId: string,
-  userId: string,
+  userId: string | null,
   slug: string,
 ): Promise<{ node: NodeWithStats; children: NodeWithStats[]; ancestors: NodeRow[] } | null> {
   const found = await db
@@ -107,7 +107,7 @@ export async function getNodeBySlug(
  */
 export async function getTreeSections(
   workspaceId: string,
-  userId: string,
+  userId: string | null,
   parentId: string | null,
 ): Promise<{ main: NodeWithStats; subs: NodeWithStats[] }[]> {
   const mainsRaw = await db
@@ -156,42 +156,13 @@ export async function getTreeSections(
   }));
 }
 
-/**
- * Fetch the full tree of a workspace as a nested structure — no user/status data.
- * Used by the read-only Overview page (showcase mode).
- *
- * Returns the list of root nodes, each with `.children` recursively populated.
- */
-export type OverviewNode = NodeRow & { children: OverviewNode[] };
-
-export async function getFullTree(workspaceId: string): Promise<OverviewNode[]> {
-  const all = await db
-    .select()
-    .from(roadmapTreeNodes)
-    .where(eq(roadmapTreeNodes.workspaceId, workspaceId))
-    .orderBy(asc(roadmapTreeNodes.depth), asc(roadmapTreeNodes.orderIndex));
-
-  const byId = new Map<string, OverviewNode>();
-  for (const r of all) {
-    byId.set(r.id, { ...asNodeRow(r), children: [] });
-  }
-
-  const roots: OverviewNode[] = [];
-  for (const node of byId.values()) {
-    if (node.parentId && byId.has(node.parentId)) {
-      byId.get(node.parentId)!.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-  return roots;
-}
-
-/** Add childrenCount, doneChildren, status per node. */
+/** Add childrenCount, doneChildren, status per node.
+ *  When `userId` is null, returns childrenCount but skips progress joins —
+ *  all status defaults to 'todo' and doneChildren = 0. */
 async function enrichWithStats(
   nodes: NodeRow[],
   workspaceId: string,
-  userId: string,
+  userId: string | null,
 ): Promise<NodeWithStats[]> {
   if (nodes.length === 0) return [];
 
@@ -212,49 +183,53 @@ async function enrichWithStats(
     .groupBy(roadmapTreeNodes.parentId);
   const childCountMap = new Map(childCountRows.map((r) => [r.parentId, Number(r.count) || 0]));
 
-  // For each node, count its descendants that have status='done'.
-  // Use pathStr LIKE — descendants have nodeId substring in their pathStr.
+  // If no user context, skip the user-progress joins entirely.
   const doneByParent = new Map<string, number>();
-  for (const node of nodes) {
-    // Find all immediate children ids
-    const childIds = (
-      await db
-        .select({ id: roadmapTreeNodes.id })
-        .from(roadmapTreeNodes)
+  const statusMap = new Map<string, string>();
+
+  if (userId) {
+    // Per-node descendant done counts
+    for (const node of nodes) {
+      const childIds = (
+        await db
+          .select({ id: roadmapTreeNodes.id })
+          .from(roadmapTreeNodes)
+          .where(
+            and(eq(roadmapTreeNodes.workspaceId, workspaceId), eq(roadmapTreeNodes.parentId, node.id)),
+          )
+      ).map((r) => r.id);
+      if (childIds.length === 0) {
+        doneByParent.set(node.id, 0);
+        continue;
+      }
+      const doneRows = await db
+        .select({ id: userNodeProgress.id })
+        .from(userNodeProgress)
         .where(
-          and(eq(roadmapTreeNodes.workspaceId, workspaceId), eq(roadmapTreeNodes.parentId, node.id)),
-        )
-    ).map((r) => r.id);
-    if (childIds.length === 0) {
-      doneByParent.set(node.id, 0);
-      continue;
+          and(
+            eq(userNodeProgress.workspaceId, workspaceId),
+            eq(userNodeProgress.userId, userId),
+            eq(userNodeProgress.status, 'done'),
+            dsql`${userNodeProgress.nodeId} IN (${dsql.join(childIds.map((i) => dsql`${i}::uuid`), dsql`, `)})`,
+          ),
+        );
+      doneByParent.set(node.id, doneRows.length);
     }
-    const doneRows = await db
-      .select({ id: userNodeProgress.id })
+
+    const ownStatusRows = await db
+      .select({ nodeId: userNodeProgress.nodeId, status: userNodeProgress.status })
       .from(userNodeProgress)
       .where(
         and(
           eq(userNodeProgress.workspaceId, workspaceId),
           eq(userNodeProgress.userId, userId),
-          eq(userNodeProgress.status, 'done'),
-          dsql`${userNodeProgress.nodeId} IN (${dsql.join(childIds.map((i) => dsql`${i}::uuid`), dsql`, `)})`,
+          dsql`${userNodeProgress.nodeId} IN (${dsql.join(ids.map((i) => dsql`${i}::uuid`), dsql`, `)})`,
         ),
       );
-    doneByParent.set(node.id, doneRows.length);
+    for (const r of ownStatusRows) {
+      statusMap.set(r.nodeId, r.status ?? 'todo');
+    }
   }
-
-  // Own status per node
-  const ownStatusRows = await db
-    .select({ nodeId: userNodeProgress.nodeId, status: userNodeProgress.status })
-    .from(userNodeProgress)
-    .where(
-      and(
-        eq(userNodeProgress.workspaceId, workspaceId),
-        eq(userNodeProgress.userId, userId),
-        dsql`${userNodeProgress.nodeId} IN (${dsql.join(ids.map((i) => dsql`${i}::uuid`), dsql`, `)})`,
-      ),
-    );
-  const statusMap = new Map(ownStatusRows.map((r) => [r.nodeId, r.status ?? 'todo']));
 
   return nodes.map<NodeWithStats>((n) => {
     const childCount = childCountMap.get(n.id) ?? 0;

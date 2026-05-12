@@ -6,6 +6,7 @@
 
 import { Search, Flame, Heart, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from './theme-toggle';
 
 type Props = {
   workspaceName: string;
@@ -29,9 +30,10 @@ export function Topbar({ workspaceName, dailyXp = 0, streak = 0, hearts = 5 }: P
       </button>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <StatChip icon={Zap} value={dailyXp} label="XP today" color="text-amber-400" />
-        <StatChip icon={Flame} value={streak} label="Streak" color="text-orange-400" />
-        <StatChip icon={Heart} value={hearts} label="Hearts" color="text-red-400" />
+        <StatChip icon={Zap} value={dailyXp} label="XP today" color="text-amber-500" />
+        <StatChip icon={Flame} value={streak} label="Streak" color="text-orange-500" />
+        <StatChip icon={Heart} value={hearts} label="Hearts" color="text-rose-500" />
+        <ThemeToggle />
       </div>
     </header>
   );

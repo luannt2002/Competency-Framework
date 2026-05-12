@@ -17,6 +17,7 @@ import { requireUser } from '@/lib/auth/supabase-server';
 import { getRootNodes, getTreeSections } from '@/lib/tree/queries';
 import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
 import { ShareLinkButton } from '@/components/learn/share-link-button';
+import { StatChip } from '@/components/learn/stat-chip';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Sparkles, Zap, Flame, Heart, GraduationCap, Eye } from 'lucide-react';
@@ -147,27 +148,3 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   );
 }
 
-function StatChip({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  color,
-}: {
-  icon: typeof Sparkles;
-  label: string;
-  value: string;
-  sub: string;
-  color: string;
-}) {
-  return (
-    <div className="surface p-3 flex items-center gap-3">
-      <Icon className={`size-5 ${color}`} />
-      <div className="min-w-0">
-        <div className="text-lg font-bold tabular-nums leading-tight">{value}</div>
-        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</div>
-        <div className="text-[10px] text-muted-foreground truncate">{sub}</div>
-      </div>
-    </div>
-  );
-}

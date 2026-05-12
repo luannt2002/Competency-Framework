@@ -1,19 +1,24 @@
 /**
- * Public share page — read-only overview of a workspace's roadmap tree.
- * No auth required. No status, no progress, no CRUD — pure showcase.
+ * Public share page — read-only snapshot of a workspace's roadmap.
  *
- * Designed for: sending the link to colleagues / posting to social.
+ * SAME visual component as the learn dashboard (VerticalRoadmap with
+ * zigzag path + circle nodes), but with `readOnly={true}` so:
+ *   - No pulse on current
+ *   - No lock / done check
+ *   - No crown
+ *
+ * No auth required. No user-progress data is fetched (passes null userId).
  */
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { eq } from 'drizzle-orm';
+import { eq, count } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { workspaces } from '@/lib/db/schema';
-import { getFullTree } from '@/lib/tree/queries';
-import { OverviewRoadmap } from '@/components/learn/overview-roadmap';
-import { RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
+import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
+import { getRootNodes, getTreeSections } from '@/lib/tree/queries';
+import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
+import { StatChip } from '@/components/learn/stat-chip';
 import { ShareLinkButton } from '@/components/learn/share-link-button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Layers, Sparkles } from 'lucide-react';
 
 export default async function SharePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -25,32 +30,38 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
   const ws = wsRow[0];
   if (!ws) notFound();
 
-  const rootNodes = await getFullTree(ws.id);
+  // Read-only: pass null userId — queries skip progress joins.
+  const [rootNodes, totalNodesRow] = await Promise.all([
+    getRootNodes(ws.id, null),
+    db
+      .select({ n: count() })
+      .from(roadmapTreeNodes)
+      .where(eq(roadmapTreeNodes.workspaceId, ws.id)),
+  ]);
+  const totalNodes = totalNodesRow[0]?.n ?? 0;
 
-  // If there's exactly 1 root (typical seed), use its title as hero + render its
-  // children as phases. Otherwise treat each root as a phase.
+  // Same as dashboard: if exactly 1 root, use its title as hero + drill 1 level.
+  let sections: Awaited<ReturnType<typeof getTreeSections>> = [];
   let heroTitle = ws.name;
-  let heroSubtitle: string | undefined;
-  let phases = rootNodes;
+  let heroSubtitle =
+    'Lộ trình học tập — chế độ chia sẻ chỉ xem. Click vào pill để khám phá chi tiết.';
   if (rootNodes.length === 1) {
     const root = rootNodes[0]!;
     heroTitle = root.title;
-    heroSubtitle = root.description ?? undefined;
-    phases = root.children;
+    heroSubtitle = root.description ?? heroSubtitle;
+    sections = await getTreeSections(ws.id, null, root.id);
+  } else if (rootNodes.length > 1) {
+    sections = await getTreeSections(ws.id, null, null);
   }
 
-  // Total counts (flatten the tree)
-  let totalNodes = 0;
-  const walk = (nodes: typeof rootNodes) => {
-    for (const n of nodes) {
-      totalNodes++;
-      walk(n.children);
-    }
-  };
-  walk(rootNodes);
+  const totalSections = sections.length;
+  const totalSubs = sections.reduce((acc, s) => acc + s.subs.length, 0);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 md:py-16" style={{ fontFamily: 'var(--font-outfit), sans-serif' }}>
+    <div
+      className="mx-auto max-w-5xl px-4 py-10 md:py-16"
+      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+    >
       {/* Top bar */}
       <div className="flex items-center justify-between mb-8 text-xs">
         <Link
@@ -61,28 +72,36 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
           Trang chủ
         </Link>
         <div className="flex items-center gap-3">
-          <span className="text-muted-foreground font-mono">
-            👀 Chế độ xem · {totalNodes} mục
+          <span className="text-muted-foreground font-mono inline-flex items-center gap-1">
+            👀 Read-only · {totalNodes} mục
           </span>
           <ShareLinkButton />
         </div>
       </div>
 
-      <RoadmapHero
-        badge="Roadmap · Read-only"
-        title={heroTitle}
-        subtitle={heroSubtitle ?? 'Lộ trình học tập — xem nhanh toàn bộ cấu trúc cây.'}
-      />
+      {/* Stats row — structural (no progress) */}
+      <div className="grid grid-cols-3 gap-3 mb-10 max-w-3xl mx-auto">
+        <StatChip icon={Layers} label="Giai đoạn" value={String(totalSections)} sub="cấp 1" color="text-cyan-500" />
+        <StatChip icon={Sparkles} label="Tuần / Buổi" value={String(totalSubs)} sub="cấp 2" color="text-violet-500" />
+        <StatChip icon={Sparkles} label="Tổng mục" value={String(totalNodes)} sub="trong cây" color="text-amber-500" />
+      </div>
 
-      <OverviewRoadmap phases={phases} workspaceSlug={slug} />
+      <RoadmapHero badge="Roadmap · Read-only share" title={heroTitle} subtitle={heroSubtitle} />
+
+      <VerticalRoadmap
+        sections={sections}
+        workspaceSlug={slug}
+        linkBase={`/share/${slug}/n`}
+        readOnly
+      />
 
       <RoadmapLegend />
 
       <div className="mt-10 text-center text-xs text-muted-foreground">
         <p>
-          Đây là trang chia sẻ chỉ xem. Để học và tự theo dõi tiến độ:{' '}
+          Trang chia sẻ chỉ xem · Để tự học và lưu tiến độ:{' '}
           <Link href={`/w/${slug}`} className="underline hover:text-foreground">
-            mở trang học
+            mở trang học của bạn
           </Link>
         </p>
       </div>

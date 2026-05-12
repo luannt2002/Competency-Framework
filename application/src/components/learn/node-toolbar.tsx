@@ -37,24 +37,7 @@ import {
   updateTreeNode,
   deleteTreeNode,
 } from '@/actions/tree-nodes';
-
-const NODE_TYPE_OPTIONS = [
-  { value: 'course', label: 'Khoá học' },
-  { value: 'phase', label: 'Giai đoạn' },
-  { value: 'stage', label: 'Chặng' },
-  { value: 'week', label: 'Tuần' },
-  { value: 'session', label: 'Buổi' },
-  { value: 'module', label: 'Module' },
-  { value: 'lesson', label: 'Bài học' },
-  { value: 'theory', label: 'Lý thuyết' },
-  { value: 'lab', label: 'Lab' },
-  { value: 'project', label: 'Project' },
-  { value: 'task', label: 'Task' },
-  { value: 'milestone', label: 'Cột mốc' },
-  { value: 'exam', label: 'Kiểm tra' },
-  { value: 'capstone', label: 'Capstone' },
-  { value: 'custom', label: 'Tuỳ chỉnh' },
-];
+import { NODE_TYPE_OPTIONS } from '@/lib/tree/node-meta';
 
 type Props = {
   workspaceSlug: string;

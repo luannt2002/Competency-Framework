@@ -38,6 +38,7 @@ import {
   deleteTreeNode,
 } from '@/actions/tree-nodes';
 import { NODE_TYPE_OPTIONS } from '@/lib/tree/node-meta';
+import { fireConfetti } from './confetti';
 
 type Props = {
   workspaceSlug: string;
@@ -68,6 +69,9 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
         const res = await toggleNodeDone(workspaceSlug, node.id);
         if (res.action === 'marked_done') {
           toast.success('✅ Đánh dấu xong');
+          fireConfetti({
+            intensity: node.childrenCount > 0 ? 'big' : 'small',
+          });
         } else {
           toast.info(
             res.cascadedUp > 0

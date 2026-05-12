@@ -26,6 +26,8 @@ import {
   type DiscoverWorkspace,
 } from '@/components/discover/discover-grid';
 import { Badge } from '@/components/ui/badge';
+import { FadeInSection } from '@/components/ui/fade-in-section';
+import { NumberedSection } from '@/components/ui/numbered-section';
 
 export const metadata: Metadata = {
   title: 'Khám phá lộ trình công khai · Competency Framework',
@@ -133,7 +135,7 @@ export default async function DiscoverPage() {
       className="min-h-dvh"
       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
     >
-      <section className="mx-auto max-w-6xl px-5 md:px-8 pt-12 pb-10 md:pt-20 md:pb-14 text-center">
+      <FadeInSection className="mx-auto max-w-6xl px-5 md:px-8 pt-12 pb-10 md:pt-20 md:pb-14 text-center">
         <Badge variant="outline" className="mx-auto mb-5 gap-1.5">
           <Sparkles className="size-3 text-primary" />
           Cộng đồng công khai
@@ -156,11 +158,19 @@ export default async function DiscoverPage() {
             ← Trang chủ
           </Link>
         </div>
-      </section>
+      </FadeInSection>
 
-      <section className="mx-auto max-w-6xl px-5 md:px-8 pb-20">
+      <FadeInSection
+        delay={100}
+        className="mx-auto max-w-6xl px-5 md:px-8 pb-20"
+      >
+        <NumberedSection
+          index={1}
+          title="Danh sách lộ trình"
+          subtitle={`${cards.length} mục`}
+        />
         <DiscoverGrid workspaces={cards} />
-      </section>
+      </FadeInSection>
     </main>
   );
 }

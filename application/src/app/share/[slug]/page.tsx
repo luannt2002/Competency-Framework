@@ -19,6 +19,10 @@ import { getRootNodes, getTreeSections } from '@/lib/tree/queries';
 import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
 import { StatChip } from '@/components/learn/stat-chip';
 import { ShareLinkButton } from '@/components/learn/share-link-button';
+import { NumberedSection } from '@/components/ui/numbered-section';
+import { FollowButton } from '@/components/social/follow-button';
+import { getCurrentUser } from '@/lib/auth/supabase-server';
+import { isFollowingWorkspace } from '@/actions/follows';
 import { ArrowLeft, Layers, Sparkles } from 'lucide-react';
 
 const SITE_NAME = 'Competency Framework';
@@ -112,6 +116,15 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
   ]);
   const totalNodes = totalNodesRow[0]?.n ?? 0;
 
+  // Resolve the viewer (may be null on a true public visit) so we can show
+  // the follow toggle only when logged in.
+  const viewer = await getCurrentUser();
+  const viewerFollowing =
+    viewer && ws.ownerUserId !== viewer.id
+      ? await isFollowingWorkspace(ws.id, viewer.id)
+      : false;
+  const showFollow = !!viewer && ws.ownerUserId !== viewer.id;
+
   // Same as dashboard: if exactly 1 root, use its title as hero + drill 1 level.
   let sections: Awaited<ReturnType<typeof getTreeSections>> = [];
   let heroTitle = ws.name;
@@ -147,6 +160,9 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
           <span className="text-muted-foreground font-mono inline-flex items-center gap-1">
             👀 Read-only · {totalNodes} mục
           </span>
+          {showFollow && (
+            <FollowButton workspaceSlug={slug} initialFollowing={viewerFollowing} />
+          )}
           <ShareLinkButton />
         </div>
       </div>
@@ -159,6 +175,12 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
       </div>
 
       <RoadmapHero badge="Roadmap · Read-only share" title={heroTitle} subtitle={heroSubtitle} />
+
+      <NumberedSection
+        index={1}
+        title="Lộ trình chi tiết"
+        subtitle={`${totalSections} giai đoạn`}
+      />
 
       <VerticalRoadmap
         sections={sections}

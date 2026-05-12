@@ -14,13 +14,13 @@ import { db } from '@/lib/db/client';
 import { xpEvents, streaks as streaksT, hearts as heartsT, roadmapTreeNodes, userNodeProgress } from '@/lib/db/schema';
 import { requireWorkspaceAccess } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
-import { getRootNodes, getTreeSections } from '@/lib/tree/queries';
+import { getRootNodes, getTreeSections, getLastInProgressNode } from '@/lib/tree/queries';
 import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
 import { ShareLinkButton } from '@/components/learn/share-link-button';
 import { StatChip } from '@/components/learn/stat-chip';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Sparkles, Zap, Flame, Heart, GraduationCap, Eye } from 'lucide-react';
+import { Plus, Sparkles, Zap, Flame, Heart, GraduationCap, Eye, ArrowRight, Play } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 
 export default async function DashboardPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -28,8 +28,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   const ws = await requireWorkspaceAccess(slug);
   const user = await requireUser();
 
-  // Fetch root nodes + top-bar stats in parallel
-  const [rootNodes, xpRow, streakRow, heartRow, totalNodesRow, totalDoneRow] = await Promise.all([
+  // Fetch root nodes + top-bar stats + last in-progress node in parallel
+  const [rootNodes, xpRow, streakRow, heartRow, totalNodesRow, totalDoneRow, lastInProgress] = await Promise.all([
     getRootNodes(ws.id, user.id),
     db
       .select({ s: sum(xpEvents.amount) })
@@ -59,6 +59,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
           eq(userNodeProgress.status, 'done'),
         ),
       ),
+    getLastInProgressNode(ws.id, user.id),
   ]);
 
   const totalXp = Number(xpRow[0]?.s ?? 0);
@@ -83,6 +84,16 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
     sections = await getTreeSections(ws.id, user.id, null);
   }
 
+  // Pick the first incomplete top-level phase as a "Bắt đầu học" fallback when
+  // the user has no in-progress nodes yet. Prefers visible sections (phases)
+  // over raw root nodes so it lines up with what the dashboard renders.
+  const firstIncomplete = (() => {
+    const candidates = sections.length > 0
+      ? sections.map((s) => s.main)
+      : rootNodes;
+    return candidates.find((n) => n.status !== 'done') ?? null;
+  })();
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 md:py-16">
       {/* Top action bar: share / overview */}
@@ -96,6 +107,33 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
         </Link>
         <ShareLinkButton label="Copy link share" url={`/share/${slug}`} />
       </div>
+
+      {/* Resume / Start prompt — coral-accented surface above the stat strip */}
+      {lastInProgress ? (
+        <Link
+          href={`/w/${slug}/n/${lastInProgress.slug}`}
+          className="surface surface-lift p-4 flex items-center gap-4 mb-6 border-l-4 border-l-[#ff6b6b] hover:border-l-[#ff8787] transition-colors"
+        >
+          <div className="text-2xl shrink-0" aria-hidden>🎯</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs uppercase tracking-wider font-mono text-muted-foreground">
+              Tiếp tục từ chỗ bạn dừng
+            </div>
+            <div className="font-semibold truncate">{lastInProgress.title}</div>
+          </div>
+          <ArrowRight className="size-5 text-[#ff6b6b] shrink-0" />
+        </Link>
+      ) : firstIncomplete ? (
+        <Link
+          href={`/w/${slug}/n/${firstIncomplete.slug}`}
+          className="surface surface-lift p-3 flex items-center gap-3 mb-6 text-sm hover:border-[#ff6b6b]/40 transition-colors"
+        >
+          <Play className="size-4 text-[#ff6b6b] shrink-0" />
+          <span className="text-muted-foreground">Bắt đầu học:</span>
+          <span className="font-medium truncate flex-1">{firstIncomplete.title}</span>
+          <ArrowRight className="size-4 text-muted-foreground shrink-0" />
+        </Link>
+      ) : null}
 
       {/* Stat strip (compact, on top) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10 max-w-3xl mx-auto">

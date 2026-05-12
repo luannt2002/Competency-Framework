@@ -16,9 +16,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Plus, Trophy, Flame, Zap, BookOpen, CalendarDays, Boxes } from 'lucide-react';
+import { Plus, Trophy, Flame, Zap, BookOpen, CalendarDays, Boxes, ArrowRight } from 'lucide-react';
 import { ActivityHeatmap, type DailyXp } from '@/components/charts/activity-heatmap';
 import { StatChip } from '@/components/learn/stat-chip';
+import { getLastInProgressNode } from '@/lib/tree/queries';
 
 export default async function ProfilePage() {
   const user = await requireUser();
@@ -76,6 +77,16 @@ export default async function ProfilePage() {
 
   const memberSince = new Date(user.created_at ?? Date.now()).toLocaleDateString();
 
+  // Resume cards — one per workspace that has an in-progress node.
+  const resumeCards = (
+    await Promise.all(
+      workspaces.map(async (w) => {
+        const node = await getLastInProgressNode(w.id, user.id);
+        return node ? { ws: w, node } : null;
+      }),
+    )
+  ).filter((x): x is { ws: (typeof workspaces)[number]; node: NonNullable<Awaited<ReturnType<typeof getLastInProgressNode>>> } => x !== null);
+
   return (
     <div
       className="mx-auto max-w-4xl p-6 md:p-8 space-y-8"
@@ -91,6 +102,31 @@ export default async function ProfilePage() {
           <p className="text-sm text-muted-foreground mt-1">Member since {memberSince}</p>
         </div>
       </header>
+
+      {/* Resume cards — only when the user has in-progress nodes somewhere. */}
+      {resumeCards.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+            Tiếp tục học
+          </h2>
+          {resumeCards.map(({ ws, node }) => (
+            <Link
+              key={ws.id}
+              href={`/w/${ws.slug}/n/${node.slug}`}
+              className="surface surface-lift p-4 flex items-center gap-4 border-l-4 border-l-[#ff6b6b] hover:border-l-[#ff8787] transition-colors"
+            >
+              <div className="text-2xl shrink-0" aria-hidden>🎯</div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] uppercase tracking-wider font-mono text-muted-foreground">
+                  {ws.name}
+                </div>
+                <div className="font-semibold truncate">{node.title}</div>
+              </div>
+              <ArrowRight className="size-5 text-[#ff6b6b] shrink-0" />
+            </Link>
+          ))}
+        </section>
+      )}
 
       {/* Stat row */}
       <section className="grid gap-3 grid-cols-2 md:grid-cols-4">

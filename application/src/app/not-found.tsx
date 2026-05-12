@@ -1,115 +1,65 @@
 /**
- * Global 404 — full-screen, inline SVG line-art (no Lottie / no external assets).
+ * Global 404 — paper-coral aesthetic.
+ *
+ * Centered hero card with a big gradient "404" in JetBrains Mono, an Outfit
+ * subtitle in Vietnamese, three helpful navigation links and a Compass icon.
+ * Replaces the previous SVG line-art version.
  */
 import Link from 'next/link';
+import { Compass, Home, Search, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Home } from 'lucide-react';
 
 export default function NotFound() {
   return (
-    <div className="min-h-dvh flex items-center justify-center p-6 bg-background text-foreground">
-      <div className="w-full max-w-md text-center space-y-6">
-        {/* Inline SVG line-art — a stylised compass / missing-square motif */}
-        <div className="mx-auto w-48 h-48">
-          <svg
-            viewBox="0 0 200 200"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-full h-full"
-            role="img"
-            aria-label="Page not found illustration"
+    <main
+      className="min-h-dvh flex items-center justify-center px-6 py-12 bg-background text-foreground"
+      style={{ fontFamily: 'var(--font-outfit), Outfit, sans-serif' }}
+    >
+      <div className="w-full max-w-xl surface p-8 md:p-12 text-center space-y-8">
+        <div className="flex flex-col items-center gap-6">
+          <Compass
+            className="size-24 text-primary"
+            strokeWidth={1.25}
+            aria-hidden="true"
+          />
+          <div
+            className="text-7xl md:text-8xl font-extrabold leading-none tabular-nums bg-clip-text text-transparent bg-gradient-to-br from-cyan-400 via-violet-500 to-pink-500"
+            style={{ fontFamily: 'var(--font-jetbrains), JetBrains Mono, monospace' }}
           >
-            <defs>
-              <linearGradient id="notFoundGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#22D3EE" stopOpacity="0.9" />
-                <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.9" />
-              </linearGradient>
-            </defs>
-
-            {/* Outer rounded square */}
-            <rect
-              x="20"
-              y="20"
-              width="160"
-              height="160"
-              rx="20"
-              stroke="url(#notFoundGrad)"
-              strokeWidth="2"
-              strokeDasharray="6 6"
-              fill="none"
-            />
-
-            {/* Inner missing square (placeholder) */}
-            <rect
-              x="60"
-              y="60"
-              width="80"
-              height="80"
-              rx="10"
-              stroke="currentColor"
-              strokeOpacity="0.4"
-              strokeWidth="2"
-              fill="none"
-            />
-
-            {/* Diagonal "missing" cross */}
-            <line
-              x1="60"
-              y1="60"
-              x2="140"
-              y2="140"
-              stroke="currentColor"
-              strokeOpacity="0.25"
-              strokeWidth="2"
-            />
-            <line
-              x1="140"
-              y1="60"
-              x2="60"
-              y2="140"
-              stroke="currentColor"
-              strokeOpacity="0.25"
-              strokeWidth="2"
-            />
-
-            {/* 404 text */}
-            <text
-              x="100"
-              y="108"
-              textAnchor="middle"
-              fill="url(#notFoundGrad)"
-              fontSize="24"
-              fontWeight="700"
-              fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-            >
-              404
-            </text>
-          </svg>
+            404
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+              Lộ trình bạn tìm không tồn tại
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Đường dẫn có thể đã thay đổi hoặc roadmap chưa được công khai.
+              Thử một trong các trang dưới đây.
+            </p>
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Page not found</h1>
-          <p className="text-sm text-muted-foreground">
-            We couldn&apos;t find what you were looking for. The link may be broken
-            or the page may have moved.
-          </p>
-        </div>
-
-        <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" asChild>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button asChild>
             <Link href="/">
-              <ArrowLeft className="size-4" />
-              Go back home
+              <Home className="size-4" />
+              Trang chủ
             </Link>
           </Button>
-          <Button asChild>
-            <Link href="/profile">
-              <Home className="size-4" />
-              My profile
+          <Button asChild variant="outline">
+            <Link href="/discover">
+              <Search className="size-4" />
+              Khám phá
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/share/devops-test">
+              <Eye className="size-4" />
+              Xem demo
             </Link>
           </Button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

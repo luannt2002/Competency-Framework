@@ -17,7 +17,11 @@ import { NodeToolbar } from '@/components/learn/node-toolbar';
 import { VerticalRoadmap } from '@/components/learn/vertical-roadmap';
 import { SiblingNav } from '@/components/learn/sibling-nav';
 import { JournalSection } from '@/components/learn/journal-section';
+import { QuickNoteComposer } from '@/components/learn/quick-note-composer';
 import { ResourcesSection } from '@/components/learn/resources-section';
+import { CommentThread } from '@/components/social/comment-thread';
+import { getEffectiveLevel } from '@/lib/rbac/server';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
 
 export default async function NodeDetailPage({
   params,
@@ -40,6 +44,10 @@ export default async function NodeDetailPage({
     ancestors.length > 0
       ? await getSiblings(ws.id, node.id, node.parentId, node.orderIndex)
       : { prev: null, next: null };
+
+  // Resolve viewer level once so we can gate the quick-note composer.
+  const viewerEff = await getEffectiveLevel(ws.id, user.id);
+  const canQuickNote = viewerEff.level >= RBAC_LEVELS.LEARNER;
 
   return (
     <div className="mx-auto max-w-5xl p-6 md:p-8 space-y-6">
@@ -119,7 +127,17 @@ export default async function NodeDetailPage({
         nodeId={node.id}
       />
 
+      {canQuickNote && (
+        <QuickNoteComposer workspaceSlug={slug} nodeId={node.id} />
+      )}
+
       <JournalSection
+        workspaceId={ws.id}
+        workspaceSlug={slug}
+        nodeId={node.id}
+      />
+
+      <CommentThread
         workspaceId={ws.id}
         workspaceSlug={slug}
         nodeId={node.id}

@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { Search, Flame, Heart, Zap } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
+import { NotificationsBell } from './notifications-bell';
 import { SearchDialog } from '@/components/learn/search-dialog';
 
 type Props = {
@@ -60,6 +61,7 @@ export function Topbar({
         <StatChip icon={Zap} value={dailyXp} label="XP today" color="text-amber-500" />
         <StatChip icon={Flame} value={streak} label="Streak" color="text-orange-500" />
         <StatChip icon={Heart} value={hearts} label="Hearts" color="text-rose-500" />
+        <NotificationsBell />
         <ThemeToggle />
       </div>
 

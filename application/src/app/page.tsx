@@ -10,6 +10,8 @@ import { eq, count } from 'drizzle-orm';
 import { ArrowRight, Network, Eye, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { FadeInSection } from '@/components/ui/fade-in-section';
+import { NumberedSection } from '@/components/ui/numbered-section';
 import { db } from '@/lib/db/client';
 import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
 
@@ -62,7 +64,7 @@ export default async function Landing() {
       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
     >
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border">
+      <FadeInSection className="relative overflow-hidden border-b border-border">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_rgba(204,120,92,0.10),_transparent_60%)]" />
         <div className="mx-auto max-w-5xl px-6 py-24 md:py-32 text-center">
           <Badge variant="outline" className="mx-auto mb-6 gap-1.5">
@@ -93,41 +95,50 @@ export default async function Landing() {
             </Button>
           </div>
         </div>
-      </section>
+      </FadeInSection>
 
       {/* 3 feature cards with lift effect */}
-      <section className="border-b border-border">
-        <div className="mx-auto max-w-5xl px-6 py-20 grid md:grid-cols-3 gap-6">
-          <FeatureCard
-            emoji="🌳"
-            icon={Network}
-            title="Cây học tập đa cấp"
-            desc="CRUD cây n-depth: giai đoạn → tuần → buổi → lesson / lab / project. Drag-drop sắp lại, materialized path để query nhanh, mỗi node có description + body Markdown."
+      <FadeInSection delay={100} className="border-b border-border">
+        <div className="mx-auto max-w-5xl px-6 py-20">
+          <NumberedSection
+            index={1}
+            title="Tính năng cốt lõi"
+            subtitle="3 trọng tâm"
           />
-          <FeatureCard
-            emoji="👀"
-            icon={Eye}
-            title="Showcase công khai"
-            desc="Bật visibility = public-readonly là có ngay link /share/<slug> chia sẻ Slack / Zalo / Twitter. OG image động render mỗi roadmap một preview riêng."
-          />
-          <FeatureCard
-            emoji="🔐"
-            icon={ShieldCheck}
-            title="Phân quyền 7-tier"
-            desc="Super-admin → Org-owner → Org-admin → WS-owner → Editor → Learner → Guest. Mỗi role nhìn thấy + sửa được những gì, kiểm tra ở cả server action và DB guard."
-          />
+          <div className="grid md:grid-cols-3 gap-6">
+            <FeatureCard
+              emoji="🌳"
+              icon={Network}
+              title="Cây học tập đa cấp"
+              desc="CRUD cây n-depth: giai đoạn → tuần → buổi → lesson / lab / project. Drag-drop sắp lại, materialized path để query nhanh, mỗi node có description + body Markdown."
+            />
+            <FeatureCard
+              emoji="👀"
+              icon={Eye}
+              title="Showcase công khai"
+              desc="Bật visibility = public-readonly là có ngay link /share/<slug> chia sẻ Slack / Zalo / Twitter. OG image động render mỗi roadmap một preview riêng."
+            />
+            <FeatureCard
+              emoji="🔐"
+              icon={ShieldCheck}
+              title="Phân quyền 7-tier"
+              desc="Super-admin → Org-owner → Org-admin → WS-owner → Editor → Learner → Guest. Mỗi role nhìn thấy + sửa được những gì, kiểm tra ở cả server action và DB guard."
+            />
+          </div>
         </div>
-      </section>
+      </FadeInSection>
 
       {/* Public showcase grid */}
-      <section className="mx-auto max-w-5xl px-6 py-20">
+      <FadeInSection delay={200} className="mx-auto max-w-5xl px-6 py-20">
+        <NumberedSection
+          index={2}
+          title="Roadmap công khai"
+          subtitle={`${showcaseList.length} đang mở`}
+        />
         <div className="flex items-end justify-between mb-8">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-semibold">Roadmap công khai</h2>
-            <p className="text-muted-foreground mt-1">
-              {showcaseList.length} roadmap đang mở · click để xem preview chỉ-đọc
-            </p>
-          </div>
+          <p className="text-muted-foreground">
+            Click để xem preview chỉ-đọc — không cần đăng nhập.
+          </p>
           <Link
             href="/sign-in"
             className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
@@ -155,7 +166,7 @@ export default async function Landing() {
             </Link>
           ))}
         </div>
-      </section>
+      </FadeInSection>
 
       {/* Footer */}
       <footer className="border-t border-border">

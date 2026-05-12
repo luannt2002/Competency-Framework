@@ -20,6 +20,7 @@ import { ShareLinkButton } from '@/components/learn/share-link-button';
 import { SiblingNav } from '@/components/learn/sibling-nav';
 import { JournalSection } from '@/components/learn/journal-section';
 import { ResourcesSection } from '@/components/learn/resources-section';
+import { CommentThread } from '@/components/social/comment-thread';
 import { ArrowLeft, LogIn } from 'lucide-react';
 
 const SITE_NAME = 'Competency Framework';
@@ -188,6 +189,13 @@ export default async function ShareNodePage({
       />
 
       <JournalSection
+        workspaceId={ws.id}
+        workspaceSlug={slug}
+        nodeId={node.id}
+        readOnly
+      />
+
+      <CommentThread
         workspaceId={ws.id}
         workspaceSlug={slug}
         nodeId={node.id}

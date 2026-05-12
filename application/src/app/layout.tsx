@@ -38,13 +38,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <QueryProvider>{children}</QueryProvider>
           <Toaster
-            position="top-right"
+            position="bottom-right"
             theme="light"
+            richColors
+            closeButton
+            duration={3000}
             toastOptions={{
               classNames: {
-                toast: 'bg-card border-border text-foreground',
+                toast: 'bg-card border border-border text-foreground shadow-lg',
                 title: 'font-medium',
                 description: 'text-muted-foreground text-xs',
+                success:
+                  'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800',
+                error:
+                  'bg-destructive/10 border-destructive/30 text-destructive',
               },
             }}
           />

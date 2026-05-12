@@ -6,7 +6,7 @@
  *   - list of root nodes (Dashboard)
  *   - one node + its direct children (NodeDetail)
  */
-import { and, eq, asc, sql as dsql } from 'drizzle-orm';
+import { and, eq, asc, desc, sql as dsql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { roadmapTreeNodes, userNodeProgress } from '@/lib/db/schema';
 
@@ -298,6 +298,54 @@ async function enrichWithStats(
       status,
     };
   });
+}
+
+/**
+ * Find the most recently-touched in-progress node for a user in a workspace.
+ *
+ * Joins `user_node_progress` (status='doing') against `roadmap_tree_nodes` and
+ * returns the freshest one by updated_at. Returns null when the user has no
+ * 'doing' rows in this workspace.
+ *
+ * Used by the dashboard / profile "Resume where you left off" card.
+ */
+export async function getLastInProgressNode(
+  workspaceId: string,
+  userId: string,
+): Promise<{
+  id: string;
+  title: string;
+  slug: string;
+  nodeType: string;
+  updatedAt: Date | null;
+} | null> {
+  const rows = await db
+    .select({
+      id: roadmapTreeNodes.id,
+      title: roadmapTreeNodes.title,
+      slug: roadmapTreeNodes.slug,
+      nodeType: roadmapTreeNodes.nodeType,
+      updatedAt: userNodeProgress.updatedAt,
+    })
+    .from(userNodeProgress)
+    .innerJoin(
+      roadmapTreeNodes,
+      and(
+        eq(roadmapTreeNodes.id, userNodeProgress.nodeId),
+        eq(roadmapTreeNodes.workspaceId, workspaceId),
+      ),
+    )
+    .where(
+      and(
+        eq(userNodeProgress.workspaceId, workspaceId),
+        eq(userNodeProgress.userId, userId),
+        eq(userNodeProgress.status, 'doing'),
+      ),
+    )
+    .orderBy(desc(userNodeProgress.updatedAt))
+    .limit(1);
+
+  return rows[0] ?? null;
 }
 
 function asNodeRow(r: typeof roadmapTreeNodes.$inferSelect): NodeRow {

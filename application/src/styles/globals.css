@@ -4,26 +4,27 @@
 
 @layer base {
   :root {
-    /* Light theme tokens (used only if user toggles) */
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Light theme — tuned to match hueanmy.github.io/claude-roadmap aesthetic
+       (#fafafa background, white cards, soft slate borders) */
+    --background: 0 0% 98%;             /* #fafafa */
+    --foreground: 0 0% 10%;              /* #1a1a1a */
+    --card: 0 0% 100%;                   /* #ffffff */
+    --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 188 90% 43%;              /* cyan-500 */
+    --primary-foreground: 0 0% 100%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted-foreground: 215 16% 47%;     /* slate-500-ish */
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 91%;                  /* rgba(0,0,0,0.09) approx */
+    --input: 0 0% 91%;
+    --ring: 188 90% 43%;
     --radius: 0.75rem;
   }
 
@@ -94,6 +95,20 @@
      Inspired by hueanmy.github.io/claude-roadmap
      ============================================================ */
   :root {
+    /* Light palette — soft pastel gradients matching the reference */
+    --rm-cyan: #06b6d4;
+    --rm-purple: #9333ea;
+    --rm-yellow: #ca8a04;
+    --rm-green: #10b981;
+    --rm-pink: #ec4899;
+    --rm-node-cyan-bg: linear-gradient(135deg, #cffafe, #a5f3fc);
+    --rm-node-purple-bg: linear-gradient(135deg, #ede9fe, #ddd6fe);
+    --rm-node-yellow-bg: linear-gradient(135deg, #fef9c3, #fef08a);
+    --rm-node-green-bg: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    --rm-node-pink-bg: linear-gradient(135deg, #fce7f3, #fbcfe8);
+  }
+  .dark {
+    /* Dark palette overrides — deeper saturation, dim glow backgrounds */
     --rm-cyan: #00d4d4;
     --rm-purple: #a855f7;
     --rm-yellow: #fbbf24;
@@ -186,61 +201,183 @@
     border-radius: 50%;
   }
 
-  /* Sub-row of children pills */
-  .rm-sub-row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-    padding: 20px 0;
+  /* ============================================================
+     Duolingo-style zigzag PATH for sub-nodes:
+     Each child is a big round circle node, alternating left/right,
+     connected by a dashed SVG path drawn underneath.
+     ============================================================ */
+  .rm-path {
     position: relative;
-    max-width: 900px;
     width: 100%;
+    max-width: 560px;
+    margin: 16px auto 0;
+    padding: 24px 0;
   }
-  .rm-sub-row::before {
-    content: '';
+  .rm-path-svg {
     position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 2px;
-    height: 20px;
-    background: hsl(var(--border));
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .rm-path-list {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  .rm-path-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: max-content;
+    max-width: 100%;
+  }
+  .rm-path-item.right {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+    text-align: right;
+  }
+  .rm-path-item.left {
+    align-self: flex-start;
   }
 
-  .rm-sub-node {
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-size: 0.82rem;
-    font-weight: 500;
-    border: 1px solid hsl(var(--border));
-    background: hsl(var(--card));
-    color: hsl(var(--foreground));
-    transition: all 0.2s;
-    cursor: pointer;
-    font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
-    text-decoration: none;
+  .rm-circle {
+    --ring-color: hsl(var(--muted-foreground));
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    line-height: 1.2;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, var(--ring-color), color-mix(in srgb, var(--ring-color) 70%, black));
+    box-shadow:
+      0 6px 0 0 color-mix(in srgb, var(--ring-color) 70%, black),
+      0 8px 20px -4px color-mix(in srgb, var(--ring-color) 50%, transparent);
+    border: 4px solid white;
+    text-decoration: none;
+    transition: transform 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
   }
-  .rm-sub-node:hover {
-    background: hsl(var(--secondary));
+  .rm-circle:hover {
     transform: translateY(-2px);
+    box-shadow:
+      0 8px 0 0 color-mix(in srgb, var(--ring-color) 70%, black),
+      0 12px 28px -4px color-mix(in srgb, var(--ring-color) 60%, transparent);
   }
-  .rm-sub-node.done {
-    opacity: 0.55;
+  .rm-circle:active {
+    transform: translateY(2px);
+    box-shadow:
+      0 2px 0 0 color-mix(in srgb, var(--ring-color) 70%, black),
+      0 4px 12px -4px color-mix(in srgb, var(--ring-color) 50%, transparent);
   }
-  .rm-sub-node.done .rm-sub-title {
-    text-decoration: line-through;
+  .rm-circle.cyan   { --ring-color: var(--rm-cyan); }
+  .rm-circle.purple { --ring-color: var(--rm-purple); }
+  .rm-circle.yellow { --ring-color: var(--rm-yellow); }
+  .rm-circle.green  { --ring-color: var(--rm-green); }
+  .rm-circle.pink   { --ring-color: var(--rm-pink); }
+
+  .rm-circle.locked {
+    --ring-color: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--muted));
+    box-shadow:
+      0 6px 0 0 hsl(var(--border)),
+      0 8px 20px -4px rgba(0,0,0,0.08);
+    border-color: hsl(var(--card));
+    opacity: 0.85;
   }
 
-  .rm-sub-node.cyan   { border-color: rgba(0,212,212,0.4);   color: var(--rm-cyan);   }
-  .rm-sub-node.purple { border-color: rgba(168,85,247,0.4);  color: var(--rm-purple); }
-  .rm-sub-node.yellow { border-color: rgba(251,191,36,0.4);  color: var(--rm-yellow); }
-  .rm-sub-node.green  { border-color: rgba(52,211,153,0.4);  color: var(--rm-green);  }
-  .rm-sub-node.pink   { border-color: rgba(244,114,182,0.4); color: var(--rm-pink);   }
+  .rm-circle.current {
+    animation: rm-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes rm-pulse {
+    0%, 100% { box-shadow:
+      0 6px 0 0 color-mix(in srgb, var(--ring-color) 70%, black),
+      0 0 0 0 color-mix(in srgb, var(--ring-color) 40%, transparent),
+      0 8px 20px -4px color-mix(in srgb, var(--ring-color) 50%, transparent); }
+    50% { box-shadow:
+      0 6px 0 0 color-mix(in srgb, var(--ring-color) 70%, black),
+      0 0 0 14px color-mix(in srgb, var(--ring-color) 12%, transparent),
+      0 8px 20px -4px color-mix(in srgb, var(--ring-color) 50%, transparent); }
+  }
+
+  .rm-circle.done {
+    background: linear-gradient(135deg, var(--ring-color), color-mix(in srgb, var(--ring-color) 70%, black));
+    opacity: 0.92;
+  }
+
+  /* Title card beside each circle */
+  .rm-path-meta {
+    flex: 1;
+    min-width: 0;
+    max-width: 360px;
+  }
+  .rm-path-meta-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 12px;
+    padding: 10px 14px;
+    box-shadow: 0 2px 6px -2px rgba(0,0,0,0.06);
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  .rm-path-meta-card:hover {
+    transform: translateY(-1px);
+    border-color: hsl(var(--ring) / 0.5);
+  }
+  .rm-path-meta-card.cyan:hover   { border-color: var(--rm-cyan); }
+  .rm-path-meta-card.purple:hover { border-color: var(--rm-purple); }
+  .rm-path-meta-card.yellow:hover { border-color: var(--rm-yellow); }
+  .rm-path-meta-card.green:hover  { border-color: var(--rm-green); }
+  .rm-path-meta-card.pink:hover   { border-color: var(--rm-pink); }
+
+  .rm-path-title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .rm-path-sub {
+    margin-top: 3px;
+    font-size: 0.7rem;
+    color: hsl(var(--muted-foreground));
+    font-family: var(--font-jetbrains), monospace;
+    letter-spacing: 0.4px;
+  }
+  .rm-path-item.right .rm-path-sub { text-align: right; }
+  .rm-path-item.done .rm-path-title { text-decoration: line-through; opacity: 0.6; }
+
+  /* Crown/trophy at end of section */
+  .rm-crown {
+    align-self: center;
+    margin-top: 32px;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #fde68a, #f59e0b);
+    border: 4px solid white;
+    box-shadow: 0 4px 0 0 #b45309, 0 8px 20px -4px rgba(245, 158, 11, 0.4);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+  }
+  .rm-crown.locked {
+    background: hsl(var(--muted));
+    box-shadow: 0 4px 0 0 hsl(var(--border)), 0 8px 20px -4px rgba(0,0,0,0.05);
+    opacity: 0.6;
+    filter: grayscale(0.8);
+  }
 
   /* Roadmap container */
   .rm-roadmap {

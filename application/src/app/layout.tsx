@@ -35,11 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${GeistSans.variable} ${GeistMono.variable} ${outfit.variable} ${jetbrainsMono.variable}`}
     >
       <body className="min-h-dvh bg-background text-foreground font-sans">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <QueryProvider>{children}</QueryProvider>
           <Toaster
             position="top-right"
-            theme="dark"
+            theme="light"
             toastOptions={{
               classNames: {
                 toast: 'bg-card border-border text-foreground',

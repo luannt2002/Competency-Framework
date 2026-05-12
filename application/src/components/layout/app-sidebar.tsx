@@ -65,8 +65,8 @@ export function AppSidebar({
               className={cn(
                 'relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all',
                 active
-                  ? 'bg-white/5 text-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-white/5',
+                  ? 'bg-foreground/5 text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5',
               )}
             >
               {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r-full accent-gradient" />}
@@ -81,14 +81,14 @@ export function AppSidebar({
       <div className="border-t border-border p-2 space-y-1">
         <Link
           href="/profile"
-          className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5"
+          className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5"
         >
           <User className="size-4" />
           Profile
         </Link>
         <Link
           href="/settings"
-          className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5"
+          className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5"
         >
           <Settings2 className="size-4" />
           Settings

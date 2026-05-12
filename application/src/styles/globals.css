@@ -4,28 +4,29 @@
 
 @layer base {
   :root {
-    /* Light theme — tuned to match hueanmy.github.io/claude-roadmap aesthetic
-       (#fafafa background, white cards, soft slate borders) */
-    --background: 0 0% 98%;             /* #fafafa */
-    --foreground: 0 0% 10%;              /* #1a1a1a */
+    /* Light theme — Claude paper-coral aesthetic
+       (cream paper bg, white cards, warm beige borders, coral accent)
+       Inspired by hueanmy.github.io main site design language. */
+    --background: 46 41% 97%;            /* #faf9f5 cream paper */
+    --foreground: 45 9% 9%;              /* #1a1915 charcoal */
     --card: 0 0% 100%;                   /* #ffffff */
-    --card-foreground: 0 0% 10%;
+    --card-foreground: 45 9% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
-    --primary: 188 90% 43%;              /* cyan-500 */
+    --popover-foreground: 45 9% 9%;
+    --primary: 18 53% 58%;               /* #cc785c Claude coral */
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215 16% 47%;     /* slate-500-ish */
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 42 21% 93%;             /* #f3f1ea elevated paper */
+    --secondary-foreground: 45 9% 17%;
+    --muted: 42 21% 93%;
+    --muted-foreground: 38 4% 47%;       /* #7a7770 warm slate */
+    --accent: 42 21% 93%;
+    --accent-foreground: 45 9% 17%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 91%;                  /* rgba(0,0,0,0.09) approx */
-    --input: 0 0% 91%;
-    --ring: 188 90% 43%;
-    --radius: 0.75rem;
+    --border: 40 30% 88%;                /* #e8e4d8 warm beige border */
+    --input: 40 30% 88%;
+    --ring: 18 53% 58%;                  /* coral focus ring */
+    --radius: 0.625rem;                  /* 10px matching reference */
   }
 
   .dark {
@@ -83,11 +84,41 @@
   .accent-gradient-text {
     @apply bg-gradient-to-br from-cyan-400 to-violet-500 bg-clip-text text-transparent;
   }
+  /* Card-like surface — paper-coral hover effect (lift -2px + coral glow)
+     inspired by hueanmy.github.io reference. */
   .surface {
-    @apply bg-card border border-border rounded-2xl;
+    @apply bg-card border border-border rounded-2xl transition-all duration-200;
   }
   .surface-hover {
-    @apply transition-colors hover:bg-secondary;
+    @apply transition-all duration-200 hover:bg-secondary;
+  }
+  .surface-lift:hover {
+    transform: translateY(-2px);
+    border-color: hsl(var(--primary) / 0.5);
+    box-shadow:
+      0 0 0 1px hsl(var(--primary) / 0.18),
+      0 8px 30px hsl(var(--primary) / 0.08),
+      0 2px 10px hsl(var(--primary) / 0.1);
+  }
+
+  /* Section h2 — uppercase tracker + bottom border, matches reference. */
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground pb-3 border-b border-border mb-6;
+  }
+
+  /* Tag chip — accent-soft bg + mono font for badges. */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem 0.45rem;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+    border-radius: 4px;
+    font-size: 0.66rem;
+    font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    line-height: 1.4;
   }
 
   /* ============================================================

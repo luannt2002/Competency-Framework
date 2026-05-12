@@ -185,13 +185,13 @@ export default async function ProfilePage() {
             <EmptyState
               className="border-0 bg-transparent shadow-none p-6"
               icon={Boxes}
-              title="No workspaces yet"
-              description="Fork a competency framework to start tracking skills, climbing levels, and earning XP."
+              title="Bạn chưa có workspace nào"
+              description="Fork a competency framework hoặc bắt đầu với cây trống để track skills, leo levels và earn XP."
               action={
                 <Button asChild>
                   <Link href="/onboarding">
                     <Plus className="size-4" />
-                    Fork a framework
+                    Tạo workspace đầu tiên
                   </Link>
                 </Button>
               }

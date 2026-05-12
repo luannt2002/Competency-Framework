@@ -10,8 +10,9 @@
  * No auth required. No user-progress data is fetched (passes null userId).
  */
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { eq, count } from 'drizzle-orm';
+import { eq, count, isNull, and } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
 import { getRootNodes, getTreeSections } from '@/lib/tree/queries';
@@ -19,6 +20,77 @@ import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/
 import { StatChip } from '@/components/learn/stat-chip';
 import { ShareLinkButton } from '@/components/learn/share-link-button';
 import { ArrowLeft, Layers, Sparkles } from 'lucide-react';
+
+const SITE_NAME = 'Competency Framework';
+
+function truncate(s: string | null | undefined, max: number): string {
+  if (!s) return '';
+  const t = s.trim();
+  return t.length <= max ? t : t.slice(0, max - 1).trimEnd() + '…';
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const wsRow = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.slug, slug))
+    .limit(1);
+  const ws = wsRow[0];
+  if (!ws) {
+    return { title: 'Roadmap not found · ' + SITE_NAME };
+  }
+
+  // Count nodes + try to pick description from sole root node (workspaces table has none).
+  const [totalNodesRow, rootRow] = await Promise.all([
+    db
+      .select({ n: count() })
+      .from(roadmapTreeNodes)
+      .where(eq(roadmapTreeNodes.workspaceId, ws.id)),
+    db
+      .select({ description: roadmapTreeNodes.description })
+      .from(roadmapTreeNodes)
+      .where(
+        and(
+          eq(roadmapTreeNodes.workspaceId, ws.id),
+          isNull(roadmapTreeNodes.parentId),
+        ),
+      )
+      .limit(2),
+  ]);
+  const totalNodes = totalNodesRow[0]?.n ?? 0;
+  const rootDescription = rootRow.length === 1 ? rootRow[0]?.description ?? null : null;
+
+  const title = `${ws.name} · Roadmap`;
+  const description =
+    truncate(rootDescription, 160) || `Lộ trình học tập — ${totalNodes} mục`;
+  const ogImage = `/api/og?slug=${encodeURIComponent(slug)}`;
+  const url = `/share/${slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: SITE_NAME,
+      type: 'website',
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
+}
 
 export default async function SharePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

@@ -57,14 +57,18 @@ const forkInput = z.object({
   name: z.string().min(1).max(80),
 });
 
-export async function forkTemplate(formData: FormData): Promise<void> {
+/**
+ * Core fork — performs the heavy lifting and returns the freshly-created
+ * workspace row. Used by both `forkTemplate` (which redirects to /w/<slug>)
+ * and the onboarding wizard which prefers to redirect to step 2.
+ */
+async function forkTemplateCore(input: {
+  templateId: string;
+  slug: string;
+  name: string;
+}): Promise<{ id: string; slug: string; name: string }> {
   const user = await requireUser();
-
-  const parsed = forkInput.parse({
-    templateId: formData.get('templateId'),
-    slug: toSlug(String(formData.get('slug') ?? '')),
-    name: String(formData.get('name') ?? ''),
-  });
+  const parsed = forkInput.parse(input);
 
   // Load template
   const tplRows = await db
@@ -328,5 +332,146 @@ export async function forkTemplate(formData: FormData): Promise<void> {
     .where(eq(frameworkTemplates.id, tpl.id));
 
   revalidatePath('/');
+  return { id: ws.id, slug: ws.slug, name: ws.name };
+}
+
+/**
+ * Public server action — fork a template and redirect to the workspace home.
+ * Used by non-wizard callers (e.g. simple links / scripts).
+ */
+export async function forkTemplate(formData: FormData): Promise<void> {
+  const ws = await forkTemplateCore({
+    templateId: String(formData.get('templateId') ?? ''),
+    slug: toSlug(String(formData.get('slug') ?? '')),
+    name: String(formData.get('name') ?? ''),
+  });
   redirect(`/w/${ws.slug}`);
+}
+
+/**
+ * Onboarding-wizard variant — forks a template, then redirects to step 2
+ * (name your workspace) carrying the new workspace id in the query string.
+ *
+ * The wizard auto-generates a unique slug (template slug + random suffix) so
+ * we don't collide if the user has already forked the same template before.
+ */
+export async function forkTemplateForOnboarding(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const templateId = String(formData.get('templateId') ?? '');
+  if (!templateId) throw new Error('TEMPLATE_ID_REQUIRED');
+
+  // Load template (need name/slug for defaults)
+  const tplRows = await db
+    .select()
+    .from(frameworkTemplates)
+    .where(eq(frameworkTemplates.id, templateId))
+    .limit(1);
+  const tpl = tplRows[0];
+  if (!tpl) throw new Error('TEMPLATE_NOT_FOUND');
+
+  // Auto-pick a unique slug: <tpl-slug>-<userId-prefix>-<random>
+  const suffix = Math.random().toString(36).slice(2, 6);
+  const baseSlug = toSlug(`${tpl.slug}-${user.id.slice(0, 4)}-${suffix}`);
+
+  const ws = await forkTemplateCore({
+    templateId,
+    slug: baseSlug,
+    name: `${tpl.name} (Mine)`,
+  });
+
+  redirect(`/onboarding?step=2&ws=${ws.id}`);
+}
+
+/**
+ * Step 2 of the onboarding wizard — rename the freshly-forked workspace.
+ * Also updates the slug to a slugified form of the new name (best-effort —
+ * falls back to the existing slug if the new one would collide).
+ */
+export async function renameOnboardingWorkspace(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const workspaceId = String(formData.get('workspaceId') ?? '');
+  const rawName = String(formData.get('name') ?? '').trim();
+  if (!workspaceId) throw new Error('WORKSPACE_ID_REQUIRED');
+  if (!rawName) throw new Error('NAME_REQUIRED');
+
+  // Load + authorize
+  const rows = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  const ws = rows[0];
+  if (!ws) throw new Error('WORKSPACE_NOT_FOUND');
+  if (ws.ownerUserId !== user.id) throw new Error('FORBIDDEN');
+
+  const desiredSlug = toSlug(rawName).slice(0, 40) || ws.slug;
+
+  // Try slug update; fall back to existing slug on uniqueness conflict
+  let finalSlug = ws.slug;
+  try {
+    await db
+      .update(workspaces)
+      .set({ name: rawName.slice(0, 80), slug: desiredSlug })
+      .where(eq(workspaces.id, workspaceId));
+    finalSlug = desiredSlug;
+  } catch {
+    await db
+      .update(workspaces)
+      .set({ name: rawName.slice(0, 80) })
+      .where(eq(workspaces.id, workspaceId));
+  }
+
+  revalidatePath('/');
+  redirect(`/onboarding?step=3&ws=${workspaceId}&slug=${finalSlug}`);
+}
+
+/**
+ * Onboarding "blank" — creates a minimal workspace without a template fork.
+ * Inserts only the workspace row + the standard hearts/streaks seed so that
+ * /w/[slug] is immediately accessible.
+ */
+export async function createBlankWorkspace(): Promise<void> {
+  const user = await requireUser();
+
+  const suffix = Math.random().toString(36).slice(2, 6);
+  const slug = toSlug(`workspace-${user.id.slice(0, 4)}-${suffix}`);
+
+  const [ws] = await db
+    .insert(workspaces)
+    .values({
+      ownerUserId: user.id,
+      slug,
+      name: 'Cây trống',
+      visibility: 'private',
+    })
+    .returning();
+  if (!ws) throw new Error('WORKSPACE_INSERT_FAILED');
+
+  await db.insert(hearts).values({ workspaceId: ws.id, userId: user.id, current: 5, max: 5 });
+  await db.insert(streaks).values({
+    workspaceId: ws.id,
+    userId: user.id,
+    currentStreak: 0,
+    longestStreak: 0,
+  });
+  await db.insert(activityLog).values({
+    workspaceId: ws.id,
+    userId: user.id,
+    kind: 'framework_forked',
+    payload: { blank: true },
+  });
+
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: 'workspace_owner',
+    action: 'workspace.create',
+    resourceType: 'workspace',
+    resourceId: ws.id,
+    before: null,
+    after: { id: ws.id, slug: ws.slug, name: ws.name, blank: true },
+  });
+
+  revalidatePath('/');
+  redirect(`/onboarding?step=2&ws=${ws.id}`);
 }

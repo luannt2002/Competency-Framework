@@ -1,195 +1,126 @@
-# 🎯 Competency Framework
+# Competency Framework
 
-> *"Fork a competency framework. Learn the gaps. Master the level."*
-> A workspace-first, framework-agnostic platform combining **roadmap.sh forkability** + **Duolingo-style self-learning** + **Skills Matrix self-assessment**.
+> Tree-first roadmap app — chia sẻ lộ trình học công khai như roadmap.sh, đo tiến độ như Duolingo, phân quyền như Linear.
 
-[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://typescriptlang.org)
-[![Supabase](https://img.shields.io/badge/Supabase-green)](https://supabase.com)
+[![Drizzle](https://img.shields.io/badge/Drizzle-ORM-green)](https://orm.drizzle.team)
 [![Tailwind](https://img.shields.io/badge/Tailwind-3.4-cyan)](https://tailwindcss.com)
 
 ---
 
-## ✨ Features (MVP roadmap)
+## Screenshots
 
-- **🎯 Competency Matrix** — Skills × Levels (XS/S/M/L) with self-assessment, evidence links, notes (Markdown).
-- **📚 Course Map (Duolingo-style)** — Curved path of 12 weeks × 4 levels, lock/unlock, progress nodes.
-- **🧩 Lesson Runner** — 5 exercise types (MCQ, fill-blank, order-steps, type-answer, code review) with instant feedback.
-- **🏆 Gamification** — XP, Streak, Hearts, Crowns per skill, Badges.
-- **🏗️ Framework Editor** — CRUD categories/skills/levels; import from Google Sheets / CSV / JSON.
-- **🌑 Dark-first UI** — Linear/Vercel aesthetic, mobile responsive, keyboard-driven.
-- **🔓 Workspace-first** — DevOps first, easily add Frontend / Backend / Data Eng frameworks.
+> Add screenshots here. Suggested paths under `docs/screenshots/`:
 
----
-
-## 🏛️ Architecture
-
-```
-Workspace = 1 Framework instance
-   │
-   ├── Axis A: Competency Matrix
-   │     Categories → Skills → Levels (XS/S/M/L) → User assessment
-   │
-   └── Axis B: Learning Path (Duolingo-style)
-         Level Tracks → Weeks → Modules → Lessons → Exercises
-              ↑ linked via lesson_skill_map ↑
-```
-
-See `../plan/01_ARCHITECTURE.md` for ADRs and full diagrams.
+| Route | File | Mô tả |
+|---|---|---|
+| `/` | `docs/screenshots/landing.png` | Landing page — hero "Lộ trình học tập trực quan" + 3 feature cards + grid roadmap công khai. |
+| `/share/<slug>` | `docs/screenshots/share-dashboard.png` | Showcase công khai (read-only) — zigzag vertical path, stat chips, không cần đăng nhập. |
+| `/share/<slug>/n/<nodeSlug>` | `docs/screenshots/share-node.png` | Trang chi tiết 1 node trong chế độ chia sẻ — breadcrumb, mô tả Markdown, sibling nav, CTA đăng nhập. |
+| `/w/<slug>` | `docs/screenshots/learn-dashboard.png` | Dashboard học (auth-gated) — cùng layout share + lock/done/crown/streak/XP. |
+| `/w/<slug>/n/<nodeSlug>` | `docs/screenshots/learn-node.png` | Trang node học — đánh dấu xong, note Markdown, evidence URLs, journal. |
 
 ---
 
-## 🛠️ Tech Stack
+## Why
 
-| Layer | Choice |
-|---|---|
-| Framework | Next.js 15 (App Router, Server Components, Server Actions) |
-| Language | TypeScript strict |
-| Style | Tailwind 3.4 + shadcn/ui + Framer Motion |
-| DB | Supabase Postgres |
-| ORM | Drizzle ORM |
-| Auth | Supabase Auth (magic link + Google) |
-| Charts | Recharts (radar, bar, area) |
-| Tables | TanStack Table + Virtual |
-| Forms | react-hook-form + Zod |
-| Tests | Vitest + Playwright |
-| Pkg | pnpm 9+ |
+Mỗi team training, onboarding pipeline, hoặc người tự học đều cần cùng một primitive: **một cây mục tiêu / lộ trình có thể chia sẻ + theo dõi tiến độ + phân quyền**.
+
+Các công cụ hiện tại bắt phải chọn 1 trong 3:
+
+- **roadmap.sh** đẹp, share tốt — nhưng không có tài khoản, không lưu tiến độ, không sửa được.
+- **Notion / Google Doc** sửa thoải mái — nhưng không có hình cây, không gamification, share rộng thì rối.
+- **LMS thương mại** đủ phân quyền — nhưng nặng, đắt, không mở public read-only được.
+
+Project này nhập 3 nhu cầu vào 1 mô hình: **cây node `roadmap_tree_nodes`** đệ quy, được phục vụ bởi 2 mặt — `/share/<slug>` public read-only và `/w/<slug>` auth-gated learn mode.
 
 ---
 
-## 🚀 Setup local
+## Features
 
-### Prerequisites
-- Node 20+, pnpm 9+
-- **Postgres** — choose one:
-  - **Option A (recommended):** managed [Supabase](https://supabase.com) free tier (500MB DB + Auth + Storage; 5min signup)
-  - **Option B:** local Docker Postgres via `docker compose up -d` (but still need Supabase Auth project — free tier — for sign-in)
+- **Cây học tập đa cấp** — `roadmap_tree_nodes` đệ quy n-depth (Course → Phase → Stage → Week → Session → Lesson / Lab / Project / Milestone). Adjacency list + materialized `path_str`.
+- **Showcase công khai** — workspace có `visibility = 'public-readonly'` tự động xuất ra `/share/<slug>` không cần đăng nhập, kèm OG image động `/api/og?slug=<slug>` để link đẹp trên Slack / Zalo / Twitter.
+- **Learn mode auth-gated** — `/w/<slug>` có lock/unlock, `user_node_progress`, journal Markdown, streak, XP, hearts.
+- **RBAC 7-tier** — Super-admin → Org-owner → Org-admin → WS-owner → WS-editor → WS-learner → Guest. Server actions + DB guards.
+- **DevOps seed sẵn** — 286 node lộ trình DevOps Mastery 2026 (12 phases × ~24 weeks × lessons / labs / projects).
 
-### Why Supabase?
-Supabase provides **3 services** the app uses:
-1. **Postgres** — primary database (replaceable with Docker Postgres for self-host)
-2. **Auth** — magic link + Google OAuth, session management (hard to replace, recommend keeping)
-3. **Storage** (future) — avatar/export file storage
+---
 
-### Steps
+## Quickstart
+
+Cần Node 20+, pnpm 9+, Docker (để chạy Postgres local).
 
 ```bash
 # 1. Clone
 git clone https://github.com/luannt2002/Competency-Framework.git
 cd Competency-Framework/application
 
-# 2. (Optional) Start local Postgres if going Option B
-docker compose up -d
-
-# 3. Configure env
+# 2. Env
 cp .env.example .env.local
-# - Always need: NEXT_PUBLIC_SUPABASE_URL + ANON_KEY + SERVICE_ROLE_KEY (for auth)
-# - DATABASE_URL: pick Supabase OR local Docker (see .env.example comments)
+# Điền NEXT_PUBLIC_SUPABASE_URL, ANON_KEY, SERVICE_ROLE_KEY, DATABASE_URL
 
-# 4. Install + migrate + seed + run
+# 3. Postgres local
+docker compose up -d postgres
+
+# 4. Cài + migrate + seed + chạy
 pnpm install
-pnpm db:push       # create 22 tables on chosen Postgres
-pnpm db:seed       # insert DevOps framework template (120KB JSON)
+pnpm db:push       # tạo bảng
+pnpm db:seed       # seed DevOps tree (286 node) + workspace devops-test
 pnpm dev
 ```
 
-Open http://localhost:3000 — sign in via magic link, fork the DevOps template, start learning.
+Mở [http://localhost:3000](http://localhost:3000) → đăng nhập magic link → hoặc xem ngay [/share/devops-test](http://localhost:3000/share/devops-test).
 
 ---
 
-## 📊 Data sources
+## Architecture
 
-The DevOps framework seed is generated from 2 Google Sheets:
-- **Skills Matrix:** [Sheet 1 (gid 1970847068)](https://docs.google.com/spreadsheets/d/1mejAsbHOU2c2GEQ3hTs2_sQyXD4vxgtttsuy7dRbTvw/edit?gid=1970847068)
-- **Competency Levels:** [Sheet 2 (gid 1890838692)](https://docs.google.com/spreadsheets/d/1mejAsbHOU2c2GEQ3hTs2_sQyXD4vxgtttsuy7dRbTvw/edit?gid=1890838692)
+**Next 15 App Router** — toàn bộ là React Server Components by default, mutations qua Server Actions. Routes chia 3 nhánh: `/` (marketing), `/share/[slug]/**` (public), `/w/[slug]/**` (auth-gated, group `(app)`).
 
-### Re-generating seed from CSV
+**Drizzle + Postgres** — schema chia 3 file: `schema.ts` (tenancy, templates, matrix, gamification), `schema-tree.ts` (`roadmap_tree_nodes` + `user_node_progress` — bảng chính phục vụ tree-first model), `schema-journal.ts` (note Markdown + evidence URLs per node). Tất cả workspace-scoped row có `workspace_id` indexed.
+
+**RBAC 7-tier** — định nghĩa ở `src/lib/rbac/`, dùng ở 2 chỗ: (a) helper `requireWorkspaceAccess(slug)` chặn ở Server Action / Route Handler, (b) selective query filters ở `src/lib/tree/queries.ts`. Xem `docs/dev/RBAC_PERMISSIONS.md` cho ma trận đầy đủ.
+
+**Supabase Auth** — magic link + Google OAuth. SSR session qua `@supabase/ssr`, client wrappers ở `src/lib/auth/`. Không dùng Supabase Postgres bắt buộc — `DATABASE_URL` có thể trỏ Docker Postgres local, chỉ cần Supabase project cho Auth.
+
+---
+
+## Routes
+
+| Route | Mô tả |
+|---|---|
+| `/` | Landing — hero, 3 feature cards, grid public roadmap. |
+| `/share/[slug]` | Showcase công khai 1 workspace — read-only, không auth. |
+| `/share/[slug]/n/[nodeSlug]` | Chi tiết 1 node trong share mode — breadcrumb, body Markdown, CTA đăng nhập. |
+| `/api/og?slug=&node=` | Dynamic OG image (PNG 1200×630, cache 1h) cho 2 route share trên. |
+| `/sign-in` | Magic link + Google OAuth. |
+| `/w/[slug]` | Dashboard học (auth) — cùng layout share + lock/done/crown. |
+| `/w/[slug]/n/[nodeSlug]` | Node học — đánh dấu xong, evidence, journal. |
+| `/w/[slug]/settings` | Quản lý workspace — đổi visibility, mời member, role. |
+
+---
+
+## Quality gates
 
 ```bash
-# Export both sheet tabs to CSV → place in drizzle/seeds/raw-csv/
-# Then:
-pnpm gen:seed-from-csv
-pnpm db:seed
+pnpm typecheck         # tsc --noEmit (strict)
+pnpm lint              # ESLint, 0 errors target
+pnpm test              # Vitest unit
+pnpm test:e2e          # Playwright smoke
+pnpm guard             # no-mock + no-hardcode codebase guards
+pnpm quality:check     # tất cả gates trên gộp 1 lệnh
 ```
 
 ---
 
-## 🧩 Adding a new framework (e.g., Frontend Engineer)
+## Docs
 
-1. Create JSON file in `drizzle/seeds/frontend-react.json` following the schema in `drizzle/seeds/devops.json`.
-2. Add entry in `drizzle/seed.ts`:
-   ```ts
-   await seedTemplate('frontend-react', './seeds/frontend-react.json');
-   ```
-3. Run `pnpm db:seed`.
-
-No code changes — schema is framework-agnostic.
+- [`docs/dev/RBAC_PERMISSIONS.md`](docs/dev/RBAC_PERMISSIONS.md) — ma trận 7-tier × resource × action, kèm test matrix.
+- [`docs/business/PHAN_QUYEN.md`](docs/business/PHAN_QUYEN.md) — diễn giải tiếng Việt cho stakeholder không kỹ thuật.
 
 ---
 
-## 🧪 Tests
+## License
 
-```bash
-pnpm test         # unit (Vitest)
-pnpm test:e2e     # E2E smoke (Playwright)
-pnpm typecheck    # tsc --noEmit
-pnpm lint         # ESLint
-```
-
----
-
-## 📁 Folder structure
-
-```
-application/
-├── src/
-│   ├── app/                # Next.js App Router pages
-│   │   ├── (marketing)/    # landing, templates catalog
-│   │   ├── (auth)/         # sign-in
-│   │   └── (app)/          # authenticated app
-│   │       └── w/[slug]/   # workspace-scoped routes
-│   ├── components/
-│   │   ├── ui/             # shadcn primitives
-│   │   ├── skills/         # matrix axis
-│   │   ├── learn/          # course axis
-│   │   ├── gamification/
-│   │   └── layout/
-│   ├── lib/
-│   │   ├── db/             # Drizzle client + schema
-│   │   ├── auth/           # Supabase server/client
-│   │   └── workspace.ts
-│   ├── actions/            # Server Actions
-│   ├── hooks/
-│   └── styles/
-├── drizzle/
-│   ├── seeds/
-│   │   └── devops.json     # DevOps framework payload
-│   └── seed.ts
-└── tests/
-```
-
----
-
-## 🗺️ Build status
-
-See [`../plan/02_BUILD_STEPS.md`](../plan/02_BUILD_STEPS.md) for milestone tracker.
-
-Currently shipped: **M0 Foundation Scaffold** (Step 0–4).
-
-Coming next: M1 Skills Matrix axis (Step 5–7).
-
----
-
-## 🙏 Inspiration & credits
-
-- [roadmap.sh](https://github.com/kamranahmedse/developer-roadmap) — fork & customize concept
-- [Duolingo](https://duolingo.com) — learning loop, gamification
-- [stride-so/matrix](https://github.com/stride-so/matrix) — competency matrix structure
-- [henfrydls/Skima](https://github.com/henfrydls/Skima) — self-host mindset
-- [Linear](https://linear.app), [Vercel](https://vercel.com) — dark UI aesthetic
-
----
-
-## 📄 License
-
-MIT
+MIT — xem `LICENSE`.

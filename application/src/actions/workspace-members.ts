@@ -8,6 +8,7 @@
  *
  * Audit actions written here:
  *   - member.invite
+ *   - member.invite_bulk
  *   - member.role_update
  *   - member.remove
  *
@@ -152,6 +153,97 @@ export async function updateMemberRole(
   });
 
   revalidatePath(`/w/${ws.slug}/members`);
+}
+
+/* ============================ BULK INVITE ============================ */
+
+const bulkRow = z.object({
+  userId: z.string(),
+  role: assignableRole,
+});
+
+const bulkInput = z.object({
+  workspaceSlug: z.string(),
+  rows: z.array(bulkRow).min(1).max(500),
+});
+
+export type BulkInviteRowInput = z.infer<typeof bulkRow>;
+
+export type BulkInviteResult = {
+  added: number;
+  skipped: number;
+  errors: { index: number; userId: string; reason: string }[];
+};
+
+/**
+ * Bulk invite many members at once. Each row is validated, deduplicated, and
+ * either inserted, skipped (already a member or duplicate row in the batch),
+ * or recorded as an error. Each successful insert writes a `member.invite_bulk`
+ * audit row. Failures in individual rows do NOT abort the batch.
+ */
+export async function bulkInviteMembers(
+  workspaceSlug: string,
+  rows: BulkInviteRowInput[],
+): Promise<BulkInviteResult> {
+  const parsed = bulkInput.parse({ workspaceSlug, rows });
+  const { ws, user, ctx } = await resolveOwnerWorkspace(parsed.workspaceSlug);
+
+  const result: BulkInviteResult = { added: 0, skipped: 0, errors: [] };
+  const seen = new Set<string>();
+
+  for (let i = 0; i < parsed.rows.length; i++) {
+    const row = parsed.rows[i]!;
+    const id = row.userId.trim();
+    if (!UUID_RE.test(id)) {
+      result.errors.push({ index: i, userId: id, reason: 'INVALID_UUID' });
+      continue;
+    }
+    if (seen.has(id)) {
+      result.skipped += 1;
+      continue;
+    }
+    seen.add(id);
+
+    try {
+      // Insert with ON CONFLICT DO NOTHING — postgres-native idempotency.
+      const inserted = await db
+        .insert(workspaceMembers)
+        .values({
+          workspaceId: ws.id,
+          userId: id,
+          role: row.role,
+          invitedBy: user.id,
+        })
+        .onConflictDoNothing({
+          target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+        })
+        .returning({ id: workspaceMembers.id });
+
+      if (inserted[0]) {
+        result.added += 1;
+        await writeAudit({
+          workspaceId: ws.id,
+          actorUserId: user.id,
+          actorRole: ctx.role,
+          action: 'member.invite_bulk',
+          resourceType: 'workspace_member',
+          resourceId: inserted[0].id,
+          after: { userId: id, role: row.role },
+        });
+      } else {
+        result.skipped += 1;
+      }
+    } catch (e) {
+      result.errors.push({
+        index: i,
+        userId: id,
+        reason: e instanceof Error ? e.message : 'INSERT_FAILED',
+      });
+    }
+  }
+
+  revalidatePath(`/w/${ws.slug}/members`);
+  return result;
 }
 
 export async function removeMember(workspaceSlug: string, memberId: string): Promise<void> {

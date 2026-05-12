@@ -491,4 +491,66 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  /* ============================================================
+     Narrow-viewport overrides (< 480px) — collapse the zigzag
+     into a single centered column so circles + meta cards never
+     overflow on phones. Disables left/right alternation; reduces
+     circle size; centers meta below the circle.
+     ============================================================ */
+  @media (max-width: 479px) {
+    .rm-path,
+    .rm-overview-path {
+      max-width: 100%;
+      padding: 16px 0;
+    }
+    /* Hide the dashed SVG path — it assumes a wide layout. */
+    .rm-path-svg {
+      display: none;
+    }
+    .rm-path-list {
+      gap: 20px;
+      align-items: center;
+    }
+    .rm-path-item,
+    .rm-path-item.left,
+    .rm-path-item.right {
+      align-self: center;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 8px;
+      width: 100%;
+      max-width: 100%;
+    }
+    .rm-path-item.right .rm-path-sub,
+    .rm-path-item.left .rm-path-sub {
+      text-align: center;
+    }
+    .rm-circle {
+      width: 56px;
+      height: 56px;
+      font-size: 1.2rem;
+      border-width: 3px;
+    }
+    .rm-path-meta {
+      max-width: 100%;
+      width: 100%;
+    }
+    .rm-path-meta-card {
+      width: 100%;
+    }
+    .rm-main-node {
+      max-width: 100%;
+      padding: 12px 16px;
+      font-size: 0.92rem;
+      white-space: normal;
+      word-break: break-word;
+      text-align: center;
+    }
+    .rm-overview-chip-row,
+    .rm-overview-chip-row.right {
+      justify-content: center;
+    }
+  }
 }

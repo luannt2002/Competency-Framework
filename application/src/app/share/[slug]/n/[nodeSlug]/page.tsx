@@ -5,20 +5,87 @@
  * Reuses: NodeBreadcrumb, NodeHeader (readOnly), VerticalRoadmap (readOnly).
  * Provides a CTA at the bottom to log in and start learning.
  */
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { workspaces } from '@/lib/db/schema';
+import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
 import { getNodeBySlug, getTreeSections, getSiblings } from '@/lib/tree/queries';
 import { NodeBreadcrumb, NodeHeader } from '@/components/learn/node-header';
 import { VerticalRoadmap } from '@/components/learn/vertical-roadmap';
 import { ShareLinkButton } from '@/components/learn/share-link-button';
 import { SiblingNav } from '@/components/learn/sibling-nav';
 import { JournalSection } from '@/components/learn/journal-section';
+import { ResourcesSection } from '@/components/learn/resources-section';
 import { ArrowLeft, LogIn } from 'lucide-react';
+
+const SITE_NAME = 'Competency Framework';
+
+function truncate(s: string | null | undefined, max: number): string {
+  if (!s) return '';
+  const t = s.trim();
+  return t.length <= max ? t : t.slice(0, max - 1).trimEnd() + '…';
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string; nodeSlug: string }>;
+}): Promise<Metadata> {
+  const { slug, nodeSlug } = await params;
+  const wsRow = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.slug, slug))
+    .limit(1);
+  const ws = wsRow[0];
+  if (!ws) return { title: 'Roadmap not found · ' + SITE_NAME };
+
+  const nodeRow = await db
+    .select({
+      title: roadmapTreeNodes.title,
+      description: roadmapTreeNodes.description,
+    })
+    .from(roadmapTreeNodes)
+    .where(
+      and(
+        eq(roadmapTreeNodes.workspaceId, ws.id),
+        eq(roadmapTreeNodes.slug, nodeSlug),
+      ),
+    )
+    .limit(1);
+  const node = nodeRow[0];
+  if (!node) return { title: `${ws.name} · Roadmap` };
+
+  const title = `${node.title} · ${ws.name} · Roadmap`;
+  const description =
+    truncate(node.description, 160) || `Lộ trình học tập — ${ws.name}`;
+  const ogImage = `/api/og?slug=${encodeURIComponent(slug)}&node=${encodeURIComponent(nodeSlug)}`;
+  const url = `/share/${slug}/n/${nodeSlug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: SITE_NAME,
+      type: 'website',
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
+}
 
 export default async function ShareNodePage({
   params,
@@ -112,6 +179,13 @@ export default async function ShareNodePage({
           linkBase={`/share/${slug}/n`}
         />
       )}
+
+      <ResourcesSection
+        workspaceId={ws.id}
+        workspaceSlug={slug}
+        nodeId={node.id}
+        readOnly
+      />
 
       <JournalSection
         workspaceId={ws.id}

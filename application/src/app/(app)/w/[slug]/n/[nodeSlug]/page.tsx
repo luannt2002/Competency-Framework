@@ -17,6 +17,7 @@ import { NodeToolbar } from '@/components/learn/node-toolbar';
 import { VerticalRoadmap } from '@/components/learn/vertical-roadmap';
 import { SiblingNav } from '@/components/learn/sibling-nav';
 import { JournalSection } from '@/components/learn/journal-section';
+import { ResourcesSection } from '@/components/learn/resources-section';
 
 export default async function NodeDetailPage({
   params,
@@ -111,6 +112,12 @@ export default async function NodeDetailPage({
           linkBase={`/w/${slug}/n`}
         />
       )}
+
+      <ResourcesSection
+        workspaceId={ws.id}
+        workspaceSlug={slug}
+        nodeId={node.id}
+      />
 
       <JournalSection
         workspaceId={ws.id}

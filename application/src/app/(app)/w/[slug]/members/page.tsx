@@ -9,9 +9,10 @@
  * workspaces.owner_user_id and never stored in workspace_members. See
  * `docs/dev/RBAC_PERMISSIONS.md`.
  */
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { desc, eq } from 'drizzle-orm';
-import { Users } from 'lucide-react';
+import { Users, Award } from 'lucide-react';
 import { db } from '@/lib/db/client';
 import { workspaces, workspaceMembers } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
@@ -21,6 +22,7 @@ import { StatChip } from '@/components/learn/stat-chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InviteMemberDialog } from '@/components/admin/invite-member-dialog';
 import { MemberRowActions } from '@/components/admin/member-row-actions';
+import { BulkInviteCsv } from '@/components/admin/bulk-invite-csv';
 
 /** Render a UUID as `aaaa…zzzz` (first/last 4 chars). */
 function shortId(id: string): string {
@@ -153,11 +155,23 @@ export default async function MembersPage({
                   <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(m.invitedAt)}</td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(m.joinedAt)}</td>
                   <td className="px-4 py-3">
-                    <MemberRowActions
-                      workspaceSlug={ws.slug}
-                      memberId={m.id}
-                      currentRole={m.role}
-                    />
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Link
+                        href={`/w/${ws.slug}/certificate/${m.id}`}
+                        target="_blank"
+                        rel="noopener"
+                        aria-label="View certificate"
+                        title="Open certificate (PDF)"
+                        className="inline-flex items-center justify-center size-8 rounded-md text-amber-500 hover:bg-amber-500/10 transition-colors"
+                      >
+                        <Award className="size-4" />
+                      </Link>
+                      <MemberRowActions
+                        workspaceSlug={ws.slug}
+                        memberId={m.id}
+                        currentRole={m.role}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -165,6 +179,8 @@ export default async function MembersPage({
           </table>
         </div>
       )}
+
+      <BulkInviteCsv workspaceSlug={ws.slug} />
     </div>
   );
 }

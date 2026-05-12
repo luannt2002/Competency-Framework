@@ -1,123 +1,158 @@
 /**
- * Landing page — fetches framework templates from DB (no hardcoded list).
+ * Landing page — tree-first roadmap pitch.
+ *
+ * Three-card feature deck + live grid of public-readonly workspaces
+ * pulled from the DB (falls back to a hardcoded `devops-test` entry
+ * when nothing is published yet, so the landing is never empty).
  */
 import Link from 'next/link';
-import { eq } from 'drizzle-orm';
-import { ArrowRight, Boxes, GraduationCap, Grid3x3, Sparkles } from 'lucide-react';
+import { eq, count } from 'drizzle-orm';
+import { ArrowRight, Network, Eye, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/db/client';
-import { frameworkTemplates } from '@/lib/db/schema';
+import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
 
-const COMING_SOON = [
-  { name: 'Frontend Engineer', icon: '🎨' },
-  { name: 'Backend Engineer', icon: '⚙️' },
-  { name: 'Data Engineer', icon: '📊' },
-  { name: 'Site Reliability', icon: '🛡️' },
-] as const;
+type ShowcaseEntry = {
+  slug: string;
+  name: string;
+  icon: string | null;
+  nodeCount: number;
+};
+
+const FALLBACK_SHOWCASE: ShowcaseEntry = {
+  slug: 'devops-test',
+  name: 'DevOps Mastery 2026',
+  icon: '☁️',
+  nodeCount: 286,
+};
 
 export default async function Landing() {
-  // Pull live templates from DB
-  const templates = await db
+  // Public-readonly workspaces, with a node count each.
+  const publicWs = await db
     .select({
-      id: frameworkTemplates.id,
-      slug: frameworkTemplates.slug,
-      name: frameworkTemplates.name,
-      description: frameworkTemplates.description,
-      domain: frameworkTemplates.domain,
-      forksCount: frameworkTemplates.forksCount,
-      payload: frameworkTemplates.payload,
+      id: workspaces.id,
+      slug: workspaces.slug,
+      name: workspaces.name,
+      icon: workspaces.icon,
     })
-    .from(frameworkTemplates)
-    .where(eq(frameworkTemplates.isPublished, true));
+    .from(workspaces)
+    .where(eq(workspaces.visibility, 'public-readonly'));
+
+  const showcase: ShowcaseEntry[] = await Promise.all(
+    publicWs.map(async (w) => {
+      const r = await db
+        .select({ n: count() })
+        .from(roadmapTreeNodes)
+        .where(eq(roadmapTreeNodes.workspaceId, w.id));
+      return {
+        slug: w.slug,
+        name: w.name,
+        icon: w.icon,
+        nodeCount: r[0]?.n ?? 0,
+      };
+    }),
+  );
+
+  const showcaseList = showcase.length > 0 ? showcase : [FALLBACK_SHOWCASE];
 
   return (
-    <main className="min-h-dvh">
+    <main
+      className="min-h-dvh"
+      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+    >
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_rgba(34,211,238,0.10),_transparent_60%)]" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_rgba(204,120,92,0.10),_transparent_60%)]" />
         <div className="mx-auto max-w-5xl px-6 py-24 md:py-32 text-center">
           <Badge variant="outline" className="mx-auto mb-6 gap-1.5">
-            <Sparkles className="size-3 text-cyan-400" />
-            Mạnh hơn roadmap.sh × tự học như Duolingo
+            <Sparkles className="size-3 text-primary" />
+            Tree-first · Showcase công khai · Phân quyền RBAC
           </Badge>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.05]">
-            Fork a <span className="accent-gradient-text">competency framework</span>.
+            <span className="accent-gradient-text">Lộ trình học tập</span>
             <br />
-            Master the level.
+            trực quan như sơ đồ.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base md:text-lg text-muted-foreground leading-relaxed">
-            Đo năng lực Intern → Senior Tech Lead, học theo lộ trình từng tuần với bài tập tương tác kiểu Duolingo, đạt streak — workspace-first, customize được.
+            Một cây kiến thức đa cấp cho team đào tạo, onboarding và tự học —
+            chia sẻ link công khai như roadmap.sh, theo dõi tiến độ như Duolingo,
+            phân quyền 7-tier như Linear.
           </p>
-          <div className="mt-10 flex justify-center gap-3">
+          <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
-              <Link href="/sign-in">
-                Get started <ArrowRight className="size-4" />
+              <Link href="/discover">
+                Khám phá roadmap <ArrowRight className="size-4" />
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link href="/templates">Browse frameworks</Link>
+              <Link href={`/share/${showcaseList[0]!.slug}`}>Xem demo</Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/sign-in">Đăng nhập</Link>
             </Button>
           </div>
         </div>
       </section>
 
-      {/* Value props */}
+      {/* 3 feature cards with lift effect */}
       <section className="border-b border-border">
-        <div className="mx-auto max-w-5xl px-6 py-16 grid md:grid-cols-3 gap-6">
-          <ValueProp icon={Grid3x3} title="Measure" desc="Skills Matrix dày, filter cực mạnh. Đánh giá XS / S / M / L với evidence + note Markdown." />
-          <ValueProp icon={GraduationCap} title="Learn" desc="Course Map kiểu Duolingo: 4 levels × 12 tuần curved SVG path, lesson 5–10 phút, 6 exercise types interactive." />
-          <ValueProp icon={Boxes} title="Master" desc="XP, streak, hearts, crowns, badges auto-grant. Hoàn thành lesson → unlock cấp tiếp." />
+        <div className="mx-auto max-w-5xl px-6 py-20 grid md:grid-cols-3 gap-6">
+          <FeatureCard
+            emoji="🌳"
+            icon={Network}
+            title="Cây học tập đa cấp"
+            desc="CRUD cây n-depth: giai đoạn → tuần → buổi → lesson / lab / project. Drag-drop sắp lại, materialized path để query nhanh, mỗi node có description + body Markdown."
+          />
+          <FeatureCard
+            emoji="👀"
+            icon={Eye}
+            title="Showcase công khai"
+            desc="Bật visibility = public-readonly là có ngay link /share/<slug> chia sẻ Slack / Zalo / Twitter. OG image động render mỗi roadmap một preview riêng."
+          />
+          <FeatureCard
+            emoji="🔐"
+            icon={ShieldCheck}
+            title="Phân quyền 7-tier"
+            desc="Super-admin → Org-owner → Org-admin → WS-owner → Editor → Learner → Guest. Mỗi role nhìn thấy + sửa được những gì, kiểm tra ở cả server action và DB guard."
+          />
         </div>
       </section>
 
-      {/* Frameworks strip — from DB */}
-      <section className="mx-auto max-w-5xl px-6 py-16">
-        <h2 className="text-2xl font-semibold mb-2">Available frameworks</h2>
-        <p className="text-muted-foreground mb-8">
-          {templates.length} active framework{templates.length !== 1 ? 's' : ''} · more coming soon
-        </p>
+      {/* Public showcase grid */}
+      <section className="mx-auto max-w-5xl px-6 py-20">
+        <div className="flex items-end justify-between mb-8">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-semibold">Roadmap công khai</h2>
+            <p className="text-muted-foreground mt-1">
+              {showcaseList.length} roadmap đang mở · click để xem preview chỉ-đọc
+            </p>
+          </div>
+          <Link
+            href="/sign-in"
+            className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+          >
+            Tạo roadmap của bạn →
+          </Link>
+        </div>
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {templates.map((fw) => {
-            const payload = fw.payload as { categories?: unknown[]; tracks?: Array<{ weeks?: unknown[] }> } | null;
-            const skillCount = payload?.categories
-              ? payload.categories.reduce((n: number, c: unknown) => {
-                  const cat = c as { skills?: unknown[] };
-                  return n + (cat.skills?.length ?? 0);
-                }, 0)
-              : 0;
-            const weekCount = payload?.tracks
-              ? payload.tracks.reduce((n: number, t) => n + (t.weeks?.length ?? 0), 0)
-              : 0;
-            return (
-              <article key={fw.id} className="surface p-5 surface-hover relative overflow-hidden group">
-                <div className="text-3xl mb-3">☁️</div>
-                <h3 className="font-semibold text-lg">{fw.name}</h3>
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                  {fw.description ?? `${skillCount} skills · ${weekCount} weeks`}
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {skillCount} skills · {weekCount} weeks · {fw.forksCount ?? 0} forks
-                </p>
-                <Button asChild variant="outline" size="sm" className="mt-4 w-full">
-                  <Link href="/sign-in">Fork & start</Link>
-                </Button>
-              </article>
-            );
-          })}
-
-          {COMING_SOON.map((fw) => (
-            <article
-              key={fw.name}
-              className="surface p-5 surface-hover relative overflow-hidden opacity-60"
+          {showcaseList.map((w) => (
+            <Link
+              key={w.slug}
+              href={`/share/${w.slug}`}
+              className="surface surface-lift p-5 block group"
             >
-              <Badge variant="outline" className="absolute right-3 top-3 text-[10px]">
-                Coming soon
-              </Badge>
-              <div className="text-3xl mb-3">{fw.icon}</div>
-              <h3 className="font-semibold text-lg">{fw.name}</h3>
-              <p className="text-sm text-muted-foreground mt-1">Roadmap in design</p>
-            </article>
+              <div className="text-3xl mb-3">{w.icon ?? '📚'}</div>
+              <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
+                {w.name}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {w.nodeCount} mục · public-readonly
+              </p>
+              <p className="text-xs font-mono text-muted-foreground mt-3 opacity-60 group-hover:opacity-100 transition-opacity">
+                /share/{w.slug} →
+              </p>
+            </Link>
           ))}
         </div>
       </section>
@@ -138,21 +173,26 @@ export default async function Landing() {
   );
 }
 
-function ValueProp({
+function FeatureCard({
+  emoji,
   icon: Icon,
   title,
   desc,
 }: {
-  icon: typeof Grid3x3;
+  emoji: string;
+  icon: typeof Network;
   title: string;
   desc: string;
 }) {
   return (
-    <div className="surface p-6">
-      <div className="size-10 rounded-xl accent-gradient flex items-center justify-center mb-4">
-        <Icon className="size-5 text-white" />
+    <div className="surface surface-lift p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="text-3xl leading-none">{emoji}</div>
+        <div className="size-9 rounded-xl bg-primary/10 flex items-center justify-center">
+          <Icon className="size-4 text-primary" />
+        </div>
       </div>
-      <h3 className="font-semibold mb-1">{title}</h3>
+      <h3 className="font-semibold text-lg mb-2">{title}</h3>
       <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
     </div>
   );

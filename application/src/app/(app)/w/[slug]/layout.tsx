@@ -9,7 +9,7 @@ import { Topbar } from '@/components/layout/topbar';
 import { db } from '@/lib/db/client';
 import { xpEvents, streaks as streaksT, hearts as heartsT } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
-import { requireWorkspaceAccess } from '@/lib/workspace';
+import { requireWorkspaceAccess, listMyWorkspaces } from '@/lib/workspace';
 
 export default async function WorkspaceLayout({
   children,
@@ -26,7 +26,7 @@ export default async function WorkspaceLayout({
   const startOfToday = new Date();
   startOfToday.setUTCHours(0, 0, 0, 0);
 
-  const [xpTodayRow, streakRow, heartRow] = await Promise.all([
+  const [xpTodayRow, streakRow, heartRow, myWorkspaces] = await Promise.all([
     db
       .select({ s: sum(xpEvents.amount) })
       .from(xpEvents)
@@ -47,6 +47,7 @@ export default async function WorkspaceLayout({
       .from(heartsT)
       .where(and(eq(heartsT.workspaceId, ws.id), eq(heartsT.userId, user.id)))
       .limit(1),
+    listMyWorkspaces(),
   ]);
 
   const dailyXp = Number(xpTodayRow[0]?.s ?? 0);
@@ -58,7 +59,12 @@ export default async function WorkspaceLayout({
 
   return (
     <div className="flex min-h-dvh">
-      <AppSidebar workspaceSlug={ws.slug} workspaceName={ws.name} isOwner={isOwner} />
+      <AppSidebar
+        workspaceSlug={ws.slug}
+        workspaceName={ws.name}
+        isOwner={isOwner}
+        workspaces={myWorkspaces.map((w) => ({ slug: w.slug, name: w.name }))}
+      />
       <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
         <Topbar
           workspaceSlug={ws.slug}

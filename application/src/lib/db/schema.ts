@@ -564,3 +564,4 @@ export * from './schema-etl';
 export * from './schema-tree';
 export * from './schema-rbac';
 export * from './schema-journal';
+export * from './schema-resources';

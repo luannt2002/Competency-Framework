@@ -7,6 +7,7 @@
 import { useTheme } from 'next-themes';
 import { Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Tooltip } from '@/components/ui/tooltip';
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -26,15 +27,17 @@ export function ThemeToggle() {
   }
 
   const isDark = resolvedTheme === 'dark';
+  const label = isDark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối';
   return (
-    <button
-      type="button"
-      onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      aria-label={isDark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
-      title={isDark ? 'Chế độ sáng' : 'Chế độ tối'}
-      className="inline-flex size-9 items-center justify-center rounded-md border border-border bg-card hover:bg-secondary transition-colors"
-    >
-      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-    </button>
+    <Tooltip label={label}>
+      <button
+        type="button"
+        onClick={() => setTheme(isDark ? 'light' : 'dark')}
+        aria-label={label}
+        className="inline-flex size-9 items-center justify-center rounded-md border border-border bg-card hover:bg-secondary transition-colors"
+      >
+        {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      </button>
+    </Tooltip>
   );
 }

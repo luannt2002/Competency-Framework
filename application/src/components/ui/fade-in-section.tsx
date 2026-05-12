@@ -37,6 +37,19 @@ export function FadeInSection({
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // Respect the user's reduced-motion preference — render visible
+    // immediately, skip the observer entirely. We check this at effect time
+    // rather than during render so SSR output stays animation-eligible (the
+    // CSS `motion-reduce:transition-none` still kills the visual transition
+    // on the very first paint).
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      setVisible(true);
+      return;
+    }
     // SSR-safe: window/IntersectionObserver only exists in browser.
     if (typeof IntersectionObserver === 'undefined') {
       setVisible(true);

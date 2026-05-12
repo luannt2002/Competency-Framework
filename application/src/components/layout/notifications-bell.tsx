@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip } from '@/components/ui/tooltip';
 import {
   listMyNotifications,
   markAllRead,
@@ -131,22 +132,28 @@ export function NotificationsBell() {
 
   return (
     <div ref={panelRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Notifications"
-        className="relative inline-flex size-9 items-center justify-center rounded-full border border-border bg-secondary/50 hover:bg-secondary transition-colors"
-      >
-        <Bell className="size-4" />
-        {unreadCount > 0 && (
-          <span
-            className="absolute -top-0.5 -right-0.5 inline-flex min-w-[14px] h-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white ring-2 ring-background"
-            aria-label={`${unreadCount} chưa đọc`}
-          >
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
-      </button>
+      <Tooltip label={unreadCount > 0 ? `Thông báo (${unreadCount} chưa đọc)` : 'Thông báo'}>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={
+            unreadCount > 0
+              ? `Notifications · ${unreadCount} unread`
+              : 'Notifications'
+          }
+          className="relative inline-flex size-9 items-center justify-center rounded-full border border-border bg-secondary/50 hover:bg-secondary transition-colors"
+        >
+          <Bell className="size-4" />
+          {unreadCount > 0 && (
+            <span
+              className="absolute -top-0.5 -right-0.5 inline-flex min-w-[14px] h-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white ring-2 ring-background"
+              aria-label={`${unreadCount} chưa đọc`}
+            >
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+      </Tooltip>
 
       {open && (
         <div className="absolute right-0 top-11 z-40 w-80 rounded-xl border border-border bg-popover shadow-lg overflow-hidden">

@@ -14,6 +14,7 @@ import { Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { JournalEntryDialog } from './journal-entry-dialog';
 import { deleteJournalEntry } from '@/actions/node-journal';
+import { Tooltip } from '@/components/ui/tooltip';
 
 export function JournalEntryActions({
   workspaceSlug,
@@ -47,29 +48,35 @@ export function JournalEntryActions({
   return (
     <>
       <div className="flex items-center gap-1">
-        <Button
-          onClick={() => setEditOpen(true)}
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2"
-        >
-          <Pencil className="size-3" />
-          Sửa
-        </Button>
-        <Button
-          onClick={onDelete}
-          disabled={pending}
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-destructive hover:text-destructive"
-        >
-          {pending ? (
-            <Loader2 className="size-3 animate-spin" />
-          ) : (
-            <Trash2 className="size-3" />
-          )}
-          Xoá
-        </Button>
+        <Tooltip label="Sửa bài viết">
+          <Button
+            onClick={() => setEditOpen(true)}
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2"
+            aria-label="Sửa bài viết"
+          >
+            <Pencil className="size-3" />
+            Sửa
+          </Button>
+        </Tooltip>
+        <Tooltip label="Xoá bài viết">
+          <Button
+            onClick={onDelete}
+            disabled={pending}
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-destructive hover:text-destructive"
+            aria-label="Xoá bài viết"
+          >
+            {pending ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <Trash2 className="size-3" />
+            )}
+            Xoá
+          </Button>
+        </Tooltip>
       </div>
 
       <JournalEntryDialog

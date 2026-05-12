@@ -20,6 +20,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
 import { User, ArrowRight, Layers } from 'lucide-react';
+import { CopyButton } from '@/components/ui/copy-button';
 
 const SITE_NAME = 'Competency Framework';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -171,9 +172,12 @@ export default async function PublicProfilePage({
             <User className="size-8 text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold font-mono">
-              {resolved.shortId}
-            </h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl md:text-3xl font-bold font-mono">
+                {resolved.shortId}
+              </h1>
+              <CopyButton value={resolved.userId} label="Copy user ID" size="sm" />
+            </div>
             <p className="text-xs text-muted-foreground font-mono mt-1 break-all">
               {resolved.userId}
             </p>

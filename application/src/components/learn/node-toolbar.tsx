@@ -6,8 +6,12 @@
  *  - Add child node
  *  - Edit current node
  *  - Delete (with subtree confirmation)
+ *
+ * The "Đánh dấu xong" button is optimistic — the visual flips immediately
+ * (and confetti fires) before the server commits. On error we revert and
+ * surface a "Lỗi, đã hoàn tác" toast.
  */
-import { useState, useTransition } from 'react';
+import { useOptimistic, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -39,6 +43,7 @@ import {
 } from '@/actions/tree-nodes';
 import { NODE_TYPE_OPTIONS } from '@/lib/tree/node-meta';
 import { fireConfetti } from './confetti';
+import { useDraft } from '@/lib/hooks/use-draft';
 
 type Props = {
   workspaceSlug: string;
@@ -61,17 +66,30 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const isDone = node.status === 'done';
+  // Optimistic mirror of the done state. We don't try to model the cascade
+  // here (children blocking the toggle) — that comes from the server. The
+  // visual flips immediately; if the server rejects we revert and toast.
+  const [optimisticDone, applyOptimisticDone] = useOptimistic(
+    node.status === 'done',
+    (_prev, next: boolean) => next,
+  );
+  const isDone = optimisticDone;
 
   const onToggleDone = () => {
+    const willBeDone = !isDone;
+    // Fire confetti up-front when marking done — feels instant. (The confetti
+    // helper itself respects prefers-reduced-motion.)
+    if (willBeDone) {
+      fireConfetti({ intensity: node.childrenCount > 0 ? 'big' : 'small' });
+    }
     startTransition(async () => {
+      // Flip the visual immediately inside the transition so React keeps the
+      // optimistic state alive until the server response settles.
+      applyOptimisticDone(willBeDone);
       try {
         const res = await toggleNodeDone(workspaceSlug, node.id);
         if (res.action === 'marked_done') {
-          toast.success('✅ Đánh dấu xong');
-          fireConfetti({
-            intensity: node.childrenCount > 0 ? 'big' : 'small',
-          });
+          toast.success('Đánh dấu xong');
         } else {
           toast.info(
             res.cascadedUp > 0
@@ -81,14 +99,19 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
         }
         router.refresh();
       } catch (e) {
+        // Revert the optimistic flip. useOptimistic auto-reverts when the
+        // transition ends, but we also re-apply the original so the brief
+        // window before refresh shows the correct state.
+        applyOptimisticDone(!willBeDone);
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.includes('INCOMPLETE_CHILDREN')) {
           const parts = msg.split(':');
-          toast.error('🔒 Chưa thể done', {
-            description: parts.slice(2).join(':') || 'Phải hoàn thành các mục con trước.',
+          toast.error('Chưa thể done, đã hoàn tác', {
+            description:
+              parts.slice(2).join(':') || 'Phải hoàn thành các mục con trước.',
           });
         } else {
-          toast.error('Lỗi', { description: msg });
+          toast.error('Lỗi, đã hoàn tác', { description: msg });
         }
       }
     });
@@ -121,15 +144,15 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
           disabled={pending}
           variant={isDone ? 'outline' : 'default'}
           size="sm"
+          aria-busy={pending}
         >
-          {pending ? (
-            <Loader2 className="size-3 animate-spin" />
-          ) : isDone ? (
-            <Circle className="size-3" />
-          ) : (
-            <CheckCircle2 className="size-3" />
-          )}
+          {/* Optimistic visual: the icon flips to Circle/CheckCircle2 immediately
+              based on the optimistic state, while a tiny inline spinner badge
+              indicates the server is still confirming. This way the user sees
+              the new state instantly but still has a "saving" affordance. */}
+          {isDone ? <Circle className="size-3" /> : <CheckCircle2 className="size-3" />}
           {isDone ? 'Bỏ done' : 'Đánh dấu xong'}
+          {pending && <Loader2 className="size-3 animate-spin opacity-70" />}
         </Button>
         <Button onClick={() => setAddOpen(true)} variant="outline" size="sm">
           <Plus className="size-3" />
@@ -176,11 +199,25 @@ function AddChildDialog({
   parentTitle: string;
 }) {
   const router = useRouter();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [nodeType, setNodeType] = useState('lesson');
-  const [estMinutes, setEstMinutes] = useState<number | ''>('');
-  const [bodyMd, setBodyMd] = useState('');
+  // Persist draft to localStorage so a stray refresh / nav doesn't nuke a
+  // partially-typed child. Cleared on submit success.
+  const [draft, setDraft, clearDraft] = useDraft(`tree-node:${parentId}:add`, {
+    title: '',
+    description: '',
+    nodeType: 'lesson',
+    estMinutes: '' as number | '',
+    bodyMd: '',
+  });
+  const title = draft.title;
+  const description = draft.description;
+  const nodeType = draft.nodeType;
+  const estMinutes = draft.estMinutes;
+  const bodyMd = draft.bodyMd;
+  const setTitle = (v: string) => setDraft({ ...draft, title: v });
+  const setDescription = (v: string) => setDraft({ ...draft, description: v });
+  const setNodeType = (v: string) => setDraft({ ...draft, nodeType: v });
+  const setEstMinutes = (v: number | '') => setDraft({ ...draft, estMinutes: v });
+  const setBodyMd = (v: string) => setDraft({ ...draft, bodyMd: v });
   const [pending, startTransition] = useTransition();
 
   const submit = () => {
@@ -197,10 +234,7 @@ function AddChildDialog({
           bodyMd: bodyMd.trim() || undefined,
         });
         toast.success('Đã thêm');
-        setTitle('');
-        setDescription('');
-        setBodyMd('');
-        setEstMinutes('');
+        clearDraft();
         onOpenChange(false);
         router.refresh();
       } catch (e) {
@@ -280,11 +314,25 @@ function EditDialog({
   node: { id: string; title: string; nodeType: string; description: string | null; bodyMd: string | null; estMinutes: number | null };
 }) {
   const router = useRouter();
-  const [title, setTitle] = useState(node.title);
-  const [nodeType, setNodeType] = useState(node.nodeType);
-  const [description, setDescription] = useState(node.description ?? '');
-  const [bodyMd, setBodyMd] = useState(node.bodyMd ?? '');
-  const [estMinutes, setEstMinutes] = useState<number | ''>(node.estMinutes ?? '');
+  // Edit drafts persist per-node. The initial value falls back to the server
+  // copy so existing content shows even before the localStorage read fires.
+  const [draft, setDraft, clearDraft] = useDraft(`tree-node:${node.id}:edit`, {
+    title: node.title,
+    nodeType: node.nodeType,
+    description: node.description ?? '',
+    bodyMd: node.bodyMd ?? '',
+    estMinutes: (node.estMinutes ?? '') as number | '',
+  });
+  const title = draft.title;
+  const nodeType = draft.nodeType;
+  const description = draft.description;
+  const bodyMd = draft.bodyMd;
+  const estMinutes = draft.estMinutes;
+  const setTitle = (v: string) => setDraft({ ...draft, title: v });
+  const setNodeType = (v: string) => setDraft({ ...draft, nodeType: v });
+  const setDescription = (v: string) => setDraft({ ...draft, description: v });
+  const setBodyMd = (v: string) => setDraft({ ...draft, bodyMd: v });
+  const setEstMinutes = (v: number | '') => setDraft({ ...draft, estMinutes: v });
   const [pending, startTransition] = useTransition();
 
   const submit = () => {
@@ -301,6 +349,7 @@ function EditDialog({
           estMinutes: estMinutes === '' ? undefined : Number(estMinutes),
         });
         toast.success('Đã cập nhật');
+        clearDraft();
         onOpenChange(false);
         router.refresh();
       } catch (e) {

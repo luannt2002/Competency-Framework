@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { removeNodeResource } from '@/actions/node-resources';
+import { Tooltip } from '@/components/ui/tooltip';
 
 export function ResourceRemoveButton({
   workspaceSlug,
@@ -37,19 +38,21 @@ export function ResourceRemoveButton({
   };
 
   return (
-    <Button
-      onClick={onRemove}
-      disabled={pending}
-      variant="ghost"
-      size="sm"
-      className="h-7 w-7 p-0 text-destructive hover:text-destructive shrink-0"
-      aria-label="Xoá tài liệu"
-    >
-      {pending ? (
-        <Loader2 className="size-3 animate-spin" />
-      ) : (
-        <Trash2 className="size-3" />
-      )}
-    </Button>
+    <Tooltip label="Xoá tài liệu">
+      <Button
+        onClick={onRemove}
+        disabled={pending}
+        variant="ghost"
+        size="sm"
+        className="h-7 w-7 p-0 text-destructive hover:text-destructive shrink-0"
+        aria-label="Xoá tài liệu"
+      >
+        {pending ? (
+          <Loader2 className="size-3 animate-spin" />
+        ) : (
+          <Trash2 className="size-3" />
+        )}
+      </Button>
+    </Tooltip>
   );
 }

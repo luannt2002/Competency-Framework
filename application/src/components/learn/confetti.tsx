@@ -18,8 +18,29 @@ export type ConfettiIntensity = 'small' | 'big';
 
 const PALETTE = ['#ff6b6b', '#22d3ee', '#a78bfa', '#f472b6'];
 
+/**
+ * Optional "ding" sound after firing confetti — gated by the user-controlled
+ * `sound-enabled` preference (see `useSoundPreference`). The audio asset
+ * itself is not yet shipped, so we just check the flag and stub a TODO.
+ * When `/ding.mp3` lands in `/public/`, replace the comment with
+ * `new Audio('/ding.mp3').play().catch(() => {})`.
+ */
+function maybePlayDing(): void {
+  try {
+    if (typeof window === 'undefined') return;
+    const enabled = window.localStorage.getItem('sound-enabled') === 'true';
+    if (!enabled) return;
+    // TODO: ship /public/ding.mp3 and uncomment the line below.
+    // new Audio('/ding.mp3').play().catch(() => {});
+    // console.log('[confetti] would ding (no audio file yet)');
+  } catch {
+    /* no-op */
+  }
+}
+
 export function fireConfetti(opts?: { intensity?: ConfettiIntensity }): void {
   const intensity = opts?.intensity ?? 'small';
+  maybePlayDing();
 
   if (intensity === 'small') {
     confetti({

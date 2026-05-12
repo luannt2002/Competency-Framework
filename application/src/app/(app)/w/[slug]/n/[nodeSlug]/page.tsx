@@ -7,9 +7,10 @@
  * Auth: enforced by (app)/layout.tsx → requireUser().
  */
 import { notFound } from 'next/navigation';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { requireWorkspaceAccess } from '@/lib/workspace';
+import { MarkdownRenderer } from '@/components/learn/markdown-renderer';
+import { NodeToc } from '@/components/learn/node-toc';
+import { parseHeadings } from '@/lib/learn/parse-headings';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { getNodeBySlug, getTreeSections, getSiblings } from '@/lib/tree/queries';
 import { NodeBreadcrumb, NodeHeader } from '@/components/learn/node-header';
@@ -84,8 +85,11 @@ export default async function NodeDetailPage({
           <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">
             Nội dung chi tiết
           </h2>
-          <div className="prose prose-sm max-w-none dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{node.bodyMd}</ReactMarkdown>
+          <div className="grid gap-8 md:grid-cols-[1fr_220px]">
+            <div className="min-w-0">
+              <MarkdownRenderer>{node.bodyMd}</MarkdownRenderer>
+            </div>
+            <NodeToc headings={parseHeadings(node.bodyMd)} />
           </div>
         </section>
       )}

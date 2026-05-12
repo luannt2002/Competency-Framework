@@ -16,6 +16,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { NoWorkspacesIllustration } from '@/components/ui/empty-state-illustrations';
 import { Plus, Trophy, Flame, Zap, BookOpen, CalendarDays, Boxes, ArrowRight } from 'lucide-react';
 import { ActivityHeatmap, type DailyXp } from '@/components/charts/activity-heatmap';
 import { StatChip } from '@/components/learn/stat-chip';
@@ -92,13 +93,13 @@ export default async function ProfilePage() {
       className="mx-auto max-w-4xl p-6 md:p-8 space-y-8"
       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
     >
-      {/* Hero */}
-      <header className="flex items-center gap-5">
-        <div className="size-16 rounded-full accent-gradient flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-cyan-500/20">
+      {/* Hero — avatar shrinks on narrow viewports so the email gets more room */}
+      <header className="flex items-center gap-3 sm:gap-5">
+        <div className="size-12 sm:size-16 rounded-full accent-gradient flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-lg shadow-cyan-500/20 shrink-0">
           {(user.email ?? 'U').charAt(0).toUpperCase()}
         </div>
         <div className="min-w-0">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">{user.email}</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate">{user.email}</h1>
           <p className="text-sm text-muted-foreground mt-1">Member since {memberSince}</p>
         </div>
       </header>
@@ -220,7 +221,7 @@ export default async function ProfilePage() {
           {workspaces.length === 0 ? (
             <EmptyState
               className="border-0 bg-transparent shadow-none p-6"
-              icon={Boxes}
+              illustration={<NoWorkspacesIllustration label="Chưa có workspace nào" />}
               title="Bạn chưa có workspace nào"
               description="Fork a competency framework hoặc bắt đầu với cây trống để track skills, leo levels và earn XP."
               action={

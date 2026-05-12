@@ -178,6 +178,49 @@
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/30;
   }
+
+  /* ============================================================
+     Focus / press polish (Task 6).
+     - Coral focus ring on every keyboard-focused element (overrides
+       the browser default; mouse clicks suppress it via :focus-visible).
+     - Subtle scale-in press feedback on buttons and link-buttons.
+       Skipped when `disabled` is set so disabled affordances stay still.
+     - Pointer cursor on link-buttons matches the visual press affordance.
+     ============================================================ */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  button,
+  a[role='button'] {
+    transition-property: transform, background-color, color, border-color, box-shadow;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+  button:not(:disabled):active,
+  a[role='button']:not([aria-disabled='true']):active {
+    transform: scale(0.97);
+  }
+
+  /* ============================================================
+     Reduced motion — neutralize every CSS-driven animation and
+     transition so users with vestibular sensitivities get a static
+     experience. Confetti and IntersectionObserver-driven reveals are
+     gated separately in their components (see confetti.tsx,
+     fade-in-section.tsx). The `rm-circle.current` pulse falls under
+     this rule via `animation-duration`.
+     ============================================================ */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer utilities {

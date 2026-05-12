@@ -20,6 +20,8 @@ import { getEffectiveLevel } from '@/lib/rbac/server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { JournalAddButton } from './journal-add-button';
 import { JournalEntryActions } from './journal-entry-actions';
+import { EmptyState } from '@/components/ui/empty-state';
+import { NoJournalIllustration } from '@/components/ui/empty-state-illustrations';
 
 type Props = {
   workspaceId: string;
@@ -84,13 +86,16 @@ export async function JournalSection({
       </div>
 
       {rows.length === 0 ? (
-        <div className="surface p-8 text-center text-sm text-muted-foreground border-dashed border-violet-500/30 bg-violet-500/5">
-          <p>
-            {readOnly
-              ? 'Mục này chưa có bài viết nào.'
-              : 'Hãy đăng bài đầu tiên — ghi chú, blog, hoặc tổng kết bài lab.'}
-          </p>
-        </div>
+        <EmptyState
+          illustration={<NoJournalIllustration label="Chưa có bài viết" />}
+          title={readOnly ? 'Chưa có bài viết nào' : 'Hãy đăng bài đầu tiên'}
+          description={
+            readOnly
+              ? 'Mục này chưa có ghi chú, blog hay tổng kết lab.'
+              : 'Ghi chú, blog, hoặc tổng kết bài lab — tất cả đều ở đây.'
+          }
+          className="border-dashed border-violet-500/30 bg-violet-500/5"
+        />
       ) : (
         <ul className="space-y-4">
           {rows.map((r) => {

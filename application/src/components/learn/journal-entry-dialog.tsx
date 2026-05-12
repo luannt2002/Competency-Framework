@@ -10,7 +10,7 @@
  * Mirrors the AddChildDialog / EditDialog UX in node-toolbar.tsx so the feel
  * stays consistent.
  */
-import { useState, useTransition } from 'react';
+import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2, Save, X } from 'lucide-react';
@@ -29,6 +29,7 @@ import {
   createJournalEntry,
   updateJournalEntry,
 } from '@/actions/node-journal';
+import { useDraft } from '@/lib/hooks/use-draft';
 
 type CreateProps = {
   mode: 'create';
@@ -64,15 +65,24 @@ export function JournalEntryDialog(props: JournalEntryDialogProps) {
         }
       : { title: '', bodyMd: '', tags: '' };
 
-  const [title, setTitle] = useState(initial.title);
-  const [bodyMd, setBodyMd] = useState(initial.bodyMd);
-  const [tagsRaw, setTagsRaw] = useState(initial.tags);
+  // Drafts are scoped per-node + per-entry (or 'new' for create mode) so a
+  // stray refresh / accidental close doesn't lose an in-progress post. Cleared
+  // on submit success.
+  const draftKey =
+    props.mode === 'edit'
+      ? `journal:${props.workspaceSlug}:${props.entry.id}`
+      : `journal:${props.workspaceSlug}:${props.nodeId}:new`;
+  const [draft, setDraft, clearDraft] = useDraft(draftKey, initial);
+  const title = draft.title;
+  const bodyMd = draft.bodyMd;
+  const tagsRaw = draft.tags;
+  const setTitle = (v: string) => setDraft({ ...draft, title: v });
+  const setBodyMd = (v: string) => setDraft({ ...draft, bodyMd: v });
+  const setTagsRaw = (v: string) => setDraft({ ...draft, tags: v });
   const [pending, startTransition] = useTransition();
 
   const reset = () => {
-    setTitle(initial.title);
-    setBodyMd(initial.bodyMd);
-    setTagsRaw(initial.tags);
+    clearDraft();
   };
 
   const parseTags = (raw: string): string[] =>
@@ -96,7 +106,7 @@ export function JournalEntryDialog(props: JournalEntryDialogProps) {
             tags,
           });
           toast.success('Đã đăng bài');
-          reset();
+          clearDraft();
         } else {
           await updateJournalEntry({
             workspaceSlug: props.workspaceSlug,
@@ -106,6 +116,7 @@ export function JournalEntryDialog(props: JournalEntryDialogProps) {
             tags,
           });
           toast.success('Đã cập nhật');
+          clearDraft();
         }
         props.onOpenChange(false);
         router.refresh();

@@ -23,6 +23,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { InviteMemberDialog } from '@/components/admin/invite-member-dialog';
 import { MemberRowActions } from '@/components/admin/member-row-actions';
 import { BulkInviteCsv } from '@/components/admin/bulk-invite-csv';
+import { CopyButton } from '@/components/ui/copy-button';
+import { Tooltip } from '@/components/ui/tooltip';
 
 /** Render a UUID as `aaaa…zzzz` (first/last 4 chars). */
 function shortId(id: string): string {
@@ -130,8 +132,55 @@ export default async function MembersPage({
           description="Invite a teammate to give them access to this workspace. The owner row isn't listed here — owners are implied via workspaces.owner_user_id."
         />
       ) : (
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          <table className="w-full text-sm">
+        <>
+        {/* Mobile: stacked cards — table is hard to read on narrow viewports */}
+        <ul className="sm:hidden space-y-2" aria-label="Members list">
+          {members.map((m) => (
+            <li
+              key={m.id}
+              className="rounded-xl border border-border bg-card p-4 space-y-2"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className="font-mono text-xs text-foreground/80"
+                  style={{ fontFamily: 'var(--font-jetbrains), monospace' }}
+                >
+                  {shortId(m.userId)}
+                </span>
+                <span className="inline-flex items-center rounded-md bg-secondary/60 px-2 py-0.5 text-xs font-medium text-foreground/80">
+                  {roleLabel(m.role)}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Invited: {formatDate(m.invitedAt)}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Joined: {formatDate(m.joinedAt)}
+              </div>
+              <div className="flex items-center justify-end gap-1.5 pt-1">
+                <Link
+                  href={`/w/${ws.slug}/certificate/${m.id}`}
+                  target="_blank"
+                  rel="noopener"
+                  aria-label="View certificate"
+                  title="Open certificate (PDF)"
+                  className="inline-flex items-center justify-center size-8 rounded-md text-amber-500 hover:bg-amber-500/10 transition-colors"
+                >
+                  <Award className="size-4" />
+                </Link>
+                <MemberRowActions
+                  workspaceSlug={ws.slug}
+                  memberId={m.id}
+                  currentRole={m.role}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+        {/* Desktop: table — wrapped in horizontal scroller for ≥ sm narrow viewports */}
+        <div className="hidden sm:block rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-secondary/40 text-muted-foreground">
               <tr className="text-left">
                 <th className="px-4 py-3 font-medium">User</th>
@@ -145,7 +194,10 @@ export default async function MembersPage({
               {members.map((m) => (
                 <tr key={m.id} className="border-t border-border hover:bg-secondary/20">
                   <td className="px-4 py-3 font-mono text-xs" style={{ fontFamily: 'var(--font-jetbrains), monospace' }}>
-                    {shortId(m.userId)}
+                    <div className="inline-flex items-center gap-1.5">
+                      <span title={m.userId}>{shortId(m.userId)}</span>
+                      <CopyButton value={m.userId} label="Copy user ID" size="sm" />
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center rounded-md bg-secondary/60 px-2 py-0.5 text-xs font-medium text-foreground/80">
@@ -156,16 +208,17 @@ export default async function MembersPage({
                   <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(m.joinedAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1.5">
-                      <Link
-                        href={`/w/${ws.slug}/certificate/${m.id}`}
-                        target="_blank"
-                        rel="noopener"
-                        aria-label="View certificate"
-                        title="Open certificate (PDF)"
-                        className="inline-flex items-center justify-center size-8 rounded-md text-amber-500 hover:bg-amber-500/10 transition-colors"
-                      >
-                        <Award className="size-4" />
-                      </Link>
+                      <Tooltip label="Open certificate (PDF)">
+                        <Link
+                          href={`/w/${ws.slug}/certificate/${m.id}`}
+                          target="_blank"
+                          rel="noopener"
+                          aria-label="View certificate"
+                          className="inline-flex items-center justify-center size-8 rounded-md text-amber-500 hover:bg-amber-500/10 transition-colors"
+                        >
+                          <Award className="size-4" />
+                        </Link>
+                      </Tooltip>
                       <MemberRowActions
                         workspaceSlug={ws.slug}
                         memberId={m.id}
@@ -177,7 +230,9 @@ export default async function MembersPage({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
+        </>
       )}
 
       <BulkInviteCsv workspaceSlug={ws.slug} />

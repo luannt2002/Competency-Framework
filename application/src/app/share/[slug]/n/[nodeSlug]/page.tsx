@@ -8,9 +8,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { and, eq } from 'drizzle-orm';
+import { MarkdownRenderer } from '@/components/learn/markdown-renderer';
+import { NodeToc } from '@/components/learn/node-toc';
+import { parseHeadings } from '@/lib/learn/parse-headings';
 import { db } from '@/lib/db/client';
 import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
 import { getNodeBySlug, getTreeSections, getSiblings } from '@/lib/tree/queries';
@@ -150,8 +151,11 @@ export default async function ShareNodePage({
           <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">
             Nội dung chi tiết
           </h2>
-          <div className="prose prose-sm max-w-none dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{node.bodyMd}</ReactMarkdown>
+          <div className="grid gap-8 md:grid-cols-[1fr_220px]">
+            <div className="min-w-0">
+              <MarkdownRenderer>{node.bodyMd}</MarkdownRenderer>
+            </div>
+            <NodeToc headings={parseHeadings(node.bodyMd)} />
           </div>
         </section>
       )}

@@ -13,13 +13,14 @@
  * Visibility is decided server-side (LEARNER+) so this client component is
  * only mounted on the page when allowed.
  */
-import { useRef, useState, useTransition } from 'react';
+import { useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2, Save, StickyNote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { createJournalEntry } from '@/actions/node-journal';
+import { useDraft } from '@/lib/hooks/use-draft';
 
 type Props = {
   workspaceSlug: string;
@@ -34,7 +35,8 @@ function deriveTitle(body: string): string {
 
 export function QuickNoteComposer({ workspaceSlug, nodeId }: Props) {
   const router = useRouter();
-  const [body, setBody] = useState('');
+  // Quick notes survive page nav via a localStorage draft scoped to the node.
+  const [body, setBody, clearBody] = useDraft(`quick-note:${nodeId}`, '');
   const [pending, startTransition] = useTransition();
   const savingRef = useRef(false);
 
@@ -51,7 +53,7 @@ export function QuickNoteComposer({ workspaceSlug, nodeId }: Props) {
           title: deriveTitle(trimmed),
           bodyMd: trimmed,
         });
-        setBody('');
+        clearBody();
         if (!opts?.silent) toast.success('Đã lưu note');
         router.refresh();
       } catch (e) {

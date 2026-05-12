@@ -20,8 +20,9 @@ import { ShareLinkButton } from '@/components/learn/share-link-button';
 import { StatChip } from '@/components/learn/stat-chip';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Sparkles, Zap, Flame, Heart, GraduationCap, Eye, ArrowRight, Play } from 'lucide-react';
+import { Plus, Sparkles, Zap, Flame, Heart, Eye, ArrowRight, Play } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
+import { NoNodesIllustration } from '@/components/ui/empty-state-illustrations';
 
 export default async function DashboardPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -145,7 +146,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
 
       {rootNodes.length === 0 ? (
         <EmptyState
-          icon={GraduationCap}
+          illustration={<NoNodesIllustration label="Chưa có cây học tập" />}
           title="Chưa có khoá học nào"
           description="Workspace này chưa có cây học tập. Tạo cây mới hoặc chạy seed CLI để import dữ liệu."
           action={

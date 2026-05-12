@@ -59,6 +59,15 @@ export default async function WorkspaceLayout({
 
   return (
     <div className="flex min-h-dvh">
+      {/* Skip-to-content — visually-hidden until keyboard-focused. Sighted
+          users never see it; Tab users get instant access to the page body
+          without having to traverse the sidebar + topbar each time. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
       <AppSidebar
         workspaceSlug={ws.slug}
         workspaceName={ws.name}
@@ -73,7 +82,13 @@ export default async function WorkspaceLayout({
           streak={streak}
           hearts={hearts}
         />
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 overflow-y-auto outline-none"
+        >
+          {children}
+        </main>
       </div>
       <BottomTabBar workspaceSlug={ws.slug} />
     </div>

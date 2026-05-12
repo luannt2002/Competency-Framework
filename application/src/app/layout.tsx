@@ -5,6 +5,7 @@ import { Outfit, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/components/layout/theme-provider';
 import { QueryProvider } from '@/components/layout/query-provider';
+import { TopProgressBar } from '@/components/layout/top-progress-bar';
 import '@/styles/globals.css';
 
 const outfit = Outfit({
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="min-h-dvh bg-background text-foreground font-sans">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+          <TopProgressBar />
           <QueryProvider>{children}</QueryProvider>
           <Toaster
             position="bottom-right"

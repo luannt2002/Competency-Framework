@@ -19,6 +19,8 @@ import { getEffectiveLevel } from '@/lib/rbac/server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { ResourceAddDialog } from './resource-add-dialog';
 import { ResourceRemoveButton } from './resource-remove-button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { NoResourcesIllustration } from '@/components/ui/empty-state-illustrations';
 
 type ResourceKind = 'link' | 'video' | 'doc' | 'book';
 
@@ -99,13 +101,16 @@ export async function ResourcesSection({
       </div>
 
       {rows.length === 0 ? (
-        <div className="surface p-8 text-center text-sm text-muted-foreground border-dashed border-primary/30 bg-primary/5">
-          <p>
-            {readOnly
-              ? 'Mục này chưa có tài liệu nào.'
-              : 'Chưa có tài liệu — hãy là người đóng góp đầu tiên.'}
-          </p>
-        </div>
+        <EmptyState
+          illustration={<NoResourcesIllustration label="Chưa có tài liệu" />}
+          title={readOnly ? 'Chưa có tài liệu nào' : 'Hãy là người đóng góp đầu tiên'}
+          description={
+            readOnly
+              ? 'Mục này chưa có link, video hoặc sách nào.'
+              : 'Đóng góp link / video / sách bạn thấy hữu ích cho mục này.'
+          }
+          className="border-dashed border-primary/30 bg-primary/5"
+        />
       ) : (
         <div className="space-y-5">
           {KIND_ORDER.map((kind) => {

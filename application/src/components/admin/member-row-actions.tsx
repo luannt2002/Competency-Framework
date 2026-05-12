@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { updateMemberRole, removeMember } from '@/actions/workspace-members';
+import { Tooltip } from '@/components/ui/tooltip';
 
 type Role = 'learner' | 'workspace_contributor' | 'workspace_editor';
 
@@ -63,28 +64,33 @@ export function MemberRowActions({
 
   return (
     <div className="flex items-center gap-2 justify-end">
-      <select
-        value={role}
-        onChange={(e) => changeRole(e.target.value as Role)}
-        disabled={pending}
-        className="h-8 rounded-lg border border-border bg-secondary/40 px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-      >
-        {ROLE_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={onRemove}
-        disabled={pending}
-        aria-label="Remove member"
-        className="text-destructive hover:bg-destructive/10"
-      >
-        <Trash2 className="size-4" />
-      </Button>
+      <Tooltip label="Change role">
+        <select
+          value={role}
+          onChange={(e) => changeRole(e.target.value as Role)}
+          disabled={pending}
+          aria-label="Change role"
+          className="h-8 rounded-lg border border-border bg-secondary/40 px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        >
+          {ROLE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </Tooltip>
+      <Tooltip label="Remove member">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onRemove}
+          disabled={pending}
+          aria-label="Remove member"
+          className="text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </Tooltip>
       {error && <span className="text-[10px] text-destructive">{error}</span>}
     </div>
   );

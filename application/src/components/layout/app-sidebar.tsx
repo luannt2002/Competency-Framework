@@ -30,14 +30,12 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const base = `/w/${workspaceSlug}`;
+  // Tree-first navigation: dashboard IS the tree explorer.
+  // Other surfaces accessible from inside node detail pages, not via sidebar.
   const items: Item[] = [
-    { href: base, label: 'Dashboard', icon: LayoutDashboard },
-    { href: `${base}/daily`, label: 'Daily', icon: Calendar },
-    { href: `${base}/skills`, label: 'Skills Matrix', icon: Grid3x3 },
-    { href: `${base}/learn`, label: 'Learn (Duolingo)', icon: GraduationCap },
-    { href: `${base}/roadmap-tree`, label: 'Roadmap Tree', icon: Network },
-    { href: `${base}/courses`, label: 'Khoá học (tree)', icon: GraduationCap },
-    { href: `${base}/framework`, label: 'Framework', icon: Boxes },
+    { href: base, label: 'Cây học tập', icon: LayoutDashboard },
+    { href: `${base}/daily`, label: 'Hôm nay', icon: Calendar },
+    { href: `${base}/skills`, label: 'Kỹ năng', icon: Grid3x3 },
   ];
 
   return (

@@ -97,6 +97,65 @@ export async function getNodeBySlug(
   return { node: enrichedMe[0]!, children: enrichedChildren, ancestors };
 }
 
+/**
+ * Fetch the children of `parentId` (or roots if null) PLUS each child's own children.
+ * Returns an array of "sections", each `{ main, subs }`, where `main` is enriched
+ * with stats and `subs` is its direct children (enriched).
+ *
+ * Used by the vertical-roadmap dashboard / node-detail views that render a
+ * 2-level overview (phase pill + week sub-pills) per section.
+ */
+export async function getTreeSections(
+  workspaceId: string,
+  userId: string,
+  parentId: string | null,
+): Promise<{ main: NodeWithStats; subs: NodeWithStats[] }[]> {
+  const mainsRaw = await db
+    .select()
+    .from(roadmapTreeNodes)
+    .where(
+      and(
+        eq(roadmapTreeNodes.workspaceId, workspaceId),
+        parentId === null
+          ? dsql`${roadmapTreeNodes.parentId} IS NULL`
+          : eq(roadmapTreeNodes.parentId, parentId),
+      ),
+    )
+    .orderBy(asc(roadmapTreeNodes.orderIndex));
+
+  if (mainsRaw.length === 0) return [];
+  const mains = mainsRaw.map(asNodeRow);
+  const mainIds = mains.map((m) => m.id);
+
+  // All direct children of all mains in one query
+  const subsRaw = await db
+    .select()
+    .from(roadmapTreeNodes)
+    .where(
+      and(
+        eq(roadmapTreeNodes.workspaceId, workspaceId),
+        dsql`${roadmapTreeNodes.parentId} IN (${dsql.join(mainIds.map((i) => dsql`${i}::uuid`), dsql`, `)})`,
+      ),
+    )
+    .orderBy(asc(roadmapTreeNodes.orderIndex));
+
+  const subsByParent = new Map<string, NodeRow[]>();
+  for (const r of subsRaw) {
+    const pid = r.parentId!;
+    if (!subsByParent.has(pid)) subsByParent.set(pid, []);
+    subsByParent.get(pid)!.push(asNodeRow(r));
+  }
+
+  const allNodes = [...mains, ...subsRaw.map(asNodeRow)];
+  const enriched = await enrichWithStats(allNodes, workspaceId, userId);
+  const enrichedById = new Map(enriched.map((n) => [n.id, n]));
+
+  return mains.map((m) => ({
+    main: enrichedById.get(m.id)!,
+    subs: (subsByParent.get(m.id) ?? []).map((s) => enrichedById.get(s.id)!).filter(Boolean),
+  }));
+}
+
 /** Add childrenCount, doneChildren, status per node. */
 async function enrichWithStats(
   nodes: NodeRow[],

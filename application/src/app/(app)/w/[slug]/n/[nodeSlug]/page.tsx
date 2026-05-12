@@ -9,13 +9,15 @@
  */
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { ChevronRight, Clock } from 'lucide-react';
 import { requireWorkspaceAccess } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
-import { getNodeBySlug } from '@/lib/tree/queries';
-import { NodeCard } from '@/components/learn/node-card';
+import { getNodeBySlug, getTreeSections } from '@/lib/tree/queries';
 import { typeMeta } from '@/components/learn/node-card';
 import { NodeToolbar } from '@/components/learn/node-toolbar';
+import { VerticalRoadmap } from '@/components/learn/vertical-roadmap';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +36,10 @@ export default async function NodeDetailPage({
   const meta = typeMeta(node.nodeType);
   const Icon = meta.icon;
   const parentSlug = ancestors.length > 0 ? ancestors[ancestors.length - 1]!.slug : null;
+
+  // For the roadmap view of children: fetch each child + grandchildren.
+  // Only when there are children (otherwise we skip the section).
+  const sections = children.length > 0 ? await getTreeSections(ws.id, user.id, node.id) : [];
 
   return (
     <div className="mx-auto max-w-5xl p-6 md:p-8 space-y-6">
@@ -136,21 +142,21 @@ export default async function NodeDetailPage({
         />
       </header>
 
-      {/* Body (markdown raw — simple <pre> for now, can wire react-markdown later) */}
+      {/* Body — real markdown rendering */}
       {node.bodyMd && (
         <section className="surface p-6">
           <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">
             Nội dung chi tiết
           </h2>
-          <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
-            {node.bodyMd}
+          <div className="prose prose-invert prose-sm max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{node.bodyMd}</ReactMarkdown>
           </div>
         </section>
       )}
 
-      {/* Children section */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
+      {/* Children — vertical-tree roadmap view */}
+      <section className="pt-4">
+        <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold">
             {node.childrenCount === 0 ? 'Chưa có con' : `Lộ trình bên trong (${node.childrenCount})`}
           </h2>
@@ -168,11 +174,7 @@ export default async function NodeDetailPage({
             </p>
           </div>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {children.map((child) => (
-              <NodeCard key={child.id} node={child} workspaceSlug={slug} size="md" />
-            ))}
-          </div>
+          <VerticalRoadmap sections={sections} workspaceSlug={slug} />
         )}
       </section>
     </div>

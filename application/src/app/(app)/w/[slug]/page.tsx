@@ -1,9 +1,12 @@
 /**
- * Workspace Dashboard — Tree-first navigation entry.
- * Shows root nodes of the roadmap_tree_nodes as large cards.
- * Click a card → /w/[slug]/n/[node-slug] to drill down recursively.
+ * Workspace Dashboard — vertical-tree roadmap entry.
+ * Design inspired by hueanmy.github.io/claude-roadmap:
+ *   - Gradient hero header
+ *   - For each root: pill main-node, sub-row of children pills
+ *   - Connectors flow downward
+ *   - 5-color rotation (cyan / purple / yellow / green / pink)
  *
- * No tabs. The tree IS the navigation. Sidebar minimal.
+ * Click any pill (main or sub) → /w/[slug]/n/[node-slug] to drill down.
  */
 import Link from 'next/link';
 import { sum, eq, and, count } from 'drizzle-orm';
@@ -11,8 +14,8 @@ import { db } from '@/lib/db/client';
 import { xpEvents, streaks as streaksT, hearts as heartsT, roadmapTreeNodes, userNodeProgress } from '@/lib/db/schema';
 import { requireWorkspaceAccess } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
-import { getRootNodes } from '@/lib/tree/queries';
-import { NodeCard } from '@/components/learn/node-card';
+import { getRootNodes, getTreeSections } from '@/lib/tree/queries';
+import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Sparkles, Zap, Flame, Heart, GraduationCap } from 'lucide-react';
@@ -23,7 +26,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   const ws = await requireWorkspaceAccess(slug);
   const user = await requireUser();
 
-  // Fetch root nodes + topbar stats in parallel
+  // Fetch root nodes + top-bar stats in parallel
   const [rootNodes, xpRow, streakRow, heartRow, totalNodesRow, totalDoneRow] = await Promise.all([
     getRootNodes(ws.id, user.id),
     db
@@ -63,76 +66,66 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   const totalDone = totalDoneRow[0]?.n ?? 0;
   const overallPct = totalNodes === 0 ? 0 : Math.round((totalDone / totalNodes) * 100);
 
+  // For each root, fetch its children (phases) + grandchildren (weeks) as sections.
+  // If there's only 1 root, drill down so we render phases as sections (canonical look).
+  let sections: Awaited<ReturnType<typeof getTreeSections>> = [];
+  let heroTitle = ws.name;
+  let heroSubtitle = 'Cây học tập của bạn · click vào pill để xổ xuống lộ trình bên trong.';
+  if (rootNodes.length === 1) {
+    const root = rootNodes[0]!;
+    heroTitle = root.title;
+    heroSubtitle = root.description ?? heroSubtitle;
+    sections = await getTreeSections(ws.id, user.id, root.id);
+  } else if (rootNodes.length > 1) {
+    // Multi-root: treat each root as a section, fetch its direct children as sub-row
+    sections = await getTreeSections(ws.id, user.id, null);
+  }
+
   return (
-    <div className="mx-auto max-w-6xl p-6 md:p-8 space-y-8">
-      {/* Hero */}
-      <header className="space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="size-12 rounded-2xl accent-gradient flex items-center justify-center shadow-lg shadow-cyan-500/30">
-            <GraduationCap className="size-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{ws.name}</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Cây học tập của bạn · click vào 1 node để xổ ra lộ trình bên trong
-            </p>
-          </div>
-        </div>
+    <div className="mx-auto max-w-5xl px-4 py-10 md:py-16">
+      {/* Stat strip (compact, on top) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10 max-w-3xl mx-auto">
+        <StatChip icon={Sparkles} label="Tiến độ" value={`${overallPct}%`} sub={`${totalDone}/${totalNodes}`} color="text-cyan-400" />
+        <StatChip icon={Zap} label="XP" value={totalXp.toLocaleString()} sub="all-time" color="text-amber-400" />
+        <StatChip icon={Flame} label="Streak" value={String(streak)} sub="ngày" color="text-orange-400" />
+        <StatChip icon={Heart} label="Hearts" value={String(hearts)} sub="còn lại" color="text-rose-400" />
+      </div>
 
-        {/* Stat strip */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatChip icon={Sparkles} label="Tổng tiến độ" value={`${overallPct}%`} sub={`${totalDone}/${totalNodes} node`} color="text-cyan-400" />
-          <StatChip icon={Zap} label="Tổng XP" value={totalXp.toLocaleString()} sub="all-time" color="text-amber-400" />
-          <StatChip icon={Flame} label="Streak" value={String(streak)} sub="ngày liên tiếp" color="text-orange-400" />
-          <StatChip icon={Heart} label="Hearts" value={String(hearts)} sub="còn lại" color="text-red-400" />
-        </div>
-      </header>
-
-      {/* Root nodes section */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Khoá học · Lộ trình của bạn</h2>
-          <span className="text-xs text-muted-foreground">
-            {rootNodes.length} cây gốc
-          </span>
-        </div>
-
-        {rootNodes.length === 0 ? (
-          <EmptyState
-            icon={GraduationCap}
-            title="Chưa có khoá học nào"
-            description="Workspace này chưa có cây học tập. Tạo cây mới hoặc chạy seed CLI để import dữ liệu."
-            action={
-              <Button asChild>
-                <Link href={`/w/${ws.slug}/new`}>
-                  <Plus className="size-4" />
-                  Tạo cây mới
-                </Link>
-              </Button>
-            }
-          />
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {rootNodes.map((node) => (
-              <NodeCard key={node.id} node={node} workspaceSlug={slug} size="lg" />
-            ))}
-          </div>
-        )}
-      </section>
+      {rootNodes.length === 0 ? (
+        <EmptyState
+          icon={GraduationCap}
+          title="Chưa có khoá học nào"
+          description="Workspace này chưa có cây học tập. Tạo cây mới hoặc chạy seed CLI để import dữ liệu."
+          action={
+            <Button asChild>
+              <Link href={`/w/${ws.slug}/new`}>
+                <Plus className="size-4" />
+                Tạo cây mới
+              </Link>
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <RoadmapHero badge="DevOps · 12 months" title={heroTitle} subtitle={heroSubtitle} />
+          <VerticalRoadmap sections={sections} workspaceSlug={slug} />
+          <RoadmapLegend />
+        </>
+      )}
 
       {/* Quick-help footer */}
-      <Card>
+      <Card className="mt-12">
         <CardContent className="p-4">
           <details className="text-xs">
             <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">
               💡 Cách dùng (click để xem)
             </summary>
             <div className="mt-3 space-y-1 text-muted-foreground leading-relaxed">
-              <p>• <b>Click 1 card</b> ở trên → drill xuống xem cây con của khoá đó.</p>
-              <p>• Mỗi cấp lại click tiếp → tới khi gặp lá (bài học / lab / task) → vào trang detail.</p>
-              <p>• Trong trang detail: <b>thêm con</b>, <b>sửa</b>, <b>xoá</b>, <b>đánh dấu xong</b>, <b>note kinh nghiệm</b>.</p>
+              <p>• <b>Click pill chính</b> (giai đoạn / tuần) → drill xuống xem chi tiết.</p>
+              <p>• <b>Click pill nhỏ</b> (sub-node) → xem cây con bên trong.</p>
+              <p>• Mỗi cấp lại click tiếp → tới lá (bài học / lab) → trang detail có nội dung + toolbar.</p>
+              <p>• Trong trang detail: <b>thêm con</b>, <b>sửa</b>, <b>xoá</b>, <b>đánh dấu xong</b>.</p>
               <p>• Quy tắc: <b>phải xong hết con mới đánh dấu xong cha được</b> (gate hierarchy).</p>
-              <p>• Sidebar chỉ có 3 mục: Cây học tập (đang xem), Hôm nay (planner), Kỹ năng (matrix).</p>
             </div>
           </details>
         </CardContent>

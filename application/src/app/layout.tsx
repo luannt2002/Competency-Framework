@@ -1,10 +1,25 @@
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
+import { Outfit, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/components/layout/theme-provider';
 import { QueryProvider } from '@/components/layout/query-provider';
 import '@/styles/globals.css';
+
+const outfit = Outfit({
+  subsets: ['latin'],
+  weight: ['300', '400', '600', '700', '800'],
+  variable: '--font-outfit',
+  display: 'swap',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '600', '700'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Competency Framework',
@@ -17,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="vi"
       suppressHydrationWarning
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${outfit.variable} ${jetbrainsMono.variable}`}
     >
       <body className="min-h-dvh bg-background text-foreground font-sans">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>

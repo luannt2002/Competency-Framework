@@ -156,6 +156,37 @@ export async function getTreeSections(
   }));
 }
 
+/**
+ * Fetch the full tree of a workspace as a nested structure — no user/status data.
+ * Used by the read-only Overview page (showcase mode).
+ *
+ * Returns the list of root nodes, each with `.children` recursively populated.
+ */
+export type OverviewNode = NodeRow & { children: OverviewNode[] };
+
+export async function getFullTree(workspaceId: string): Promise<OverviewNode[]> {
+  const all = await db
+    .select()
+    .from(roadmapTreeNodes)
+    .where(eq(roadmapTreeNodes.workspaceId, workspaceId))
+    .orderBy(asc(roadmapTreeNodes.depth), asc(roadmapTreeNodes.orderIndex));
+
+  const byId = new Map<string, OverviewNode>();
+  for (const r of all) {
+    byId.set(r.id, { ...asNodeRow(r), children: [] });
+  }
+
+  const roots: OverviewNode[] = [];
+  for (const node of byId.values()) {
+    if (node.parentId && byId.has(node.parentId)) {
+      byId.get(node.parentId)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
 /** Add childrenCount, doneChildren, status per node. */
 async function enrichWithStats(
   nodes: NodeRow[],

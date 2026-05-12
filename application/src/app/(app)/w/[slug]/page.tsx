@@ -16,9 +16,10 @@ import { requireWorkspaceAccess } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { getRootNodes, getTreeSections } from '@/lib/tree/queries';
 import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
+import { ShareLinkButton } from '@/components/learn/share-link-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Sparkles, Zap, Flame, Heart, GraduationCap } from 'lucide-react';
+import { Plus, Sparkles, Zap, Flame, Heart, GraduationCap, Eye } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 
 export default async function DashboardPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -83,12 +84,24 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 md:py-16">
+      {/* Top action bar: share / overview */}
+      <div className="flex items-center justify-end gap-2 mb-6">
+        <Link
+          href={`/share/${slug}`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-card hover:bg-secondary transition-colors"
+          target="_blank"
+        >
+          <Eye className="size-3.5" /> Xem dạng showcase
+        </Link>
+        <ShareLinkButton label="Copy link share" url={`/share/${slug}`} />
+      </div>
+
       {/* Stat strip (compact, on top) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10 max-w-3xl mx-auto">
-        <StatChip icon={Sparkles} label="Tiến độ" value={`${overallPct}%`} sub={`${totalDone}/${totalNodes}`} color="text-cyan-400" />
-        <StatChip icon={Zap} label="XP" value={totalXp.toLocaleString()} sub="all-time" color="text-amber-400" />
-        <StatChip icon={Flame} label="Streak" value={String(streak)} sub="ngày" color="text-orange-400" />
-        <StatChip icon={Heart} label="Hearts" value={String(hearts)} sub="còn lại" color="text-rose-400" />
+        <StatChip icon={Sparkles} label="Tiến độ" value={`${overallPct}%`} sub={`${totalDone}/${totalNodes}`} color="text-cyan-500" />
+        <StatChip icon={Zap} label="XP" value={totalXp.toLocaleString()} sub="all-time" color="text-amber-500" />
+        <StatChip icon={Flame} label="Streak" value={String(streak)} sub="ngày" color="text-orange-500" />
+        <StatChip icon={Heart} label="Hearts" value={String(hearts)} sub="còn lại" color="text-rose-500" />
       </div>
 
       {rootNodes.length === 0 ? (

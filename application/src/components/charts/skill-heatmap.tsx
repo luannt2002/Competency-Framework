@@ -1,7 +1,5 @@
 'use client';
 
-import { LevelBadge } from '@/components/skills/level-badge';
-
 export type HeatmapCell = {
   skillId: string;
   skillName: string;

@@ -175,7 +175,8 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
                 type="button"
                 onClick={() => {
                   const next = new Set(catFilter);
-                  next.has(c.id) ? next.delete(c.id) : next.add(c.id);
+                  if (next.has(c.id)) next.delete(c.id);
+                  else next.add(c.id);
                   setCatFilter(next);
                 }}
                 className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
@@ -208,7 +209,8 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
                 type="button"
                 onClick={() => {
                   const next = new Set(levelFilter);
-                  next.has(lvl) ? next.delete(lvl) : next.add(lvl);
+                  if (next.has(lvl)) next.delete(lvl);
+                  else next.add(lvl);
                   setLevelFilter(next);
                 }}
                 className={`rounded-full border px-2.5 py-0.5 text-[11px] font-mono font-semibold transition-colors ${
@@ -225,7 +227,8 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
             type="button"
             onClick={() => {
               const next = new Set(levelFilter);
-              next.has('__none__') ? next.delete('__none__') : next.add('__none__');
+              if (next.has('__none__')) next.delete('__none__');
+              else next.add('__none__');
               setLevelFilter(next);
             }}
             className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${

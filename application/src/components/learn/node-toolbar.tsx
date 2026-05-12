@@ -209,7 +209,7 @@ function AddChildDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Thêm con vào "{parentTitle}"</DialogTitle>
+          <DialogTitle>Thêm con vào &quot;{parentTitle}&quot;</DialogTitle>
           <DialogDescription>
             Có thể là bất kỳ cấp nào: bài học, lab, project, milestone, hoặc giai đoạn nhỏ hơn.
           </DialogDescription>

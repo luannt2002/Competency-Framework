@@ -5,7 +5,6 @@
 'use client';
 
 import { Search, Flame, Heart, Zap } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { ThemeToggle } from './theme-toggle';
 
 type Props = {

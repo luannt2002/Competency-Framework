@@ -1,7 +1,7 @@
 /**
  * Profile page — aggregate stats across all owned workspaces.
  */
-import { eq, sum, count, desc, gte, sql as dsql } from 'drizzle-orm';
+import { eq, sum, count, desc, sql as dsql } from 'drizzle-orm';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { listMyWorkspaces } from '@/lib/workspace';
@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Plus, Trophy, Flame, Zap, BookOpen, CalendarDays, Boxes } from 'lucide-react';
 import { ActivityHeatmap, type DailyXp } from '@/components/charts/activity-heatmap';
+import { StatChip } from '@/components/learn/stat-chip';
 
 export default async function ProfilePage() {
   const user = await requireUser();
@@ -73,32 +74,61 @@ export default async function ProfilePage() {
     .where(eq(userBadges.userId, user.id))
     .orderBy(desc(userBadges.grantedAt));
 
+  const memberSince = new Date(user.created_at ?? Date.now()).toLocaleDateString();
+
   return (
-    <div className="mx-auto max-w-4xl p-6 md:p-8 space-y-8">
+    <div
+      className="mx-auto max-w-4xl p-6 md:p-8 space-y-8"
+      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+    >
       {/* Hero */}
-      <header className="flex items-center gap-4">
-        <div className="size-16 rounded-full accent-gradient flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-cyan-500/30">
+      <header className="flex items-center gap-5">
+        <div className="size-16 rounded-full accent-gradient flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-cyan-500/20">
           {(user.email ?? 'U').charAt(0).toUpperCase()}
         </div>
-        <div>
-          <h1 className="text-2xl font-bold">{user.email}</h1>
-          <p className="text-sm text-muted-foreground">Member since {new Date(user.created_at ?? Date.now()).toLocaleDateString()}</p>
+        <div className="min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">{user.email}</h1>
+          <p className="text-sm text-muted-foreground mt-1">Member since {memberSince}</p>
         </div>
       </header>
 
       {/* Stat row */}
       <section className="grid gap-3 grid-cols-2 md:grid-cols-4">
-        <StatCard icon={Zap} value={Number(xpTotal ?? 0).toLocaleString()} label="Total XP" color="text-amber-400" />
-        <StatCard icon={Flame} value={currentStreak} label="Current streak" color="text-orange-400" />
-        <StatCard icon={Flame} value={longestStreak} label="Longest streak" color="text-orange-300" />
-        <StatCard icon={BookOpen} value={lessonsDone} label="Lessons done" color="text-cyan-400" />
+        <StatChip
+          icon={Zap}
+          value={Number(xpTotal ?? 0).toLocaleString()}
+          label="Total XP"
+          sub="across all workspaces"
+          color="text-amber-600"
+        />
+        <StatChip
+          icon={Flame}
+          value={String(currentStreak)}
+          label="Current streak"
+          sub={currentStreak === 1 ? 'day' : 'days'}
+          color="text-orange-600"
+        />
+        <StatChip
+          icon={Flame}
+          value={String(longestStreak)}
+          label="Longest streak"
+          sub="personal best"
+          color="text-orange-500"
+        />
+        <StatChip
+          icon={BookOpen}
+          value={String(lessonsDone)}
+          label="Lessons done"
+          sub="completed"
+          color="text-cyan-600"
+        />
       </section>
 
       {/* Activity heatmap */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <CalendarDays className="size-4 text-cyan-400" />
+            <CalendarDays className="size-4 text-cyan-600" />
             Learning activity · last 12 weeks
           </CardTitle>
           <CardDescription>XP earned per day, GitHub-style.</CardDescription>
@@ -112,7 +142,7 @@ export default async function ProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Trophy className="size-4 text-amber-400" />
+            <Trophy className="size-4 text-amber-600" />
             Badges earned ({earnedBadges.length})
           </CardTitle>
         </CardHeader>
@@ -123,16 +153,16 @@ export default async function ProfilePage() {
             </p>
           )}
           {earnedBadges.length > 0 && (
-            <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
               {earnedBadges.map((b) => (
                 <div
                   key={b.slug}
-                  className="surface p-3 text-center hover:bg-secondary/40 transition-colors"
+                  className="surface p-4 text-center transition-colors hover:bg-secondary/60"
                   title={b.description ?? ''}
                 >
-                  <div className="text-2xl mb-1">🏅</div>
-                  <div className="text-sm font-medium truncate">{b.name}</div>
-                  <div className="text-[10px] text-muted-foreground mt-1">
+                  <div className="text-3xl mb-2">🏅</div>
+                  <div className="text-sm font-semibold truncate text-foreground">{b.name}</div>
+                  <div className="text-[10px] text-muted-foreground mt-1 font-mono uppercase tracking-wider">
                     {b.grantedAt ? new Date(b.grantedAt).toLocaleDateString() : ''}
                   </div>
                 </div>
@@ -145,7 +175,10 @@ export default async function ProfilePage() {
       {/* Workspaces */}
       <Card>
         <CardHeader>
-          <CardTitle>My Workspaces ({workspaces.length})</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Boxes className="size-4 text-violet-600" />
+            My Workspaces ({workspaces.length})
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {workspaces.length === 0 ? (
@@ -168,14 +201,14 @@ export default async function ProfilePage() {
               <Link
                 key={w.id}
                 href={`/w/${w.slug}`}
-                className="flex items-center gap-3 rounded-xl border border-border bg-secondary/30 px-4 py-3 transition-colors hover:bg-secondary"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-secondary/60 hover:border-primary/30"
               >
-                <div className="size-8 rounded-lg accent-gradient flex items-center justify-center text-white font-bold text-sm">
+                <div className="size-9 rounded-lg accent-gradient flex items-center justify-center text-white font-bold text-sm shadow-sm">
                   {w.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="flex-1">
-                  <div className="font-medium text-sm">{w.name}</div>
-                  <div className="text-xs text-muted-foreground">/{w.slug}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{w.name}</div>
+                  <div className="text-xs text-muted-foreground font-mono">/{w.slug}</div>
                 </div>
               </Link>
             ))
@@ -189,26 +222,6 @@ export default async function ProfilePage() {
           </Button>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function StatCard({
-  icon: Icon,
-  value,
-  label,
-  color,
-}: {
-  icon: typeof Zap;
-  value: string | number;
-  label: string;
-  color: string;
-}) {
-  return (
-    <div className="surface p-4">
-      <Icon className={`size-5 mb-2 ${color}`} />
-      <div className="text-2xl font-bold tabular-nums">{value}</div>
-      <div className="text-xs text-muted-foreground">{label}</div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
  * Badge evaluator — called after major mutations (completeLesson, updateAssessment).
  * Returns badges newly granted in this evaluation pass.
  */
-import { and, eq, count, sum, sql as dsql, inArray, isNotNull } from 'drizzle-orm';
+import { and, eq, count, sum, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import {
   badges,

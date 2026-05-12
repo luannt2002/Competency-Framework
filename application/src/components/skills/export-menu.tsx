@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Download, FileText, Sheet, Code2, Loader2 } from 'lucide-react';
+import { FileText, Sheet, Code2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { exportXlsx, exportJson, exportHtmlReport } from '@/actions/exports';
 

@@ -130,7 +130,7 @@ export async function createLesson(input: z.infer<typeof lessonInput>): Promise<
   await assertModuleInWorkspace(ws.id, parsed.moduleId);
 
   // Auto-slugify if not provided; ensure unique within workspace by appending counter
-  let baseSlug = parsed.slug ? toSlug(parsed.slug) : toSlug(parsed.title);
+  const baseSlug = parsed.slug ? toSlug(parsed.slug) : toSlug(parsed.title);
   let slug = baseSlug;
   let counter = 2;
   while (true) {

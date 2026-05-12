@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { eq, and, max as drizzleMax, asc, desc, sql as dsql } from 'drizzle-orm';
+import { eq, and, max as drizzleMax, asc, sql as dsql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import {
   workspaces,
@@ -16,16 +16,40 @@ import {
 } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { toSlug } from '@/lib/utils';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
-async function resolveWorkspace(slug: string, userId: string) {
+/**
+ * Resolve a workspace by slug, then enforce the RBAC level needed for the
+ * caller's action. Replaces the old (slug, userId) owner-only check.
+ *
+ * Returns 404-style error (WORKSPACE_NOT_FOUND_OR_FORBIDDEN) when the slug
+ * doesn't exist OR the user lacks the level — same response in both cases
+ * to avoid leaking workspace existence to non-members.
+ */
+async function resolveWorkspace(slug: string, requiredLevel: number) {
+  // Auth gate first — every mutation must be logged in.
+  const user = await requireUser();
+
   const rows = await db
     .select({ id: workspaces.id, slug: workspaces.slug })
     .from(workspaces)
-    .where(and(eq(workspaces.slug, slug), eq(workspaces.ownerUserId, userId)))
+    .where(eq(workspaces.slug, slug))
     .limit(1);
   const ws = rows[0];
   if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  return ws;
+
+  let ctx;
+  try {
+    ctx = await requireMinLevel(ws.id, requiredLevel);
+  } catch (err) {
+    if (err instanceof RBACError) {
+      throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+    }
+    throw err;
+  }
+
+  return { ws, user, ctx };
 }
 
 export type TreeNode = {
@@ -50,8 +74,10 @@ export type TreeNodeWithChildren = TreeNode & {
 
 /* ============================ Reads ============================ */
 export async function listTreeForWorkspace(workspaceSlug: string): Promise<TreeNodeWithChildren[]> {
-  const user = await requireUser();
-  const ws = await resolveWorkspace(workspaceSlug, user.id);
+  // Reads only require LEARNER (20); viewers/guests fall through to
+  // WORKSPACE_NOT_FOUND_OR_FORBIDDEN. This keeps the per-user progress join
+  // from leaking against an anonymous user.
+  const { ws, user } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
 
   const rows = await db
     .select()
@@ -127,9 +153,8 @@ const createInput = z.object({
 });
 
 export async function createTreeNode(input: z.infer<typeof createInput>): Promise<{ id: string; slug: string }> {
-  const user = await requireUser();
   const parsed = createInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
 
   // Compute slug + ensure unique within workspace
   let baseSlug = toSlug(parsed.title);
@@ -202,6 +227,22 @@ export async function createTreeNode(input: z.infer<typeof createInput>): Promis
     payload: { nodeId: inserted.id, parentId: parsed.parentId, type: parsed.nodeType, title: parsed.title },
   });
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'tree_node.create',
+    resourceType: 'tree_node',
+    resourceId: inserted.id,
+    after: {
+      id: inserted.id,
+      slug: inserted.slug,
+      title: parsed.title,
+      parentId: parsed.parentId,
+      nodeType: parsed.nodeType,
+    },
+  });
+
   revalidatePath(`/w/${ws.slug}`);
   return { id: inserted.id, slug: inserted.slug };
 }
@@ -218,9 +259,24 @@ const updateInput = z.object({
 });
 
 export async function updateTreeNode(input: z.infer<typeof updateInput>): Promise<void> {
-  const user = await requireUser();
   const parsed = updateInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
+
+  // Capture before-state for audit. Single round-trip; the subsequent UPDATE
+  // uses a tenant-scoped WHERE so a TOCTOU swap of nodeId across workspaces
+  // is rejected at the DB layer.
+  const beforeRows = await db
+    .select({
+      title: roadmapTreeNodes.title,
+      description: roadmapTreeNodes.description,
+      bodyMd: roadmapTreeNodes.bodyMd,
+      nodeType: roadmapTreeNodes.nodeType,
+      estMinutes: roadmapTreeNodes.estMinutes,
+    })
+    .from(roadmapTreeNodes)
+    .where(and(eq(roadmapTreeNodes.id, parsed.nodeId), eq(roadmapTreeNodes.workspaceId, ws.id)))
+    .limit(1);
+  const before = beforeRows[0] ?? null;
 
   const patch: Record<string, unknown> = { updatedAt: new Date() };
   if (parsed.title !== undefined) patch.title = parsed.title;
@@ -240,15 +296,49 @@ export async function updateTreeNode(input: z.infer<typeof updateInput>): Promis
     kind: 'tree_node_updated',
     payload: { nodeId: parsed.nodeId },
   });
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'tree_node.update',
+    resourceType: 'tree_node',
+    resourceId: parsed.nodeId,
+    before,
+    after: {
+      title: parsed.title,
+      description: parsed.description,
+      bodyMd: parsed.bodyMd,
+      nodeType: parsed.nodeType,
+      estMinutes: parsed.estMinutes,
+    },
+  });
   revalidatePath(`/w/${ws.slug}`);
 }
 
 /* ============================ Delete ============================ */
 export async function deleteTreeNode(workspaceSlug: string, nodeId: string): Promise<void> {
-  const user = await requireUser();
-  const ws = await resolveWorkspace(workspaceSlug, user.id);
+  // Destructive — OWNER (80) only. Editors cannot wipe other people's work.
+  const { ws, user, ctx } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.OWNER);
+
+  // Capture before-state for audit (title at minimum, so the audit row is
+  // useful when the node is gone).
+  const beforeRows = await db
+    .select({
+      id: roadmapTreeNodes.id,
+      title: roadmapTreeNodes.title,
+      slug: roadmapTreeNodes.slug,
+      parentId: roadmapTreeNodes.parentId,
+      nodeType: roadmapTreeNodes.nodeType,
+    })
+    .from(roadmapTreeNodes)
+    .where(and(eq(roadmapTreeNodes.id, nodeId), eq(roadmapTreeNodes.workspaceId, ws.id)))
+    .limit(1);
+  const before = beforeRows[0] ?? null;
+
   // Subtree deleted automatically via ON DELETE CASCADE on parent_id FK? No FK here.
-  // Manual cascade: delete children via pathStr LIKE.
+  // Manual cascade: delete children via pathStr LIKE. Tenant-scoped WHERE
+  // makes this safe against TOCTOU: a nodeId from another workspace cannot
+  // collide because the workspace_id filter rejects it.
   await db.execute(
     dsql`DELETE FROM roadmap_tree_nodes WHERE workspace_id = ${ws.id}
          AND (id = ${nodeId} OR path_str LIKE ${nodeId + '%'} OR path_str LIKE ${'%/' + nodeId + '%'})`,
@@ -258,6 +348,16 @@ export async function deleteTreeNode(workspaceSlug: string, nodeId: string): Pro
     userId: user.id,
     kind: 'tree_node_deleted',
     payload: { nodeId },
+  });
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'tree_node.delete',
+    resourceType: 'tree_node',
+    resourceId: nodeId,
+    before,
+    after: null,
   });
   revalidatePath(`/w/${ws.slug}`);
 }
@@ -270,9 +370,9 @@ const moveInput = z.object({
 });
 
 export async function moveTreeNode(input: z.infer<typeof moveInput>): Promise<void> {
-  const user = await requireUser();
   const parsed = moveInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  // Reorder is a structural edit — same level as update.
+  const { ws, user } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
 
   const me = await db
     .select()
@@ -334,8 +434,9 @@ export async function toggleNodeDone(
   workspaceSlug: string,
   nodeId: string,
 ): Promise<{ action: 'marked_done' | 'marked_todo'; cascadedUp: number; incomplete?: number }> {
-  const user = await requireUser();
-  const ws = await resolveWorkspace(workspaceSlug, user.id);
+  // Per RBAC spec: progress toggle requires EDITOR (60). Owners + super_admin
+  // also pass. Learners and viewers cannot mark progress on this workspace.
+  const { ws, user, ctx } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.EDITOR);
 
   const meRows = await db
     .select()
@@ -393,6 +494,16 @@ export async function toggleNodeDone(
       userId: user.id,
       kind: 'tree_node_undone',
       payload: { nodeId, cascadedAncestors: cascaded },
+    });
+    await writeAudit({
+      workspaceId: ws.id,
+      actorUserId: user.id,
+      actorRole: ctx.role,
+      action: 'tree_node.toggle_done',
+      resourceType: 'tree_node',
+      resourceId: nodeId,
+      before: { status: 'done' },
+      after: { status: 'todo', cascadedAncestors: cascaded },
     });
     revalidatePath(`/w/${ws.slug}`);
     return { action: 'marked_todo', cascadedUp: cascaded };
@@ -458,6 +569,16 @@ export async function toggleNodeDone(
     userId: user.id,
     kind: 'tree_node_done',
     payload: { nodeId, descendants: descendantIds.length },
+  });
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'tree_node.toggle_done',
+    resourceType: 'tree_node',
+    resourceId: nodeId,
+    before: { status: existing[0]?.status ?? 'todo' },
+    after: { status: 'done', descendants: descendantIds.length },
   });
   revalidatePath(`/w/${ws.slug}`);
   return { action: 'marked_done', cascadedUp: 0 };

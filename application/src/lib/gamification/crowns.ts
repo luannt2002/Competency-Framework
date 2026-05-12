@@ -8,7 +8,7 @@
  *     - Cap at 5.
  *   Also if user has no progress row yet for that skill, create with level_source='learned'.
  */
-import { and, eq, sql as dsql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import {
   lessonSkillMap,

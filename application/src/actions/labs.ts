@@ -10,7 +10,6 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { labs, userLabProgress, workspaces, activityLog, xpEvents } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
-import { XP } from '@/lib/learn/xp-rules';
 
 async function resolveWorkspace(slug: string, userId: string) {
   const rows = await db

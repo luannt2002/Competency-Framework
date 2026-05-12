@@ -161,7 +161,7 @@ export function SettingsForm() {
       <div className="surface p-5 border-destructive/30">
         <h3 className="text-sm font-medium text-destructive">Danger zone</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Reset is irreversible — you'll lose all assessments + XP for the workspace.
+          Reset is irreversible — you&apos;ll lose all assessments + XP for the workspace.
         </p>
         <div className="mt-3 flex gap-2">
           <Button

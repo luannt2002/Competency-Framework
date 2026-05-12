@@ -9,12 +9,17 @@ export default async function SettingsPage() {
   await requireUser();
 
   return (
-    <div className="mx-auto max-w-2xl p-6 md:p-8 space-y-6">
-      <header className="flex items-center gap-3">
-        <SettingsIcon className="size-6 text-cyan-400" />
+    <div
+      className="mx-auto max-w-2xl p-6 md:p-8 space-y-8"
+      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+    >
+      <header className="flex items-center gap-4">
+        <div className="size-12 rounded-2xl accent-gradient flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <SettingsIcon className="size-6 text-white" />
+        </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Settings</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Personal preferences — stored in your browser.
           </p>
         </div>

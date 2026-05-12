@@ -51,33 +51,43 @@ export default function SignInPage() {
   }
 
   return (
-    <main className="min-h-dvh flex items-center justify-center p-6">
+    <main
+      className="min-h-dvh flex items-center justify-center p-6 bg-background"
+      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+    >
       <div className="w-full max-w-sm">
         <Link
           href="/"
-          className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="size-4" />
           Back
         </Link>
 
-        <div className="surface p-8">
+        <div className="surface p-8 shadow-sm">
+          <div className="size-12 rounded-2xl accent-gradient flex items-center justify-center mb-5 shadow-lg shadow-cyan-500/20">
+            <Mail className="size-6 text-white" />
+          </div>
           <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1.5 text-sm text-muted-foreground">
             Sign in to continue your competency journey.
           </p>
 
           {sent ? (
-            <div className="mt-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-sm">
-              <p className="font-medium text-emerald-300">Check your email ✨</p>
-              <p className="mt-1 text-muted-foreground">
-                We sent a magic link to <span className="text-foreground">{email}</span>.
+            <div className="mt-6 rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm">
+              <p className="font-semibold text-emerald-700">Check your email</p>
+              <p className="mt-1 text-emerald-700/80">
+                We sent a magic link to{' '}
+                <span className="text-foreground font-medium">{email}</span>.
               </p>
             </div>
           ) : (
             <form onSubmit={signInWithMagicLink} className="mt-6 space-y-3">
               <div>
-                <label htmlFor="email" className="block text-xs font-medium mb-1.5">
+                <label
+                  htmlFor="email"
+                  className="block text-xs font-semibold mb-1.5 text-foreground/80"
+                >
                   Email
                 </label>
                 <input
@@ -86,7 +96,7 @@ export default function SignInPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-secondary/40 px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 transition-colors"
                   placeholder="you@example.com"
                 />
               </div>
@@ -100,7 +110,7 @@ export default function SignInPage() {
 
           <div className="my-6 flex items-center gap-3">
             <span className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">or</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">or</span>
             <span className="h-px flex-1 bg-border" />
           </div>
 
@@ -110,16 +120,16 @@ export default function SignInPage() {
         </div>
 
         <p className="mt-6 text-xs text-muted-foreground text-center">
-          New here? Just sign in — we'll create your account automatically.
+          New here? Just sign in — we&apos;ll create your account automatically.
         </p>
 
         {/* Dev bypass hint — visible when DEV_AUTH_BYPASS_USER_ID set */}
         {process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_DEV_BYPASS_HINT === '1' && (
-          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
-            <p className="font-medium text-amber-300">🔓 Dev bypass active</p>
-            <p className="mt-1 text-muted-foreground">
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs">
+            <p className="font-semibold text-amber-700">Dev bypass active</p>
+            <p className="mt-1 text-amber-700/80">
               Auth shortcut enabled. Go directly to{' '}
-              <Link href="/w/devops-test" className="underline text-amber-200">
+              <Link href="/w/devops-test" className="underline font-medium text-amber-800 hover:text-amber-900">
                 /w/devops-test
               </Link>
               .

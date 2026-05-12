@@ -167,20 +167,7 @@ export async function recomputeUnlocks(
     .from(weeks)
     .where(eq(weeks.trackId, wk.trackId));
 
-  const completedWeeksInTrack = await db
-    .select({ id: userWeekProgress.id })
-    .from(userWeekProgress)
-    .where(
-      and(
-        eq(userWeekProgress.workspaceId, workspaceId),
-        eq(userWeekProgress.userId, userId),
-        inArray(
-          userWeekProgress.weekId,
-          allWeeksInTrack.map((w) => w.id),
-        ),
-      ),
-    );
-  // Count completedAt not null among above
+  // Count completedAt not null among weeks in track
   const completedCount = await db
     .select()
     .from(userWeekProgress)

@@ -1,9 +1,14 @@
 /**
  * Workspace-scoped layout — sidebar + topbar + main content.
  * Ensures user owns the workspace; throws otherwise.
+ * Fetches gamification stats (today's XP, current streak, hearts) for the topbar.
  */
+import { and, eq, gte, sum } from 'drizzle-orm';
 import { AppSidebar, BottomTabBar } from '@/components/layout/app-sidebar';
 import { Topbar } from '@/components/layout/topbar';
+import { db } from '@/lib/db/client';
+import { xpEvents, streaks as streaksT, hearts as heartsT } from '@/lib/db/schema';
+import { requireUser } from '@/lib/auth/supabase-server';
 import { requireWorkspaceAccess } from '@/lib/workspace';
 
 export default async function WorkspaceLayout({
@@ -15,12 +20,49 @@ export default async function WorkspaceLayout({
 }) {
   const { slug } = await params;
   const ws = await requireWorkspaceAccess(slug);
+  const user = await requireUser();
+
+  // Start of today (UTC) — MVP good enough.
+  const startOfToday = new Date();
+  startOfToday.setUTCHours(0, 0, 0, 0);
+
+  const [xpTodayRow, streakRow, heartRow] = await Promise.all([
+    db
+      .select({ s: sum(xpEvents.amount) })
+      .from(xpEvents)
+      .where(
+        and(
+          eq(xpEvents.workspaceId, ws.id),
+          eq(xpEvents.userId, user.id),
+          gte(xpEvents.createdAt, startOfToday),
+        ),
+      ),
+    db
+      .select()
+      .from(streaksT)
+      .where(and(eq(streaksT.workspaceId, ws.id), eq(streaksT.userId, user.id)))
+      .limit(1),
+    db
+      .select()
+      .from(heartsT)
+      .where(and(eq(heartsT.workspaceId, ws.id), eq(heartsT.userId, user.id)))
+      .limit(1),
+  ]);
+
+  const dailyXp = Number(xpTodayRow[0]?.s ?? 0);
+  const streak = streakRow[0]?.currentStreak ?? 0;
+  const hearts = heartRow[0]?.current ?? 5;
 
   return (
     <div className="flex min-h-dvh">
       <AppSidebar workspaceSlug={ws.slug} workspaceName={ws.name} />
       <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
-        <Topbar workspaceName={ws.name} />
+        <Topbar
+          workspaceName={ws.name}
+          dailyXp={dailyXp}
+          streak={streak}
+          hearts={hearts}
+        />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
       <BottomTabBar workspaceSlug={ws.slug} />

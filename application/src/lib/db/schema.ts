@@ -563,3 +563,4 @@ export * from './schema-v9';
 export * from './schema-etl';
 export * from './schema-tree';
 export * from './schema-rbac';
+export * from './schema-journal';

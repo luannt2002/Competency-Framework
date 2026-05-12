@@ -528,10 +528,10 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
 function ConfidenceBadge({ score }: { score: number }) {
   const tone =
     score >= 70
-      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
       : score >= 40
-        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-        : 'bg-red-500/15 text-red-300 border-red-500/30';
+        ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+        : 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30';
   return (
     <span
       className={cn(
@@ -558,7 +558,7 @@ function SourcePill({ source }: { source: ConfidenceSource }) {
   }
   if (source === 'learned') {
     return (
-      <span className="inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-300">
+      <span className="inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-700 dark:text-cyan-300">
         learned
       </span>
     );
@@ -578,10 +578,10 @@ const KIND_LABEL: Record<EvidenceRow['kind'], string> = {
 };
 
 const KIND_TONE: Record<EvidenceRow['kind'], string> = {
-  lab: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-  project: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-  peer_review: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  manager_review: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  lab: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
+  project: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30',
+  peer_review: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
+  manager_review: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
 };
 
 function KindBadge({ kind }: { kind: EvidenceRow['kind'] }) {

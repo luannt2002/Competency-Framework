@@ -9,15 +9,25 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { workspaces, userWeekNotes, weeks, activityLog } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
-async function resolveWorkspace(slug: string, userId: string) {
+async function resolveWorkspace(slug: string, requiredLevel: number) {
+  const user = await requireUser();
   const rows = await db
     .select({ id: workspaces.id, slug: workspaces.slug })
     .from(workspaces)
-    .where(and(eq(workspaces.slug, slug), eq(workspaces.ownerUserId, userId)))
+    .where(eq(workspaces.slug, slug))
     .limit(1);
-  if (!rows[0]) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  return rows[0];
+  const ws = rows[0];
+  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+  try {
+    const ctx = await requireMinLevel(ws.id, requiredLevel);
+    return { ws, user, ctx };
+  } catch (err) {
+    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+    throw err;
+  }
 }
 
 const addInput = z.object({
@@ -27,9 +37,9 @@ const addInput = z.object({
 });
 
 export async function addWeekNote(input: z.infer<typeof addInput>): Promise<{ id: string }> {
-  const user = await requireUser();
   const parsed = addInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  // Personal notes are written by learners against own user_id.
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
 
   // Verify week belongs to workspace
   const wk = await db
@@ -57,6 +67,17 @@ export async function addWeekNote(input: z.infer<typeof addInput>): Promise<{ id
     payload: { weekId: parsed.weekId, length: parsed.bodyMd.length },
   });
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'week_note.create',
+    resourceType: 'week_note',
+    resourceId: inserted.id,
+    before: null,
+    after: { id: inserted.id, weekId: parsed.weekId, length: parsed.bodyMd.length },
+  });
+
   revalidatePath(`/w/${ws.slug}/learn`);
   return { id: inserted.id };
 }
@@ -67,9 +88,25 @@ const deleteInput = z.object({
 });
 
 export async function deleteWeekNote(input: z.infer<typeof deleteInput>): Promise<void> {
-  const user = await requireUser();
   const parsed = deleteInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  // Users delete their OWN notes — LEARNER level is sufficient because the
+  // tenant-scoped WHERE filters by userId.
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
+
+  const beforeRows = await db
+    .select({ id: userWeekNotes.id, weekId: userWeekNotes.weekId, bodyMd: userWeekNotes.bodyMd })
+    .from(userWeekNotes)
+    .where(
+      and(
+        eq(userWeekNotes.id, parsed.noteId),
+        eq(userWeekNotes.workspaceId, ws.id),
+        eq(userWeekNotes.userId, user.id),
+      ),
+    )
+    .limit(1);
+  const before = beforeRows[0]
+    ? { id: beforeRows[0].id, weekId: beforeRows[0].weekId, length: beforeRows[0].bodyMd.length }
+    : null;
 
   await db
     .delete(userWeekNotes)
@@ -80,6 +117,18 @@ export async function deleteWeekNote(input: z.infer<typeof deleteInput>): Promis
         eq(userWeekNotes.userId, user.id),
       ),
     );
+
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'week_note.delete',
+    resourceType: 'week_note',
+    resourceId: parsed.noteId,
+    before,
+    after: null,
+  });
+
   revalidatePath(`/w/${ws.slug}/learn`);
 }
 
@@ -93,8 +142,7 @@ export async function listWeekNotes(
   workspaceSlug: string,
   weekId: string,
 ): Promise<WeekNote[]> {
-  const user = await requireUser();
-  const ws = await resolveWorkspace(workspaceSlug, user.id);
+  const { ws, user } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
   return db
     .select({
       id: userWeekNotes.id,

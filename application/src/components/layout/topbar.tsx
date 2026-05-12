@@ -1,20 +1,46 @@
 /**
- * Topbar: shows workspace title, gamification stats (XP/streak/hearts) and command palette stub.
- * MVP: stats are placeholder; M5 will wire them to real data.
+ * Topbar: shows workspace title, gamification stats (XP/streak/hearts) and the
+ * Cmd/Ctrl+K search palette trigger.
+ *
+ * Search: clicking the search button OR pressing Cmd/Ctrl+K anywhere on a
+ * /w/[slug]/* page opens the global node search dialog.
  */
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Search, Flame, Heart, Zap } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
+import { SearchDialog } from '@/components/learn/search-dialog';
 
 type Props = {
+  workspaceSlug: string;
   workspaceName: string;
   dailyXp?: number;
   streak?: number;
   hearts?: number;
 };
 
-export function Topbar({ workspaceName, dailyXp = 0, streak = 0, hearts = 5 }: Props) {
+export function Topbar({
+  workspaceSlug,
+  workspaceName,
+  dailyXp = 0,
+  streak = 0,
+  hearts = 5,
+}: Props) {
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // Global Cmd/Ctrl+K shortcut while this topbar is mounted (i.e., inside /w/[slug]/*).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/85 backdrop-blur px-4 md:px-6">
       <h1 className="text-sm font-semibold truncate md:hidden">{workspaceName}</h1>
@@ -22,6 +48,8 @@ export function Topbar({ workspaceName, dailyXp = 0, streak = 0, hearts = 5 }: P
       <button
         className="hidden md:flex flex-1 max-w-md items-center gap-2 rounded-xl border border-border bg-secondary/50 px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
         type="button"
+        onClick={() => setSearchOpen(true)}
+        aria-label="Mở tìm kiếm"
       >
         <Search className="size-4" />
         <span>Search skills, lessons...</span>
@@ -34,6 +62,12 @@ export function Topbar({ workspaceName, dailyXp = 0, streak = 0, hearts = 5 }: P
         <StatChip icon={Heart} value={hearts} label="Hearts" color="text-rose-500" />
         <ThemeToggle />
       </div>
+
+      <SearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        workspaceSlug={workspaceSlug}
+      />
     </header>
   );
 }

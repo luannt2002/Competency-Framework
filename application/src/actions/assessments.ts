@@ -10,6 +10,26 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { skills, userSkillProgress, activityLog, workspaces } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+
+async function resolveWorkspace(slug: string, requiredLevel: number) {
+  const user = await requireUser();
+  const rows = await db
+    .select({ id: workspaces.id, slug: workspaces.slug })
+    .from(workspaces)
+    .where(eq(workspaces.slug, slug))
+    .limit(1);
+  const ws = rows[0];
+  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+  try {
+    const ctx = await requireMinLevel(ws.id, requiredLevel);
+    return { ws, user, ctx };
+  } catch (err) {
+    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+    throw err;
+  }
+}
 
 const updateInput = z.object({
   workspaceSlug: z.string(),
@@ -24,17 +44,10 @@ const updateInput = z.object({
 export type UpdateAssessmentInput = z.infer<typeof updateInput>;
 
 export async function updateAssessment(input: UpdateAssessmentInput): Promise<{ ok: true }> {
-  const user = await requireUser();
   const parsed = updateInput.parse(input);
 
-  // Resolve workspace + verify ownership
-  const wsRows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug })
-    .from(workspaces)
-    .where(and(eq(workspaces.slug, parsed.workspaceSlug), eq(workspaces.ownerUserId, user.id)))
-    .limit(1);
-  const ws = wsRows[0];
-  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+  // Self-assessment is personal progress data — LEARNER is enough.
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
 
   // Verify skill belongs to workspace (defense in depth)
   const skillRows = await db
@@ -46,7 +59,7 @@ export async function updateAssessment(input: UpdateAssessmentInput): Promise<{ 
 
   // Upsert progress
   const existing = await db
-    .select({ id: userSkillProgress.id })
+    .select({ id: userSkillProgress.id, levelCode: userSkillProgress.levelCode })
     .from(userSkillProgress)
     .where(
       and(
@@ -89,6 +102,21 @@ export async function updateAssessment(input: UpdateAssessmentInput): Promise<{ 
     userId: user.id,
     kind: 'assessment_updated',
     payload: { skillId: parsed.skillId, levelCode: parsed.levelCode },
+  });
+
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'assessment.update',
+    resourceType: 'skill_assessment',
+    resourceId: parsed.skillId,
+    before: { levelCode: existing[0]?.levelCode ?? null },
+    after: {
+      levelCode: parsed.levelCode,
+      targetLevelCode: parsed.targetLevelCode ?? null,
+      evidenceCount: parsed.evidenceUrls?.length ?? 0,
+    },
   });
 
   revalidatePath(`/w/${ws.slug}`);

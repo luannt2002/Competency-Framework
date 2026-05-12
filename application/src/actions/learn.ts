@@ -27,16 +27,25 @@ import { tickStreak } from '@/lib/gamification/streak';
 import { awardCrowns, type CrownAdvance } from '@/lib/gamification/crowns';
 import { evaluateBadges, type GrantedBadge } from '@/lib/gamification/badge-evaluator';
 import { recomputeUnlocks } from '@/lib/learn/unlock-rules';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
-async function resolveWorkspace(slug: string, userId: string) {
+async function resolveWorkspace(slug: string, requiredLevel: number) {
+  const user = await requireUser();
   const rows = await db
     .select({ id: workspaces.id, slug: workspaces.slug })
     .from(workspaces)
-    .where(and(eq(workspaces.slug, slug), eq(workspaces.ownerUserId, userId)))
+    .where(eq(workspaces.slug, slug))
     .limit(1);
   const ws = rows[0];
   if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  return ws;
+  try {
+    const ctx = await requireMinLevel(ws.id, requiredLevel);
+    return { ws, user, ctx };
+  } catch (err) {
+    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+    throw err;
+  }
 }
 
 export type LessonRunData = {
@@ -60,9 +69,9 @@ const startInput = z.object({
 });
 
 export async function startLesson(input: z.infer<typeof startInput>): Promise<LessonRunData> {
-  const user = await requireUser();
   const { workspaceSlug, lessonId } = startInput.parse(input);
-  const ws = await resolveWorkspace(workspaceSlug, user.id);
+  // Learners need to write their own progress row → LEARNER level.
+  const { ws, user } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
 
   const lessonRows = await db
     .select()
@@ -164,9 +173,8 @@ export type SubmitResult = {
 };
 
 export async function submitExercise(input: z.infer<typeof submitInput>): Promise<SubmitResult> {
-  const user = await requireUser();
   const parsed = submitInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
 
   const exRows = await db
     .select()
@@ -219,6 +227,17 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
       .where(and(eq(hearts.workspaceId, ws.id), eq(hearts.userId, user.id)));
   }
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'exercise.submit',
+    resourceType: 'exercise',
+    resourceId: ex.id,
+    before: null,
+    after: { isCorrect, xpAwarded, isRetry: parsed.isRetry ?? false },
+  });
+
   return {
     isCorrect,
     explanationMd: ex.explanationMd ?? null,
@@ -246,9 +265,8 @@ export type CompleteResult = {
 };
 
 export async function completeLesson(input: z.infer<typeof completeInput>): Promise<CompleteResult> {
-  const user = await requireUser();
   const parsed = completeInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
 
   // Mark progress
   const mastered = parsed.scorePct >= 0.999;
@@ -339,6 +357,22 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
   }
 
   const badgesEarned = await evaluateBadges(ws.id, user.id);
+
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'lesson.complete',
+    resourceType: 'lesson',
+    resourceId: parsed.lessonId,
+    before: { status: existing[0]?.status ?? null },
+    after: {
+      status: mastered ? 'mastered' : 'completed',
+      scorePct: parsed.scorePct,
+      weekCompleted: unlock.weekCompleted,
+      levelCompleted: unlock.levelCompleted,
+    },
+  });
 
   revalidatePath(`/w/${ws.slug}`);
   revalidatePath(`/w/${ws.slug}/learn`);

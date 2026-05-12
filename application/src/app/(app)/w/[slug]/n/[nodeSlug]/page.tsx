@@ -11,10 +11,12 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { requireWorkspaceAccess } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
-import { getNodeBySlug, getTreeSections } from '@/lib/tree/queries';
+import { getNodeBySlug, getTreeSections, getSiblings } from '@/lib/tree/queries';
 import { NodeBreadcrumb, NodeHeader } from '@/components/learn/node-header';
 import { NodeToolbar } from '@/components/learn/node-toolbar';
 import { VerticalRoadmap } from '@/components/learn/vertical-roadmap';
+import { SiblingNav } from '@/components/learn/sibling-nav';
+import { JournalSection } from '@/components/learn/journal-section';
 
 export default async function NodeDetailPage({
   params,
@@ -31,6 +33,12 @@ export default async function NodeDetailPage({
   const parentSlug = ancestors.length > 0 ? ancestors[ancestors.length - 1]!.slug : null;
 
   const sections = children.length > 0 ? await getTreeSections(ws.id, user.id, node.id) : [];
+
+  // Prev/next sibling navigation — only when this node has a parent.
+  const siblings =
+    ancestors.length > 0
+      ? await getSiblings(ws.id, node.id, node.parentId, node.orderIndex)
+      : { prev: null, next: null };
 
   return (
     <div className="mx-auto max-w-5xl p-6 md:p-8 space-y-6">
@@ -95,6 +103,20 @@ export default async function NodeDetailPage({
           <VerticalRoadmap sections={sections} workspaceSlug={slug} />
         )}
       </section>
+
+      {ancestors.length > 0 && (
+        <SiblingNav
+          prev={siblings.prev}
+          next={siblings.next}
+          linkBase={`/w/${slug}/n`}
+        />
+      )}
+
+      <JournalSection
+        workspaceId={ws.id}
+        workspaceSlug={slug}
+        nodeId={node.id}
+      />
     </div>
   );
 }

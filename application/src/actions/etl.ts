@@ -2,7 +2,7 @@
  * ETL server actions — kick off ingestion runs from the web UI.
  *
  * Flow:
- *   1. Resolve workspace by slug + verify the current user owns it.
+ *   1. Resolve workspace by slug + check RBAC (EDITOR — bulk content import).
  *   2. Open an `import_logs` row with status='running'.
  *   3. Call {@link runIngestion}.
  *   4. Update the `import_logs` row with the result.
@@ -17,12 +17,14 @@
 import { z } from 'zod';
 import { resolve } from 'node:path';
 import { revalidatePath } from 'next/cache';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { workspaces } from '@/lib/db/schema';
 import { importLogs } from '@/lib/db/schema-etl';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { runIngestion, type IngestionResult } from '@/lib/etl/import-runner';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
 const sourceEnum = z.enum(['markdown', 'csv']);
 const inputSchema = z.object({
@@ -39,7 +41,8 @@ export interface RunIngestionResponse {
 
 /* ============================ helpers ============================ */
 
-async function resolveWorkspace(slug: string, userId: string) {
+async function resolveWorkspace(slug: string, requiredLevel: number) {
+  const user = await requireUser();
   const rows = await db
     .select({
       id: workspaces.id,
@@ -47,10 +50,17 @@ async function resolveWorkspace(slug: string, userId: string) {
       ownerUserId: workspaces.ownerUserId,
     })
     .from(workspaces)
-    .where(and(eq(workspaces.slug, slug), eq(workspaces.ownerUserId, userId)))
+    .where(eq(workspaces.slug, slug))
     .limit(1);
-  if (!rows[0]) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  return rows[0];
+  const ws = rows[0];
+  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+  try {
+    const ctx = await requireMinLevel(ws.id, requiredLevel);
+    return { ws, user, ctx };
+  } catch (err) {
+    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+    throw err;
+  }
 }
 
 /**
@@ -79,9 +89,9 @@ export async function runWorkspaceIngestion(
   workspaceSlug: string,
   source: EtlSourceKind,
 ): Promise<RunIngestionResponse> {
-  const user = await requireUser();
   const parsed = inputSchema.parse({ workspaceSlug, source });
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  // Bulk ingestion writes lots of content rows — EDITOR (60).
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
 
   const sourceKind = parsed.source === 'markdown' ? 'markdown' : 'csv_skills';
   const sourceRef =
@@ -129,6 +139,23 @@ export async function runWorkspaceIngestion(
       })
       .where(eq(importLogs.id, logRow.id));
 
+    await writeAudit({
+      workspaceId: ws.id,
+      actorUserId: user.id,
+      actorRole: ctx.role,
+      action: 'etl.run',
+      resourceType: 'import_log',
+      resourceId: logRow.id,
+      before: null,
+      after: {
+        source: parsed.source,
+        status: result.errors.length > 0 ? 'failed' : 'succeeded',
+        inserted: result.inserted,
+        updated: result.updated,
+        errorCount: result.errors.length,
+      },
+    });
+
     revalidatePath(`/w/${ws.slug}`);
     return { logId: logRow.id, result };
   } catch (err) {
@@ -141,6 +168,16 @@ export async function runWorkspaceIngestion(
         finishedAt: new Date(),
       })
       .where(eq(importLogs.id, logRow.id));
+    await writeAudit({
+      workspaceId: ws.id,
+      actorUserId: user.id,
+      actorRole: ctx.role,
+      action: 'etl.run',
+      resourceType: 'import_log',
+      resourceId: logRow.id,
+      before: null,
+      after: { source: parsed.source, status: 'failed', error: message },
+    });
     throw err;
   }
 }

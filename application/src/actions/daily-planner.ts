@@ -8,7 +8,7 @@
  *   tomorrow with the same ref.
  * - updatePlannerSettings: upsert per-user planner settings.
  *
- * All mutations log to activity_log. All paths require workspace ownership.
+ * All mutations log to activity_log + audit_log. All paths gate by RBAC.
  */
 'use server';
 
@@ -45,18 +45,27 @@ import {
   type PlannedTaskInput,
   type PlannedTaskKind,
 } from '@/lib/learn/daily-planner';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
 /* ============================ HELPERS ============================ */
 
-async function resolveWorkspace(slug: string, userId: string) {
+async function resolveWorkspace(slug: string, requiredLevel: number) {
+  const user = await requireUser();
   const rows = await db
     .select({ id: workspaces.id, slug: workspaces.slug })
     .from(workspaces)
-    .where(and(eq(workspaces.slug, slug), eq(workspaces.ownerUserId, userId)))
+    .where(eq(workspaces.slug, slug))
     .limit(1);
   const ws = rows[0];
   if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  return ws;
+  try {
+    const ctx = await requireMinLevel(ws.id, requiredLevel);
+    return { ws, user, ctx };
+  } catch (err) {
+    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+    throw err;
+  }
 }
 
 /** Today/tomorrow as ISO date (yyyy-mm-dd) in server local time. */
@@ -96,8 +105,8 @@ export type DailyPlannerView = {
 };
 
 export async function getOrGenerateDailyPlan(workspaceSlug: string): Promise<DailyPlannerView> {
-  const user = await requireUser();
-  const ws = await resolveWorkspace(workspaceSlug, user.id);
+  // Personal planner data — LEARNER level (writes own daily_tasks rows).
+  const { ws, user } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
   const today = todayISO();
 
   // 1. If a plan already exists for today, just return it.
@@ -433,9 +442,8 @@ async function loadTask(workspaceId: string, userId: string, taskId: string) {
 }
 
 export async function markTaskDone(input: z.infer<typeof taskIdInput>): Promise<void> {
-  const user = await requireUser();
   const parsed = taskIdInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
   const task = await loadTask(ws.id, user.id, parsed.taskId);
 
   await db
@@ -450,13 +458,23 @@ export async function markTaskDone(input: z.infer<typeof taskIdInput>): Promise<
     payload: { taskId: task.id, kind: task.kind, refKind: task.refKind, refId: task.refId },
   });
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'daily_task.mark_done',
+    resourceType: 'daily_task',
+    resourceId: task.id,
+    before: { status: task.status },
+    after: { status: 'done' },
+  });
+
   revalidatePath(`/w/${ws.slug}/daily`);
 }
 
 export async function markTaskSkipped(input: z.infer<typeof taskIdInput>): Promise<void> {
-  const user = await requireUser();
   const parsed = taskIdInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
   const task = await loadTask(ws.id, user.id, parsed.taskId);
 
   await db
@@ -471,13 +489,23 @@ export async function markTaskSkipped(input: z.infer<typeof taskIdInput>): Promi
     payload: { taskId: task.id, kind: task.kind },
   });
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'daily_task.mark_skipped',
+    resourceType: 'daily_task',
+    resourceId: task.id,
+    before: { status: task.status },
+    after: { status: 'skipped' },
+  });
+
   revalidatePath(`/w/${ws.slug}/daily`);
 }
 
 export async function carryOverTask(input: z.infer<typeof taskIdInput>): Promise<void> {
-  const user = await requireUser();
   const parsed = taskIdInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
   const task = await loadTask(ws.id, user.id, parsed.taskId);
 
   const tomorrow = tomorrowISO();
@@ -511,6 +539,17 @@ export async function carryOverTask(input: z.infer<typeof taskIdInput>): Promise
     payload: { fromTaskId: task.id, toDate: tomorrow },
   });
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'daily_task.carry_over',
+    resourceType: 'daily_task',
+    resourceId: task.id,
+    before: { status: task.status },
+    after: { status: 'carried_over', toDate: tomorrow },
+  });
+
   revalidatePath(`/w/${ws.slug}/daily`);
 }
 
@@ -524,9 +563,8 @@ const settingsInput = z.object({
 });
 
 export async function updatePlannerSettings(input: z.infer<typeof settingsInput>): Promise<void> {
-  const user = await requireUser();
   const parsed = settingsInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
 
   const existing = await db
     .select()
@@ -572,6 +610,27 @@ export async function updatePlannerSettings(input: z.infer<typeof settingsInput>
       dailyGoalXp: update.dailyGoalXp,
       preferredKinds: update.preferredKinds,
       excludedSkillCount: update.excludedSkillIds.length,
+    },
+  });
+
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'planner_settings.update',
+    resourceType: 'planner_settings',
+    resourceId: null,
+    before: existing[0]
+      ? {
+          dailyGoalXp: existing[0].dailyGoalXp,
+          preferredKinds: existing[0].preferredKinds ?? [],
+          excludedSkillIds: existing[0].excludedSkillIds ?? [],
+        }
+      : null,
+    after: {
+      dailyGoalXp: update.dailyGoalXp,
+      preferredKinds: update.preferredKinds,
+      excludedSkillIds: update.excludedSkillIds,
     },
   });
 

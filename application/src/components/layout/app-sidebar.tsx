@@ -13,6 +13,9 @@ import {
   User,
   Sparkles,
   Calendar,
+  Users,
+  ShieldCheck,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,9 +24,12 @@ type Item = { href: string; label: string; icon: typeof LayoutDashboard };
 export function AppSidebar({
   workspaceSlug,
   workspaceName,
+  isOwner = false,
 }: {
   workspaceSlug: string;
   workspaceName: string;
+  /** Show the workspace-admin section when the viewer owns this workspace. */
+  isOwner?: boolean;
 }) {
   const pathname = usePathname();
   const base = `/w/${workspaceSlug}`;
@@ -33,6 +39,13 @@ export function AppSidebar({
     { href: base, label: 'Cây học tập', icon: LayoutDashboard },
     { href: `${base}/daily`, label: 'Hôm nay', icon: Calendar },
     { href: `${base}/skills`, label: 'Kỹ năng', icon: Grid3x3 },
+  ];
+
+  // Workspace-admin items — only rendered for the workspace owner.
+  const adminItems: Item[] = [
+    { href: `${base}/members`, label: 'Members', icon: Users },
+    { href: `${base}/audit`, label: 'Audit log', icon: ShieldCheck },
+    { href: `${base}/settings`, label: 'Settings (workspace)', icon: SlidersHorizontal },
   ];
 
   return (
@@ -72,6 +85,35 @@ export function AppSidebar({
             </Link>
           );
         })}
+
+        {isOwner && (
+          <div className="pt-4">
+            <div className="px-3 pb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/80 font-semibold">
+              Admin
+            </div>
+            {adminItems.map((it) => {
+              const active = pathname === it.href || pathname.startsWith(`${it.href}/`);
+              return (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  className={cn(
+                    'relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                    active
+                      ? 'bg-foreground/5 text-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5',
+                  )}
+                >
+                  {active && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r-full accent-gradient" />
+                  )}
+                  <it.icon className="size-4" />
+                  <span>{it.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Bottom section */}

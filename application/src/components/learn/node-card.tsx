@@ -32,20 +32,20 @@ const TYPE_META: Record<
   string,
   { label: string; icon: typeof GraduationCap; color: string; bg: string; ring: string }
 > = {
-  course: { label: 'Khoá học', icon: GraduationCap, color: 'text-violet-300', bg: 'bg-violet-500/10', ring: 'ring-violet-500/20' },
-  phase: { label: 'Giai đoạn', icon: Layers, color: 'text-cyan-300', bg: 'bg-cyan-500/10', ring: 'ring-cyan-500/20' },
-  stage: { label: 'Chặng', icon: Layers, color: 'text-sky-300', bg: 'bg-sky-500/10', ring: 'ring-sky-500/20' },
-  week: { label: 'Tuần', icon: CalendarRange, color: 'text-amber-300', bg: 'bg-amber-500/10', ring: 'ring-amber-500/20' },
-  session: { label: 'Buổi', icon: ClipboardList, color: 'text-emerald-300', bg: 'bg-emerald-500/10', ring: 'ring-emerald-500/20' },
-  module: { label: 'Module', icon: Layers, color: 'text-emerald-300', bg: 'bg-emerald-500/10', ring: 'ring-emerald-500/20' },
-  lesson: { label: 'Bài học', icon: BookOpen, color: 'text-cyan-300', bg: 'bg-cyan-500/10', ring: 'ring-cyan-500/20' },
-  theory: { label: 'Lý thuyết', icon: BookOpen, color: 'text-sky-200', bg: 'bg-sky-500/10', ring: 'ring-sky-500/20' },
-  lab: { label: 'Lab', icon: Beaker, color: 'text-orange-300', bg: 'bg-orange-500/10', ring: 'ring-orange-500/20' },
-  project: { label: 'Project', icon: Hammer, color: 'text-pink-300', bg: 'bg-pink-500/10', ring: 'ring-pink-500/20' },
-  task: { label: 'Task', icon: Target, color: 'text-slate-300', bg: 'bg-slate-500/10', ring: 'ring-slate-500/20' },
-  milestone: { label: 'Cột mốc', icon: Target, color: 'text-amber-200', bg: 'bg-amber-500/10', ring: 'ring-amber-500/20' },
-  exam: { label: 'Kiểm tra', icon: ClipboardList, color: 'text-red-300', bg: 'bg-red-500/10', ring: 'ring-red-500/20' },
-  capstone: { label: 'Capstone', icon: Trophy, color: 'text-yellow-300', bg: 'bg-yellow-500/10', ring: 'ring-yellow-500/20' },
+  course: { label: 'Khoá học', icon: GraduationCap, color: 'text-violet-700 dark:text-violet-300', bg: 'bg-violet-500/10', ring: 'ring-violet-500/20' },
+  phase: { label: 'Giai đoạn', icon: Layers, color: 'text-cyan-700 dark:text-cyan-300', bg: 'bg-cyan-500/10', ring: 'ring-cyan-500/20' },
+  stage: { label: 'Chặng', icon: Layers, color: 'text-sky-700 dark:text-sky-300', bg: 'bg-sky-500/10', ring: 'ring-sky-500/20' },
+  week: { label: 'Tuần', icon: CalendarRange, color: 'text-amber-700 dark:text-amber-300', bg: 'bg-amber-500/10', ring: 'ring-amber-500/20' },
+  session: { label: 'Buổi', icon: ClipboardList, color: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-500/10', ring: 'ring-emerald-500/20' },
+  module: { label: 'Module', icon: Layers, color: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-500/10', ring: 'ring-emerald-500/20' },
+  lesson: { label: 'Bài học', icon: BookOpen, color: 'text-cyan-700 dark:text-cyan-300', bg: 'bg-cyan-500/10', ring: 'ring-cyan-500/20' },
+  theory: { label: 'Lý thuyết', icon: BookOpen, color: 'text-sky-700 dark:text-sky-200', bg: 'bg-sky-500/10', ring: 'ring-sky-500/20' },
+  lab: { label: 'Lab', icon: Beaker, color: 'text-orange-700 dark:text-orange-300', bg: 'bg-orange-500/10', ring: 'ring-orange-500/20' },
+  project: { label: 'Project', icon: Hammer, color: 'text-pink-700 dark:text-pink-300', bg: 'bg-pink-500/10', ring: 'ring-pink-500/20' },
+  task: { label: 'Task', icon: Target, color: 'text-slate-700 dark:text-slate-300', bg: 'bg-slate-500/10', ring: 'ring-slate-500/20' },
+  milestone: { label: 'Cột mốc', icon: Target, color: 'text-amber-700 dark:text-amber-200', bg: 'bg-amber-500/10', ring: 'ring-amber-500/20' },
+  exam: { label: 'Kiểm tra', icon: ClipboardList, color: 'text-red-700 dark:text-red-300', bg: 'bg-red-500/10', ring: 'ring-red-500/20' },
+  capstone: { label: 'Capstone', icon: Trophy, color: 'text-yellow-700 dark:text-yellow-300', bg: 'bg-yellow-500/10', ring: 'ring-yellow-500/20' },
   custom: { label: 'Tuỳ chỉnh', icon: Sparkles, color: 'text-muted-foreground', bg: 'bg-secondary/40', ring: 'ring-border' },
 };
 
@@ -148,7 +148,7 @@ export function NodeCard({
 function StatusBadge({ status }: { status: 'todo' | 'in_progress' | 'done' }) {
   if (status === 'done') {
     return (
-      <span className="inline-flex items-center gap-0.5 text-[9px] text-emerald-400">
+      <span className="inline-flex items-center gap-0.5 text-[9px] text-emerald-700 dark:text-emerald-400">
         <CheckCircle2 className="size-2.5" />
         Xong
       </span>
@@ -156,7 +156,7 @@ function StatusBadge({ status }: { status: 'todo' | 'in_progress' | 'done' }) {
   }
   if (status === 'in_progress') {
     return (
-      <span className="inline-flex items-center gap-0.5 text-[9px] text-cyan-400">
+      <span className="inline-flex items-center gap-0.5 text-[9px] text-cyan-700 dark:text-cyan-400">
         <PlayCircle className="size-2.5" />
         Đang làm
       </span>

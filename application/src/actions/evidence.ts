@@ -32,17 +32,27 @@ import {
   VERIFIED_MIN_SCORE,
   type ConfidenceResult,
 } from '@/lib/evidence/confidence';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
 /* ============================ HELPERS ============================ */
 
-async function resolveWorkspace(slug: string, userId: string) {
+async function resolveWorkspace(slug: string, requiredLevel: number) {
+  const user = await requireUser();
   const rows = await db
     .select({ id: workspaces.id, slug: workspaces.slug })
     .from(workspaces)
-    .where(and(eq(workspaces.slug, slug), eq(workspaces.ownerUserId, userId)))
+    .where(eq(workspaces.slug, slug))
     .limit(1);
-  if (!rows[0]) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  return rows[0];
+  const ws = rows[0];
+  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+  try {
+    const ctx = await requireMinLevel(ws.id, requiredLevel);
+    return { ws, user, ctx };
+  } catch (err) {
+    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+    throw err;
+  }
 }
 
 async function assertSkillInWorkspace(skillId: string, workspaceId: string) {
@@ -76,9 +86,9 @@ export interface SubmitEvidenceResult {
 export async function submitEvidence(
   input: SubmitEvidenceInput,
 ): Promise<SubmitEvidenceResult> {
-  const user = await requireUser();
   const parsed = submitInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  // Submitting own evidence is a personal progress write — LEARNER.
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
   await assertSkillInWorkspace(parsed.skillId, ws.id);
 
   // Insert the new grade. Self-submitted lab/project rows have no reviewer.
@@ -188,6 +198,23 @@ export async function submitEvidence(
     },
   });
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'evidence.submit',
+    resourceType: 'evidence_grade',
+    resourceId: gradeId,
+    before: { levelSource: prevSource },
+    after: {
+      kind: parsed.kind,
+      score: parsed.score,
+      confidence: confidence.score,
+      levelSource: nextSource,
+      promotedToVerified: shouldVerify && prevSource !== 'both',
+    },
+  });
+
   revalidatePath(`/w/${ws.slug}`);
   revalidatePath(`/w/${ws.slug}/skills`);
 
@@ -216,8 +243,7 @@ export async function listEvidenceForSkill(
   workspaceSlug: string,
   skillId: string,
 ): Promise<EvidenceRow[]> {
-  const user = await requireUser();
-  const ws = await resolveWorkspace(workspaceSlug, user.id);
+  const { ws, user } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
 
   // Lightweight UUID shape check — Zod for symmetry with mutations.
   const parsed = z.string().uuid().parse(skillId);
@@ -258,9 +284,9 @@ const verifyInput = z.object({
 export type VerifyEvidenceInput = z.infer<typeof verifyInput>;
 
 export async function verifyEvidence(input: VerifyEvidenceInput): Promise<{ ok: true }> {
-  const user = await requireUser();
   const parsed = verifyInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  // Reviewing/verifying someone else's evidence is an editorial action.
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
 
   const rows = await db
     .select({
@@ -311,6 +337,21 @@ export async function verifyEvidence(input: VerifyEvidenceInput): Promise<{ ok: 
     },
   });
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'evidence.verify',
+    resourceType: 'evidence_grade',
+    resourceId: grade.id,
+    before: null,
+    after: {
+      targetUserId: grade.userId,
+      skillId: grade.skillId,
+      approved: parsed.approved,
+    },
+  });
+
   revalidatePath(`/w/${ws.slug}`);
   revalidatePath(`/w/${ws.slug}/skills`);
   return { ok: true };
@@ -326,8 +367,7 @@ export async function computeConfidence(
   workspaceSlug: string,
   skillId: string,
 ): Promise<ConfidenceResult> {
-  const user = await requireUser();
-  const ws = await resolveWorkspace(workspaceSlug, user.id);
+  const { ws, user } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
   const parsedSkillId = z.string().uuid().parse(skillId);
   await assertSkillInWorkspace(parsedSkillId, ws.id);
 

@@ -20,6 +20,26 @@ import { db } from '@/lib/db/client';
 import { lessons, exercises, workspaces, activityLog } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
 import type { ExerciseKind } from '@/types';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+
+async function resolveWorkspace(slug: string, requiredLevel: number) {
+  const user = await requireUser();
+  const rows = await db
+    .select({ id: workspaces.id, slug: workspaces.slug })
+    .from(workspaces)
+    .where(eq(workspaces.slug, slug))
+    .limit(1);
+  const ws = rows[0];
+  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+  try {
+    const ctx = await requireMinLevel(ws.id, requiredLevel);
+    return { ws, user, ctx };
+  } catch (err) {
+    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+    throw err;
+  }
+}
 
 const input = z.object({
   workspaceSlug: z.string(),
@@ -82,16 +102,9 @@ const STUB_BANK: GeneratedExercise[] = [
 export async function aiGenerateExercises(payloadIn: z.infer<typeof input>): Promise<{
   generated: number;
 }> {
-  const user = await requireUser();
   const parsed = input.parse(payloadIn);
-
-  const wsRows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug })
-    .from(workspaces)
-    .where(and(eq(workspaces.slug, parsed.workspaceSlug), eq(workspaces.ownerUserId, user.id)))
-    .limit(1);
-  const ws = wsRows[0];
-  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+  // AI generation writes new content rows — same level as create lesson/lab.
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
 
   const lessonRows = await db
     .select({ id: lessons.id })
@@ -122,6 +135,17 @@ export async function aiGenerateExercises(payloadIn: z.infer<typeof input>): Pro
     userId: user.id,
     kind: 'ai_generated_exercises',
     payload: { lessonId: parsed.lessonId, count: picked.length },
+  });
+
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'ai_generate.exercises',
+    resourceType: 'lesson',
+    resourceId: parsed.lessonId,
+    before: null,
+    after: { lessonId: parsed.lessonId, count: picked.length },
   });
 
   revalidatePath(`/w/${ws.slug}`);

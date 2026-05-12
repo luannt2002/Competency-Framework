@@ -12,10 +12,12 @@ import remarkGfm from 'remark-gfm';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { workspaces } from '@/lib/db/schema';
-import { getNodeBySlug, getTreeSections } from '@/lib/tree/queries';
+import { getNodeBySlug, getTreeSections, getSiblings } from '@/lib/tree/queries';
 import { NodeBreadcrumb, NodeHeader } from '@/components/learn/node-header';
 import { VerticalRoadmap } from '@/components/learn/vertical-roadmap';
 import { ShareLinkButton } from '@/components/learn/share-link-button';
+import { SiblingNav } from '@/components/learn/sibling-nav';
+import { JournalSection } from '@/components/learn/journal-section';
 import { ArrowLeft, LogIn } from 'lucide-react';
 
 export default async function ShareNodePage({
@@ -38,6 +40,12 @@ export default async function ShareNodePage({
   const { node, children, ancestors } = result;
 
   const sections = children.length > 0 ? await getTreeSections(ws.id, null, node.id) : [];
+
+  // Prev/next sibling navigation — only when this node has a parent.
+  const siblings =
+    ancestors.length > 0
+      ? await getSiblings(ws.id, node.id, node.parentId, node.orderIndex)
+      : { prev: null, next: null };
 
   return (
     <div
@@ -97,8 +105,23 @@ export default async function ShareNodePage({
         </section>
       )}
 
+      {ancestors.length > 0 && (
+        <SiblingNav
+          prev={siblings.prev}
+          next={siblings.next}
+          linkBase={`/share/${slug}/n`}
+        />
+      )}
+
+      <JournalSection
+        workspaceId={ws.id}
+        workspaceSlug={slug}
+        nodeId={node.id}
+        readOnly
+      />
+
       {/* Login CTA */}
-      <section className="surface p-6 text-center bg-gradient-to-br from-cyan-50 via-violet-50 to-pink-50">
+      <section className="surface p-6 text-center bg-gradient-to-br from-cyan-50 via-violet-50 to-pink-50 dark:from-cyan-950/30 dark:via-violet-950/30 dark:to-pink-950/30">
         <h3 className="text-lg font-bold mb-2">Muốn học và lưu tiến độ?</h3>
         <p className="text-sm text-muted-foreground mb-4">
           Đăng nhập để mở khoá: đánh dấu xong, thêm note, theo dõi streak, XP.

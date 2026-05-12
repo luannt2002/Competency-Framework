@@ -74,9 +74,9 @@ export default function SignInPage() {
           </p>
 
           {sent ? (
-            <div className="mt-6 rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm">
-              <p className="font-semibold text-emerald-700">Check your email</p>
-              <p className="mt-1 text-emerald-700/80">
+            <div className="mt-6 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-4 text-sm">
+              <p className="font-semibold text-emerald-700 dark:text-emerald-300">Check your email</p>
+              <p className="mt-1 text-emerald-700/80 dark:text-emerald-300/80">
                 We sent a magic link to{' '}
                 <span className="text-foreground font-medium">{email}</span>.
               </p>
@@ -125,11 +125,11 @@ export default function SignInPage() {
 
         {/* Dev bypass hint — visible when DEV_AUTH_BYPASS_USER_ID set */}
         {process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_DEV_BYPASS_HINT === '1' && (
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs">
-            <p className="font-semibold text-amber-700">Dev bypass active</p>
-            <p className="mt-1 text-amber-700/80">
+          <div className="mt-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs">
+            <p className="font-semibold text-amber-700 dark:text-amber-300">Dev bypass active</p>
+            <p className="mt-1 text-amber-700/80 dark:text-amber-300/80">
               Auth shortcut enabled. Go directly to{' '}
-              <Link href="/w/devops-test" className="underline font-medium text-amber-800 hover:text-amber-900">
+              <Link href="/w/devops-test" className="underline font-medium text-amber-800 dark:text-amber-200 hover:text-amber-900 dark:hover:text-amber-100">
                 /w/devops-test
               </Link>
               .

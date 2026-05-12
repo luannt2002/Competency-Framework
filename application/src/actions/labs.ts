@@ -10,15 +10,25 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { labs, userLabProgress, workspaces, activityLog, xpEvents } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
-async function resolveWorkspace(slug: string, userId: string) {
+async function resolveWorkspace(slug: string, requiredLevel: number) {
+  const user = await requireUser();
   const rows = await db
     .select({ id: workspaces.id, slug: workspaces.slug })
     .from(workspaces)
-    .where(and(eq(workspaces.slug, slug), eq(workspaces.ownerUserId, userId)))
+    .where(eq(workspaces.slug, slug))
     .limit(1);
-  if (!rows[0]) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  return rows[0];
+  const ws = rows[0];
+  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+  try {
+    const ctx = await requireMinLevel(ws.id, requiredLevel);
+    return { ws, user, ctx };
+  } catch (err) {
+    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+    throw err;
+  }
 }
 
 export type LabWithProgress = {
@@ -37,8 +47,7 @@ export async function listLabsForWeek(
   workspaceSlug: string,
   weekId: string,
 ): Promise<LabWithProgress[]> {
-  const user = await requireUser();
-  const ws = await resolveWorkspace(workspaceSlug, user.id);
+  const { ws, user } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
 
   const rows = await db
     .select({
@@ -70,9 +79,9 @@ const completeInput = z.object({
 });
 
 export async function markLabDone(input: z.infer<typeof completeInput>): Promise<void> {
-  const user = await requireUser();
   const parsed = completeInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  // Marking own progress = LEARNER (per spec).
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
 
   // Verify lab belongs to workspace
   const labRows = await db
@@ -138,12 +147,26 @@ export async function markLabDone(input: z.infer<typeof completeInput>): Promise
     payload: { labId: parsed.labId, evidenceCount: parsed.evidenceUrls?.length ?? 0 },
   });
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'lab.mark_done',
+    resourceType: 'lab',
+    resourceId: parsed.labId,
+    before: { status: existing[0]?.status ?? 'todo' },
+    after: {
+      status: 'done',
+      evidenceCount: parsed.evidenceUrls?.length ?? 0,
+      note: parsed.note ?? null,
+    },
+  });
+
   revalidatePath(`/w/${ws.slug}/learn`);
 }
 
 export async function unmarkLab(workspaceSlug: string, labId: string): Promise<void> {
-  const user = await requireUser();
-  const ws = await resolveWorkspace(workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
   await db
     .update(userLabProgress)
     .set({ status: 'todo', completedAt: null, updatedAt: new Date() })
@@ -154,5 +177,15 @@ export async function unmarkLab(workspaceSlug: string, labId: string): Promise<v
         eq(userLabProgress.labId, labId),
       ),
     );
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'lab.unmark',
+    resourceType: 'lab',
+    resourceId: labId,
+    before: { status: 'done' },
+    after: { status: 'todo' },
+  });
   revalidatePath(`/w/${ws.slug}/learn`);
 }

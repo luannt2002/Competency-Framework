@@ -52,12 +52,16 @@ export default async function WorkspaceLayout({
   const dailyXp = Number(xpTodayRow[0]?.s ?? 0);
   const streak = streakRow[0]?.currentStreak ?? 0;
   const hearts = heartRow[0]?.current ?? 5;
+  // Owner gate for the sidebar admin section. The workspace owner is the
+  // single source of truth via workspaces.owner_user_id (not workspace_members).
+  const isOwner = ws.ownerUserId === user.id;
 
   return (
     <div className="flex min-h-dvh">
-      <AppSidebar workspaceSlug={ws.slug} workspaceName={ws.name} />
+      <AppSidebar workspaceSlug={ws.slug} workspaceName={ws.name} isOwner={isOwner} />
       <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
         <Topbar
+          workspaceSlug={ws.slug}
           workspaceName={ws.name}
           dailyXp={dailyXp}
           streak={streak}

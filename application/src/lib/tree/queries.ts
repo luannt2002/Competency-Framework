@@ -46,6 +46,52 @@ export async function getRootNodes(workspaceId: string, userId: string | null): 
   return enrichWithStats(rows.map(asNodeRow), workspaceId, userId);
 }
 
+/** Sibling nodes around a given node (same parent_id, ordered by orderIndex).
+ *  Returns prev/next minimal info (slug + title) for use in pagination UI.
+ *  Returns null pieces at boundaries. Roots (no parent) → both null. */
+export async function getSiblings(
+  workspaceId: string,
+  nodeId: string,
+  parentId: string | null,
+  orderIndex: number,
+): Promise<{
+  prev: { slug: string; title: string } | null;
+  next: { slug: string; title: string } | null;
+}> {
+  if (!parentId) return { prev: null, next: null };
+  const rows = await db
+    .select({
+      id: roadmapTreeNodes.id,
+      slug: roadmapTreeNodes.slug,
+      title: roadmapTreeNodes.title,
+      orderIndex: roadmapTreeNodes.orderIndex,
+    })
+    .from(roadmapTreeNodes)
+    .where(
+      and(
+        eq(roadmapTreeNodes.workspaceId, workspaceId),
+        eq(roadmapTreeNodes.parentId, parentId),
+      ),
+    )
+    .orderBy(asc(roadmapTreeNodes.orderIndex));
+  const idx = rows.findIndex((r) => r.id === nodeId);
+  if (idx < 0) {
+    // Fallback by orderIndex if id missing (shouldn't happen but be defensive).
+    const before = rows.filter((r) => r.orderIndex < orderIndex);
+    const after = rows.filter((r) => r.orderIndex > orderIndex);
+    return {
+      prev: before.length ? { slug: before[before.length - 1]!.slug, title: before[before.length - 1]!.title } : null,
+      next: after.length ? { slug: after[0]!.slug, title: after[0]!.title } : null,
+    };
+  }
+  const prev = idx > 0 ? rows[idx - 1]! : null;
+  const next = idx < rows.length - 1 ? rows[idx + 1]! : null;
+  return {
+    prev: prev ? { slug: prev.slug, title: prev.title } : null,
+    next: next ? { slug: next.slug, title: next.title } : null,
+  };
+}
+
 /** Fetch a single node by its slug + its direct children. */
 export async function getNodeBySlug(
   workspaceId: string,
@@ -158,7 +204,12 @@ export async function getTreeSections(
 
 /** Add childrenCount, doneChildren, status per node.
  *  When `userId` is null, returns childrenCount but skips progress joins —
- *  all status defaults to 'todo' and doneChildren = 0. */
+ *  all status defaults to 'todo' and doneChildren = 0.
+ *
+ *  Performance: 3 round-trips total (children counts, done-by-parent join,
+ *  own status), regardless of node count. Was previously N+1 (one
+ *  child-fetch + one done-count per node) which scaled poorly at 286 nodes.
+ */
 async function enrichWithStats(
   nodes: NodeRow[],
   workspaceId: string,
@@ -188,32 +239,33 @@ async function enrichWithStats(
   const statusMap = new Map<string, string>();
 
   if (userId) {
-    // Per-node descendant done counts
-    for (const node of nodes) {
-      const childIds = (
-        await db
-          .select({ id: roadmapTreeNodes.id })
-          .from(roadmapTreeNodes)
-          .where(
-            and(eq(roadmapTreeNodes.workspaceId, workspaceId), eq(roadmapTreeNodes.parentId, node.id)),
-          )
-      ).map((r) => r.id);
-      if (childIds.length === 0) {
-        doneByParent.set(node.id, 0);
-        continue;
-      }
-      const doneRows = await db
-        .select({ id: userNodeProgress.id })
-        .from(userNodeProgress)
-        .where(
-          and(
-            eq(userNodeProgress.workspaceId, workspaceId),
-            eq(userNodeProgress.userId, userId),
-            eq(userNodeProgress.status, 'done'),
-            dsql`${userNodeProgress.nodeId} IN (${dsql.join(childIds.map((i) => dsql`${i}::uuid`), dsql`, `)})`,
-          ),
-        );
-      doneByParent.set(node.id, doneRows.length);
+    // BULK: done counts per parent in a single JOIN — joins child nodes
+    // (filtered by parent_id IN ids) to user_node_progress (status='done',
+    // userId), groups by parent_id. O(1) round-trips regardless of |nodes|.
+    const doneRows = await db
+      .select({
+        parentId: roadmapTreeNodes.parentId,
+        count: dsql<number>`count(*)::int`,
+      })
+      .from(roadmapTreeNodes)
+      .innerJoin(
+        userNodeProgress,
+        and(
+          eq(userNodeProgress.nodeId, roadmapTreeNodes.id),
+          eq(userNodeProgress.workspaceId, workspaceId),
+          eq(userNodeProgress.userId, userId),
+          eq(userNodeProgress.status, 'done'),
+        ),
+      )
+      .where(
+        and(
+          eq(roadmapTreeNodes.workspaceId, workspaceId),
+          dsql`${roadmapTreeNodes.parentId} IN (${dsql.join(ids.map((i) => dsql`${i}::uuid`), dsql`, `)})`,
+        ),
+      )
+      .groupBy(roadmapTreeNodes.parentId);
+    for (const r of doneRows) {
+      if (r.parentId) doneByParent.set(r.parentId, Number(r.count) || 0);
     }
 
     const ownStatusRows = await db

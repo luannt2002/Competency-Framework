@@ -49,6 +49,7 @@ import {
 import { requireUser } from '@/lib/auth/supabase-server';
 import { frameworkPayloadSchema, type FrameworkPayload } from '@/lib/framework/payload-schema';
 import { toSlug } from '@/lib/utils';
+import { writeAudit } from '@/lib/rbac/server';
 
 const forkInput = z.object({
   templateId: z.string().uuid(),
@@ -298,6 +299,26 @@ export async function forkTemplate(formData: FormData): Promise<void> {
     userId: user.id,
     kind: 'framework_forked',
     payload: { templateSlug: tpl.slug, templateId: tpl.id },
+  });
+
+  // Audit: the creator is implicitly workspace_owner at this point because
+  // workspaces.owner_user_id == user.id. We hard-code the role here rather
+  // than calling requireMinLevel to avoid a redundant DB lookup.
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: 'workspace_owner',
+    action: 'workspace.create',
+    resourceType: 'workspace',
+    resourceId: ws.id,
+    before: null,
+    after: {
+      id: ws.id,
+      slug: ws.slug,
+      name: ws.name,
+      templateId: tpl.id,
+      templateSlug: tpl.slug,
+    },
   });
 
   /* ---- Bump fork count ---- */

@@ -1,6 +1,6 @@
 /**
  * Content authoring server actions — create/update modules, lessons, labs.
- * All workspace-scoped, owner-gated, activity-logged.
+ * All workspace-scoped, RBAC-gated, activity-logged.
  */
 'use server';
 
@@ -18,16 +18,25 @@ import {
 } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { toSlug } from '@/lib/utils';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
-async function resolveWorkspace(slug: string, userId: string) {
+async function resolveWorkspace(slug: string, requiredLevel: number) {
+  const user = await requireUser();
   const rows = await db
     .select({ id: workspaces.id, slug: workspaces.slug })
     .from(workspaces)
-    .where(and(eq(workspaces.slug, slug), eq(workspaces.ownerUserId, userId)))
+    .where(eq(workspaces.slug, slug))
     .limit(1);
   const ws = rows[0];
   if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  return ws;
+  try {
+    const ctx = await requireMinLevel(ws.id, requiredLevel);
+    return { ws, user, ctx };
+  } catch (err) {
+    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+    throw err;
+  }
 }
 
 async function assertWeekInWorkspace(workspaceId: string, weekId: string) {
@@ -57,9 +66,8 @@ const moduleInput = z.object({
 });
 
 export async function createModule(input: z.infer<typeof moduleInput>): Promise<{ id: string }> {
-  const user = await requireUser();
   const parsed = moduleInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
   await assertWeekInWorkspace(ws.id, parsed.weekId);
 
   // Compute next displayOrder
@@ -88,6 +96,17 @@ export async function createModule(input: z.infer<typeof moduleInput>): Promise<
     payload: { weekId: parsed.weekId, title: parsed.title },
   });
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'module.create',
+    resourceType: 'module',
+    resourceId: inserted.id,
+    before: null,
+    after: { id: inserted.id, weekId: parsed.weekId, title: parsed.title },
+  });
+
   revalidatePath(`/w/${ws.slug}/learn`);
   return { id: inserted.id };
 }
@@ -98,9 +117,16 @@ const moduleDeleteInput = z.object({
 });
 
 export async function deleteModule(input: z.infer<typeof moduleDeleteInput>): Promise<void> {
-  const user = await requireUser();
   const parsed = moduleDeleteInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.OWNER);
+
+  const beforeRows = await db
+    .select({ id: modulesT.id, title: modulesT.title, weekId: modulesT.weekId })
+    .from(modulesT)
+    .where(and(eq(modulesT.id, parsed.moduleId), eq(modulesT.workspaceId, ws.id)))
+    .limit(1);
+  const before = beforeRows[0] ?? null;
+
   await db
     .delete(modulesT)
     .where(and(eq(modulesT.id, parsed.moduleId), eq(modulesT.workspaceId, ws.id)));
@@ -109,6 +135,16 @@ export async function deleteModule(input: z.infer<typeof moduleDeleteInput>): Pr
     userId: user.id,
     kind: 'module_deleted',
     payload: { moduleId: parsed.moduleId },
+  });
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'module.delete',
+    resourceType: 'module',
+    resourceId: parsed.moduleId,
+    before,
+    after: null,
   });
   revalidatePath(`/w/${ws.slug}/learn`);
 }
@@ -124,9 +160,8 @@ const lessonInput = z.object({
 });
 
 export async function createLesson(input: z.infer<typeof lessonInput>): Promise<{ id: string; slug: string }> {
-  const user = await requireUser();
   const parsed = lessonInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
   await assertModuleInWorkspace(ws.id, parsed.moduleId);
 
   // Auto-slugify if not provided; ensure unique within workspace by appending counter
@@ -170,6 +205,22 @@ export async function createLesson(input: z.infer<typeof lessonInput>): Promise<
     payload: { moduleId: parsed.moduleId, title: parsed.title, slug },
   });
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'lesson.create',
+    resourceType: 'lesson',
+    resourceId: inserted.id,
+    before: null,
+    after: {
+      id: inserted.id,
+      moduleId: parsed.moduleId,
+      slug: inserted.slug,
+      title: parsed.title,
+    },
+  });
+
   revalidatePath(`/w/${ws.slug}/learn`);
   return { id: inserted.id, slug: inserted.slug };
 }
@@ -180,9 +231,16 @@ const lessonDeleteInput = z.object({
 });
 
 export async function deleteLesson(input: z.infer<typeof lessonDeleteInput>): Promise<void> {
-  const user = await requireUser();
   const parsed = lessonDeleteInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.OWNER);
+
+  const beforeRows = await db
+    .select({ id: lessonsT.id, title: lessonsT.title, slug: lessonsT.slug, moduleId: lessonsT.moduleId })
+    .from(lessonsT)
+    .where(and(eq(lessonsT.id, parsed.lessonId), eq(lessonsT.workspaceId, ws.id)))
+    .limit(1);
+  const before = beforeRows[0] ?? null;
+
   await db
     .delete(lessonsT)
     .where(and(eq(lessonsT.id, parsed.lessonId), eq(lessonsT.workspaceId, ws.id)));
@@ -191,6 +249,16 @@ export async function deleteLesson(input: z.infer<typeof lessonDeleteInput>): Pr
     userId: user.id,
     kind: 'lesson_deleted',
     payload: { lessonId: parsed.lessonId },
+  });
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'lesson.delete',
+    resourceType: 'lesson',
+    resourceId: parsed.lessonId,
+    before,
+    after: null,
   });
   revalidatePath(`/w/${ws.slug}/learn`);
 }
@@ -206,9 +274,8 @@ const labInput = z.object({
 });
 
 export async function createLab(input: z.infer<typeof labInput>): Promise<{ id: string }> {
-  const user = await requireUser();
   const parsed = labInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
   await assertWeekInWorkspace(ws.id, parsed.weekId);
 
   const [{ next } = { next: 0 }] = await db
@@ -238,6 +305,17 @@ export async function createLab(input: z.infer<typeof labInput>): Promise<{ id: 
     payload: { weekId: parsed.weekId, title: parsed.title },
   });
 
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'lab.create',
+    resourceType: 'lab',
+    resourceId: inserted.id,
+    before: null,
+    after: { id: inserted.id, weekId: parsed.weekId, title: parsed.title },
+  });
+
   revalidatePath(`/w/${ws.slug}/learn`);
   return { id: inserted.id };
 }
@@ -248,15 +326,32 @@ const labDeleteInput = z.object({
 });
 
 export async function deleteLab(input: z.infer<typeof labDeleteInput>): Promise<void> {
-  const user = await requireUser();
   const parsed = labDeleteInput.parse(input);
-  const ws = await resolveWorkspace(parsed.workspaceSlug, user.id);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.OWNER);
+
+  const beforeRows = await db
+    .select({ id: labsT.id, title: labsT.title, weekId: labsT.weekId })
+    .from(labsT)
+    .where(and(eq(labsT.id, parsed.labId), eq(labsT.workspaceId, ws.id)))
+    .limit(1);
+  const before = beforeRows[0] ?? null;
+
   await db.delete(labsT).where(and(eq(labsT.id, parsed.labId), eq(labsT.workspaceId, ws.id)));
   await db.insert(activityLog).values({
     workspaceId: ws.id,
     userId: user.id,
     kind: 'lab_deleted',
     payload: { labId: parsed.labId },
+  });
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'lab.delete',
+    resourceType: 'lab',
+    resourceId: parsed.labId,
+    before,
+    after: null,
   });
   revalidatePath(`/w/${ws.slug}/learn`);
 }

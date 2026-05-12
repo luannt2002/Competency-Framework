@@ -12,16 +12,25 @@ import { eq, and, asc } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { skills, skillCategories, userSkillProgress, competencyLevels, workspaces } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
-async function resolveWorkspace(slug: string, userId: string) {
+async function resolveWorkspace(slug: string, requiredLevel: number) {
+  const user = await requireUser();
   const rows = await db
     .select()
     .from(workspaces)
-    .where(and(eq(workspaces.slug, slug), eq(workspaces.ownerUserId, userId)))
+    .where(eq(workspaces.slug, slug))
     .limit(1);
   const ws = rows[0];
   if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  return ws;
+  try {
+    const ctx = await requireMinLevel(ws.id, requiredLevel);
+    return { ws, user, ctx };
+  } catch (err) {
+    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+    throw err;
+  }
 }
 
 type ExportRow = {
@@ -34,9 +43,15 @@ type ExportRow = {
   updatedAt: string;
 };
 
-async function buildRows(workspaceSlug: string): Promise<{ rows: ExportRow[]; wsName: string }> {
-  const user = await requireUser();
-  const ws = await resolveWorkspace(workspaceSlug, user.id);
+async function buildRows(workspaceSlug: string): Promise<{
+  rows: ExportRow[];
+  wsName: string;
+  wsId: string;
+  userId: string;
+  actorRole: string;
+}> {
+  // Exports are available to any logged-in member (per spec: LEARNER).
+  const { ws, user, ctx } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
 
   const [data, levels] = await Promise.all([
     db
@@ -78,12 +93,12 @@ async function buildRows(workspaceSlug: string): Promise<{ rows: ExportRow[]; ws
     crowns: r.crowns ?? 0,
     updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString().slice(0, 10) : '—',
   }));
-  return { rows, wsName: ws.name };
+  return { rows, wsName: ws.name, wsId: ws.id, userId: user.id, actorRole: ctx.role };
 }
 
 /* ===== XLSX export ===== */
 export async function exportXlsx(workspaceSlug: string): Promise<{ filename: string; base64: string }> {
-  const { rows, wsName } = await buildRows(workspaceSlug);
+  const { rows, wsName, wsId, userId, actorRole } = await buildRows(workspaceSlug);
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Competency Framework';
@@ -105,6 +120,15 @@ export async function exportXlsx(workspaceSlug: string): Promise<{ filename: str
   ws.getRow(1).font = { bold: true, color: { argb: 'FFE6E8EC' } };
 
   const buf = await wb.xlsx.writeBuffer();
+  await writeAudit({
+    workspaceId: wsId,
+    actorUserId: userId,
+    actorRole,
+    action: 'export.xlsx',
+    resourceType: 'export',
+    resourceId: null,
+    after: { format: 'xlsx', rowCount: rows.length },
+  });
   return {
     filename: `${slugify(wsName)}-skills-${new Date().toISOString().slice(0, 10)}.xlsx`,
     base64: Buffer.from(buf).toString('base64'),
@@ -113,12 +137,21 @@ export async function exportXlsx(workspaceSlug: string): Promise<{ filename: str
 
 /* ===== JSON dump (always works, no extra deps) ===== */
 export async function exportJson(workspaceSlug: string): Promise<{ filename: string; base64: string }> {
-  const { rows, wsName } = await buildRows(workspaceSlug);
+  const { rows, wsName, wsId, userId, actorRole } = await buildRows(workspaceSlug);
   const payload = {
     workspace: wsName,
     exportedAt: new Date().toISOString(),
     skills: rows,
   };
+  await writeAudit({
+    workspaceId: wsId,
+    actorUserId: userId,
+    actorRole,
+    action: 'export.json',
+    resourceType: 'export',
+    resourceId: null,
+    after: { format: 'json', rowCount: rows.length },
+  });
   return {
     filename: `${slugify(wsName)}-skills-${new Date().toISOString().slice(0, 10)}.json`,
     base64: Buffer.from(JSON.stringify(payload, null, 2)).toString('base64'),
@@ -127,7 +160,7 @@ export async function exportJson(workspaceSlug: string): Promise<{ filename: str
 
 /* ===== Simple HTML-to-PDF fallback (server-rendered HTML, user prints) ===== */
 export async function exportHtmlReport(workspaceSlug: string): Promise<{ filename: string; base64: string }> {
-  const { rows, wsName } = await buildRows(workspaceSlug);
+  const { rows, wsName, wsId, userId, actorRole } = await buildRows(workspaceSlug);
   const lvlColor: Record<string, string> = {
     XS: '#64748B',
     S: '#0EA5E9',
@@ -166,6 +199,15 @@ export async function exportHtmlReport(workspaceSlug: string): Promise<{ filenam
     <tbody>${tableRows}</tbody>
   </table>
 </body></html>`;
+  await writeAudit({
+    workspaceId: wsId,
+    actorUserId: userId,
+    actorRole,
+    action: 'export.html',
+    resourceType: 'export',
+    resourceId: null,
+    after: { format: 'html', rowCount: rows.length },
+  });
   return {
     filename: `${slugify(wsName)}-skills-${new Date().toISOString().slice(0, 10)}.html`,
     base64: Buffer.from(html).toString('base64'),

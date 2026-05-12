@@ -124,7 +124,7 @@ export async function aiGenerateExercises(payloadIn: z.infer<typeof input>): Pro
     payload: { lessonId: parsed.lessonId, count: picked.length },
   });
 
-  revalidatePath(`/w/${ws.slug}/learn`);
+  revalidatePath(`/w/${ws.slug}`);
   return { generated: picked.length };
 }
 

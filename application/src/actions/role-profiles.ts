@@ -151,7 +151,7 @@ export async function upsertRoleProfile(
   });
 
   revalidatePath(`/w/${ws.slug}`);
-  revalidatePath(`/w/${ws.slug}/roles`);
+  revalidatePath(`/w/${ws.slug}`);
   return { id: roleId };
 }
 
@@ -221,7 +221,7 @@ export async function upsertRoleRequirement(
     },
   });
 
-  revalidatePath(`/w/${ws.slug}/roles`);
+  revalidatePath(`/w/${ws.slug}`);
   return { ok: true };
 }
 
@@ -278,7 +278,7 @@ export async function setUserRoleTarget(
   });
 
   revalidatePath(`/w/${ws.slug}`);
-  revalidatePath(`/w/${ws.slug}/roles`);
+  revalidatePath(`/w/${ws.slug}`);
   return { ok: true };
 }
 

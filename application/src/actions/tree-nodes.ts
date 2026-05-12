@@ -202,7 +202,7 @@ export async function createTreeNode(input: z.infer<typeof createInput>): Promis
     payload: { nodeId: inserted.id, parentId: parsed.parentId, type: parsed.nodeType, title: parsed.title },
   });
 
-  revalidatePath(`/w/${ws.slug}/courses`);
+  revalidatePath(`/w/${ws.slug}`);
   return { id: inserted.id, slug: inserted.slug };
 }
 
@@ -240,7 +240,7 @@ export async function updateTreeNode(input: z.infer<typeof updateInput>): Promis
     kind: 'tree_node_updated',
     payload: { nodeId: parsed.nodeId },
   });
-  revalidatePath(`/w/${ws.slug}/courses`);
+  revalidatePath(`/w/${ws.slug}`);
 }
 
 /* ============================ Delete ============================ */
@@ -259,7 +259,7 @@ export async function deleteTreeNode(workspaceSlug: string, nodeId: string): Pro
     kind: 'tree_node_deleted',
     payload: { nodeId },
   });
-  revalidatePath(`/w/${ws.slug}/courses`);
+  revalidatePath(`/w/${ws.slug}`);
 }
 
 /* ============================ Reorder (up / down within same parent) ============================ */
@@ -321,7 +321,7 @@ export async function moveTreeNode(input: z.infer<typeof moveInput>): Promise<vo
     kind: 'tree_node_moved',
     payload: { nodeId: parsed.nodeId, direction: parsed.direction },
   });
-  revalidatePath(`/w/${ws.slug}/courses`);
+  revalidatePath(`/w/${ws.slug}`);
 }
 
 /* ============================ Toggle progress (HIERARCHICAL GATE) ============================
@@ -394,7 +394,7 @@ export async function toggleNodeDone(
       kind: 'tree_node_undone',
       payload: { nodeId, cascadedAncestors: cascaded },
     });
-    revalidatePath(`/w/${ws.slug}/courses`);
+    revalidatePath(`/w/${ws.slug}`);
     return { action: 'marked_todo', cascadedUp: cascaded };
   }
 
@@ -459,6 +459,6 @@ export async function toggleNodeDone(
     kind: 'tree_node_done',
     payload: { nodeId, descendants: descendantIds.length },
   });
-  revalidatePath(`/w/${ws.slug}/courses`);
+  revalidatePath(`/w/${ws.slug}`);
   return { action: 'marked_done', cascadedUp: 0 };
 }

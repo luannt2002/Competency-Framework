@@ -5,11 +5,17 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/auth/supabase-client';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Mail, Loader2 } from 'lucide-react';
 
 export default function SignInPage() {
+  const searchParams = useSearchParams();
+  // Honor `?next=/some/path` so deep-links from /share land back where they came from after auth.
+  // Sanitize: must start with '/' and not be a protocol-relative URL.
+  const rawNext = searchParams.get('next');
+  const nextPath = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -19,10 +25,13 @@ export default function SignInPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    const redirectUrl = nextPath
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
+      : `${window.location.origin}/auth/callback`;
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: redirectUrl,
       },
     });
     setLoading(false);
@@ -32,9 +41,12 @@ export default function SignInPage() {
 
   async function signInWithGoogle() {
     setLoading(true);
+    const redirectUrl = nextPath
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
+      : `${window.location.origin}/auth/callback`;
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: redirectUrl },
     });
   }
 

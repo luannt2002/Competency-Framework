@@ -9,13 +9,10 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Grid3x3,
-  GraduationCap,
   Settings2,
   User,
-  Boxes,
   Sparkles,
   Calendar,
-  Network,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -105,9 +102,9 @@ export function BottomTabBar({ workspaceSlug }: { workspaceSlug: string }) {
   const pathname = usePathname();
   const base = `/w/${workspaceSlug}`;
   const items: Item[] = [
-    { href: base, label: 'Home', icon: LayoutDashboard },
-    { href: `${base}/learn`, label: 'Learn', icon: GraduationCap },
-    { href: `${base}/skills`, label: 'Skills', icon: Grid3x3 },
+    { href: base, label: 'Cây', icon: LayoutDashboard },
+    { href: `${base}/daily`, label: 'Hôm nay', icon: Calendar },
+    { href: `${base}/skills`, label: 'Kỹ năng', icon: Grid3x3 },
     { href: '/profile', label: 'Profile', icon: User },
   ];
 

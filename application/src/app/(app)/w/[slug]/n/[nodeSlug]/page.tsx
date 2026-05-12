@@ -67,7 +67,7 @@ export default async function NodeDetailPage({
           <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">
             Nội dung chi tiết
           </h2>
-          <div className="prose prose-invert prose-sm max-w-none">
+          <div className="prose prose-sm max-w-none dark:prose-invert">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{node.bodyMd}</ReactMarkdown>
           </div>
         </section>

@@ -53,6 +53,11 @@ export function typeMeta(t: string) {
   return TYPE_META[t] ?? TYPE_META.custom!;
 }
 
+/** All known node types + Vietnamese labels — drives the appearance editor. */
+export const NODE_TYPE_LIST: Array<{ nodeType: string; label: string }> = Object.entries(
+  TYPE_META,
+).map(([nodeType, m]) => ({ nodeType, label: m.label }));
+
 export type NodeCardData = {
   slug: string;
   title: string;
@@ -87,6 +92,7 @@ export function NodeCard({
         'hover:-translate-y-0.5 hover:ring-2',
         meta.ring,
         node.status === 'done' && 'border-emerald-500/40 bg-emerald-500/5',
+        node.status === 'in_progress' && 'border-primary/40 bg-primary/5',
       )}
     >
       <div className={padding}>
@@ -156,7 +162,7 @@ function StatusBadge({ status }: { status: 'todo' | 'in_progress' | 'done' }) {
   }
   if (status === 'in_progress') {
     return (
-      <span className="inline-flex items-center gap-0.5 text-[9px] text-cyan-700 dark:text-cyan-400">
+      <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-primary">
         <PlayCircle className="size-2.5" />
         Đang làm
       </span>

@@ -33,12 +33,26 @@ async function loadWorkspaceBySlug(slug: string) {
       slug: workspaces.slug,
       name: workspaces.name,
       ownerUserId: workspaces.ownerUserId,
+      visibility: workspaces.visibility,
     })
     .from(workspaces)
     .where(eq(workspaces.slug, slug))
     .limit(1);
   const ws = rows[0];
   if (!ws) throw new Error('WORKSPACE_NOT_FOUND');
+  return ws;
+}
+
+/**
+ * Following is only allowed on public-readonly workspaces. Private workspaces
+ * must be indistinguishable from missing ones (no slug enumeration) — members
+ * already have real access via RBAC and don't need the follow layer.
+ */
+async function loadFollowableWorkspaceBySlug(slug: string) {
+  const ws = await loadWorkspaceBySlug(slug);
+  if (ws.visibility !== 'public-readonly') {
+    throw new Error('WORKSPACE_NOT_FOUND');
+  }
   return ws;
 }
 
@@ -51,7 +65,7 @@ export async function followWorkspace(
 ): Promise<{ followed: boolean }> {
   const slug = followInput.parse(workspaceSlug);
   const user = await requireUser();
-  const ws = await loadWorkspaceBySlug(slug);
+  const ws = await loadFollowableWorkspaceBySlug(slug);
 
   // Idempotent: short-circuit if a follow row already exists.
   const existing = await db

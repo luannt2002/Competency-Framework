@@ -50,15 +50,27 @@ export function NodeBreadcrumb({
   );
 }
 
+/** Workspace-picked appearance override for this node type (emoji + color). */
+export type NodeTypeOverride = { icon?: string | null; color?: string | null };
+
+/** Human-friendly duration: 480 → "8 giờ", 45 → "45 phút". */
+function fmtEst(minutes: number): string {
+  if (minutes >= 60 && minutes % 60 === 0) return `${minutes / 60} giờ`;
+  if (minutes >= 60) return `${Math.floor(minutes / 60)}h${minutes % 60}p`;
+  return `${minutes} phút`;
+}
+
 export function NodeHeader({
   node,
   readOnly = false,
   /** Slot for extra action buttons (toolbar) under the header. */
   actions,
+  typeOverride,
 }: {
   node: NodeWithStats;
   readOnly?: boolean;
   actions?: React.ReactNode;
+  typeOverride?: NodeTypeOverride;
 }) {
   const meta = typeMeta(node.nodeType);
   const Icon = meta.icon;
@@ -69,24 +81,43 @@ export function NodeHeader({
       ? Math.round((node.doneChildren / node.childrenCount) * 100)
       : 0;
 
+  // Owner customization: emoji replaces the Lucide icon; color tints the box + badge.
+  const overrideColor = typeOverride?.color ?? null;
+  const overrideIcon = typeOverride?.icon ?? null;
+
   return (
     <header className="surface p-6 space-y-4 relative overflow-hidden">
       {/* Top accent gradient */}
-      <div className={cn('absolute inset-x-0 top-0 h-1', meta.bg)} />
+      <div
+        className={cn('absolute inset-x-0 top-0 h-1', !overrideColor && meta.bg)}
+        style={overrideColor ? { background: overrideColor } : undefined}
+      />
 
       <div className="flex items-start gap-4">
-        <div className={cn('size-12 rounded-2xl flex items-center justify-center shrink-0', meta.bg)}>
-          <Icon className={cn('size-6', meta.color)} />
+        <div
+          className={cn('size-12 rounded-2xl flex items-center justify-center shrink-0', !overrideColor && meta.bg)}
+          style={overrideColor ? { background: `${overrideColor}22` } : undefined}
+        >
+          {overrideIcon ? (
+            <span className="text-2xl leading-none" role="img" aria-label={meta.label}>
+              {overrideIcon}
+            </span>
+          ) : (
+            <Icon
+              className={cn('size-6', meta.color)}
+              {...(overrideColor ? { style: { color: overrideColor } } : {})}
+            />
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <Badge variant="outline" className={meta.color}>
+            <Badge variant="outline" className={meta.color} {...(overrideColor ? { style: { color: overrideColor, borderColor: `${overrideColor}55` } } : {})}>
               {meta.label}
             </Badge>
             {node.estMinutes ? (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="size-3" />
-                ~{node.estMinutes}m
+                ~{fmtEst(node.estMinutes)}
               </span>
             ) : null}
             <span className="text-xs text-muted-foreground">

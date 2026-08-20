@@ -20,7 +20,7 @@ import { ShareLinkButton } from '@/components/learn/share-link-button';
 import { StatChip } from '@/components/learn/stat-chip';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Sparkles, Zap, Flame, Heart, Eye, ArrowRight, Play } from 'lucide-react';
+import { Plus, Sparkles, Zap, Flame, Heart, Eye, ArrowRight, Play, Award } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { NoNodesIllustration } from '@/components/ui/empty-state-illustrations';
 
@@ -99,6 +99,14 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
     <div className="mx-auto max-w-5xl px-4 py-10 md:py-16">
       {/* Top action bar: share / overview */}
       <div className="flex items-center justify-end gap-2 mb-6">
+        {overallPct >= 80 && (
+          <Link
+            href={`/w/${slug}/certificate/${user.id}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+          >
+            <Award className="size-3.5" /> Chứng nhận của tôi
+          </Link>
+        )}
         <Link
           href={`/share/${slug}`}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-card hover:bg-secondary transition-colors"
@@ -160,7 +168,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
         />
       ) : (
         <>
-          <RoadmapHero badge="DevOps · 12 months" title={heroTitle} subtitle={heroSubtitle} />
+          <RoadmapHero badge={`${totalNodes} nodes`} title={heroTitle} subtitle={heroSubtitle} />
           <VerticalRoadmap sections={sections} workspaceSlug={slug} />
           <RoadmapLegend />
         </>

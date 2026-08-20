@@ -7,6 +7,7 @@
  * — see DESIGN_FUTURE.md §2.
  */
 'use server';
+import { resolveWorkspace } from '@/lib/rbac/resolve';
 
 import { eq, and, asc } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
@@ -15,23 +16,6 @@ import { requireUser } from '@/lib/auth/supabase-server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
-async function resolveWorkspace(slug: string, requiredLevel: number) {
-  const user = await requireUser();
-  const rows = await db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = rows[0];
-  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  try {
-    const ctx = await requireMinLevel(ws.id, requiredLevel);
-    return { ws, user, ctx };
-  } catch (err) {
-    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-    throw err;
-  }
-}
 
 type ExportRow = {
   category: string;

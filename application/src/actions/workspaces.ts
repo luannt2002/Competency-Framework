@@ -46,6 +46,7 @@ import {
   streaks,
   activityLog,
 } from '@/lib/db/schema';
+import { roadmapTreeNodes } from '@/lib/db/schema-tree';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { frameworkPayloadSchema, type FrameworkPayload } from '@/lib/framework/payload-schema';
 import { toSlug } from '@/lib/utils';
@@ -474,4 +475,123 @@ export async function createBlankWorkspace(): Promise<void> {
 
   revalidatePath('/');
   redirect(`/onboarding?step=2&ws=${ws.id}`);
+}
+
+/**
+ * Fork a public workspace — copies the entire roadmapTreeNodes tree into a
+ * new workspace owned by the current user.
+ *
+ * Source workspace must have visibility = 'public-readonly'.
+ * Progress (userNodeProgress) is NOT copied — new owner starts fresh.
+ */
+export async function forkWorkspace(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const sourceSlug = String(formData.get('sourceSlug') ?? '').trim();
+  if (!sourceSlug) throw new Error('SOURCE_SLUG_REQUIRED');
+
+  // Load + verify source
+  const [srcWs] = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.slug, sourceSlug))
+    .limit(1);
+  if (!srcWs) throw new Error('WORKSPACE_NOT_FOUND');
+  if (srcWs.visibility !== 'public-readonly') throw new Error('WORKSPACE_NOT_PUBLIC');
+
+  // Load all tree nodes (BFS order: roots first via depth asc)
+  const srcNodes = await db
+    .select()
+    .from(roadmapTreeNodes)
+    .where(eq(roadmapTreeNodes.workspaceId, srcWs.id))
+    .orderBy(roadmapTreeNodes.depth, roadmapTreeNodes.orderIndex);
+
+  // Build old → new ID map before inserting so parent refs are resolvable
+  const idMap = new Map<string, string>();
+  for (const node of srcNodes) {
+    idMap.set(node.id, crypto.randomUUID());
+  }
+
+  // Create new workspace for the current user
+  const suffix = Math.random().toString(36).slice(2, 6);
+  const newSlug = toSlug(`${srcWs.slug}-${user.id.slice(0, 4)}-${suffix}`).slice(0, 40);
+
+  const [newWs] = await db
+    .insert(workspaces)
+    .values({
+      ownerUserId: user.id,
+      slug: newSlug,
+      name: `${srcWs.name} (Fork)`,
+      icon: srcWs.icon ?? null,
+      color: srcWs.color ?? null,
+      visibility: 'private',
+    })
+    .returning();
+  if (!newWs) throw new Error('WORKSPACE_INSERT_FAILED');
+
+  // Insert remapped nodes (batched to avoid huge INSERTs)
+  if (srcNodes.length > 0) {
+    const BATCH = 200;
+    for (let i = 0; i < srcNodes.length; i += BATCH) {
+      const batch = srcNodes.slice(i, i + BATCH);
+      await db.insert(roadmapTreeNodes).values(
+        batch.map((node) => {
+          const newId = idMap.get(node.id)!;
+          const newParentId = node.parentId ? (idMap.get(node.parentId) ?? null) : null;
+          const newPathStr = node.pathStr
+            ? node.pathStr
+                .split('/')
+                .filter(Boolean)
+                .map((part) => idMap.get(part) ?? part)
+                .join('/')
+            : '';
+          return {
+            id: newId,
+            workspaceId: newWs.id,
+            parentId: newParentId,
+            nodeType: node.nodeType,
+            title: node.title,
+            slug: node.slug,
+            description: node.description,
+            bodyMd: node.bodyMd,
+            orderIndex: node.orderIndex,
+            estMinutes: node.estMinutes,
+            meta: node.meta ?? {},
+            pathStr: newPathStr,
+            depth: node.depth,
+          };
+        }),
+      );
+    }
+  }
+
+  // Init gamification state
+  await db.insert(hearts).values({ workspaceId: newWs.id, userId: user.id, current: 5, max: 5 });
+  await db.insert(streaks).values({
+    workspaceId: newWs.id,
+    userId: user.id,
+    currentStreak: 0,
+    longestStreak: 0,
+  });
+
+  await db.insert(activityLog).values({
+    workspaceId: newWs.id,
+    userId: user.id,
+    kind: 'workspace_forked',
+    payload: { sourceWorkspaceId: srcWs.id, sourceSlug: srcWs.slug, nodeCount: srcNodes.length },
+  });
+
+  await writeAudit({
+    workspaceId: newWs.id,
+    actorUserId: user.id,
+    actorRole: 'workspace_owner',
+    action: 'workspace.fork',
+    resourceType: 'workspace',
+    resourceId: newWs.id,
+    before: null,
+    after: { id: newWs.id, slug: newWs.slug, sourceSlug: srcWs.slug },
+  });
+
+  revalidatePath('/');
+  revalidatePath(`/share/${sourceSlug}`);
+  redirect(`/w/${newWs.slug}`);
 }

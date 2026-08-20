@@ -25,7 +25,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { db } from '@/lib/db/client';
-import { workspaces } from '@/lib/db/schema';
+import { workspaces, competencyLevels, skillCategories } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { requireMinLevel, RBACError } from '@/lib/rbac/server';
@@ -33,6 +33,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { RenameWorkspaceForm } from '@/components/admin/rename-workspace-form';
 import { VisibilityToggle } from '@/components/admin/visibility-toggle';
 import { DeleteWorkspaceForm } from '@/components/admin/delete-workspace-form';
+import { AppearanceForm } from '@/components/admin/appearance-form';
+import { LevelEditor } from '@/components/admin/level-editor';
+import { NodeTypeEditor } from '@/components/admin/node-type-editor';
+import { CategoryColorEditor } from '@/components/admin/category-color-editor';
+import { NODE_TYPE_LIST } from '@/components/learn/node-card';
+import { getNodeTypeOverrides } from '@/lib/theme/node-type-queries';
 import type { VisibilityValue } from '@/actions/workspace-admin';
 
 export default async function WorkspaceSettingsPage({
@@ -49,6 +55,8 @@ export default async function WorkspaceSettingsPage({
       slug: workspaces.slug,
       name: workspaces.name,
       visibility: workspaces.visibility,
+      icon: workspaces.icon,
+      color: workspaces.color,
     })
     .from(workspaces)
     .where(eq(workspaces.slug, slug))
@@ -65,6 +73,25 @@ export default async function WorkspaceSettingsPage({
 
   // Map DB enum → UI value.
   const uiVisibility: VisibilityValue = ws.visibility === 'public-readonly' ? 'public' : 'private';
+
+  const levels = await db
+    .select({
+      id: competencyLevels.id,
+      code: competencyLevels.code,
+      label: competencyLevels.label,
+      description: competencyLevels.description,
+    })
+    .from(competencyLevels)
+    .where(eq(competencyLevels.workspaceId, ws.id))
+    .orderBy(competencyLevels.displayOrder);
+
+  const typeOverrides = await getNodeTypeOverrides(ws.id);
+
+  const categories = await db
+    .select({ id: skillCategories.id, name: skillCategories.name, color: skillCategories.color })
+    .from(skillCategories)
+    .where(eq(skillCategories.workspaceId, ws.id))
+    .orderBy(skillCategories.displayOrder);
 
   return (
     <div
@@ -103,6 +130,67 @@ export default async function WorkspaceSettingsPage({
         </CardContent>
       </Card>
 
+      {/* Appearance — emoji icon + accent color (palette-whitelisted) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Ngoại hình</CardTitle>
+          <CardDescription>
+            Chọn biểu tượng và màu accent — áp riêng cho workspace này (multi-tenant theming).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AppearanceForm
+            workspaceSlug={ws.slug}
+            initialIcon={ws.icon ?? null}
+            initialColor={ws.color ?? null}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Node types — emoji + color overrides */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Loại node</CardTitle>
+          <CardDescription>Đổi icon emoji + màu cho từng loại node (giai đoạn, tuần, bài học, lab…).</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <NodeTypeEditor
+            workspaceSlug={ws.slug}
+            types={NODE_TYPE_LIST.map((t) => ({
+              ...t,
+              icon: typeOverrides[t.nodeType]?.icon ?? null,
+              color: typeOverrides[t.nodeType]?.color ?? null,
+            }))}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Skill categories — color coding */}
+      {categories.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Danh mục kỹ năng</CardTitle>
+            <CardDescription>Chọn màu cho từng danh mục (AWS, Terraform, K8s…).</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CategoryColorEditor workspaceSlug={ws.slug} categories={categories} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Competency levels — rename display labels */}
+      {levels.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cấp độ năng lực</CardTitle>
+            <CardDescription>Đổi tên hiển thị các cấp XS / S / M / L cho đúng culture team bạn.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LevelEditor workspaceSlug={ws.slug} levels={levels} />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Visibility */}
       <Card>
         <CardHeader>
@@ -121,6 +209,19 @@ export default async function WorkspaceSettingsPage({
           <CardDescription>Members and audit trail for this workspace.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-2">
+          <Link
+            href={`/w/${ws.slug}/import`}
+            className="surface flex items-center justify-between gap-3 p-3 hover:bg-secondary/40 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <SlidersHorizontal className="size-4 text-primary" />
+              <div>
+                <div className="text-sm font-medium">Import framework</div>
+                <div className="text-[11px] text-muted-foreground">Markdown → cây học tập</div>
+              </div>
+            </div>
+            <ArrowUpRight className="size-4 text-muted-foreground" />
+          </Link>
           <Link
             href={`/w/${ws.slug}/members`}
             className="surface flex items-center justify-between gap-3 p-3 hover:bg-secondary/40 transition-colors"

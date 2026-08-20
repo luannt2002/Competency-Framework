@@ -24,6 +24,7 @@ import { FollowButton } from '@/components/social/follow-button';
 import { getCurrentUser } from '@/lib/auth/supabase-server';
 import { isFollowingWorkspace } from '@/actions/follows';
 import { ArrowLeft, Layers, Sparkles } from 'lucide-react';
+import { ForkButton } from '@/components/share/fork-button';
 
 const SITE_NAME = 'Competency Framework';
 
@@ -119,11 +120,12 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
   // Resolve the viewer (may be null on a true public visit) so we can show
   // the follow toggle only when logged in.
   const viewer = await getCurrentUser();
+  const isOwner = !!viewer && ws.ownerUserId === viewer.id;
   const viewerFollowing =
-    viewer && ws.ownerUserId !== viewer.id
+    viewer && !isOwner
       ? await isFollowingWorkspace(ws.id, viewer.id)
       : false;
-  const showFollow = !!viewer && ws.ownerUserId !== viewer.id;
+  const showFollow = !!viewer && !isOwner;
 
   // Same as dashboard: if exactly 1 root, use its title as hero + drill 1 level.
   let sections: Awaited<ReturnType<typeof getTreeSections>> = [];
@@ -163,6 +165,11 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
           {showFollow && (
             <FollowButton workspaceSlug={slug} initialFollowing={viewerFollowing} />
           )}
+          <ForkButton
+            sourceSlug={slug}
+            viewerId={viewer?.id ?? null}
+            isOwner={isOwner}
+          />
           <ShareLinkButton />
         </div>
       </div>
@@ -191,13 +198,36 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
 
       <RoadmapLegend />
 
-      <div className="mt-10 text-center text-xs text-muted-foreground">
-        <p>
-          Trang chia sẻ chỉ xem · Để tự học và lưu tiến độ:{' '}
-          <Link href={`/w/${slug}`} className="underline hover:text-foreground">
-            mở trang học của bạn
-          </Link>
-        </p>
+      {/* CTA bottom */}
+      <div className="mt-14 rounded-2xl border border-dashed border-border bg-secondary/30 p-8 text-center space-y-4">
+        {isOwner ? (
+          <>
+            <p className="text-sm font-medium">Đây là roadmap của bạn</p>
+            <Link
+              href={`/w/${slug}`}
+              className="inline-flex items-center gap-2 text-sm underline hover:text-foreground text-muted-foreground"
+            >
+              Mở trang học →
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="text-lg font-semibold">Thích lộ trình này?</p>
+            <p className="text-sm text-muted-foreground">
+              Fork về tài khoản của bạn để tự track tiến độ, gắn evidence và earn XP.
+            </p>
+            <div className="flex items-center justify-center">
+              <ForkButton
+                sourceSlug={slug}
+                viewerId={viewer?.id ?? null}
+                isOwner={isOwner}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Miễn phí · Không cần credit card · Fork xong là học được ngay
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

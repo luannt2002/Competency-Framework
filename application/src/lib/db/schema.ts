@@ -566,3 +566,4 @@ export * from './schema-rbac';
 export * from './schema-journal';
 export * from './schema-resources';
 export * from './schema-social';
+export * from './schema-appearance';

@@ -23,9 +23,11 @@ type Props = {
   showLabel?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  /** Workspace-custom label (from competency_levels.label) — overrides the default. */
+  label?: string | null;
 };
 
-export function LevelBadge({ code, showLabel = false, size = 'md', className }: Props) {
+export function LevelBadge({ code, showLabel = false, size = 'md', className, label: labelOverride }: Props) {
   if (!code) {
     return (
       <span
@@ -40,7 +42,7 @@ export function LevelBadge({ code, showLabel = false, size = 'md', className }: 
   }
 
   const style = LEVEL_STYLES[code] ?? LEVEL_STYLES.XS;
-  const label = LEVEL_LABELS[code];
+  const label = labelOverride ?? LEVEL_LABELS[code];
   const sizeCls = size === 'sm' ? 'px-1.5 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1 text-sm' : 'px-2 py-0.5 text-xs';
 
   return (

@@ -5,9 +5,10 @@
  * - completeLesson: bonus XP, tick streak, mark progress
  */
 'use server';
+import { resolveWorkspace } from '@/lib/rbac/resolve';
 
 import { z } from 'zod';
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, inArray, count, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db/client';
 import {
@@ -27,26 +28,15 @@ import { tickStreak } from '@/lib/gamification/streak';
 import { awardCrowns, type CrownAdvance } from '@/lib/gamification/crowns';
 import { evaluateBadges, type GrantedBadge } from '@/lib/gamification/badge-evaluator';
 import { recomputeUnlocks } from '@/lib/learn/unlock-rules';
+import {
+  insertXpOnce,
+  computeLessonScore,
+  countPriorAttempts,
+  hasCorrectAttempt,
+} from '@/lib/learn/xp-award';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
-async function resolveWorkspace(slug: string, requiredLevel: number) {
-  const user = await requireUser();
-  const rows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = rows[0];
-  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  try {
-    const ctx = await requireMinLevel(ws.id, requiredLevel);
-    return { ws, user, ctx };
-  } catch (err) {
-    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-    throw err;
-  }
-}
 
 export type LessonRunData = {
   lessonId: string;
@@ -186,6 +176,39 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
 
   const isCorrect = evaluateExercise(ex.kind, ex.payload, parsed.answer);
 
+  // Server-side retry detection: prior attempts decide retry status, NOT the client.
+  // (Client `isRetry` is advisory only — trusting it allowed full first-try XP forever.)
+  const isServerRetry =
+    (await countPriorAttempts(ws.id, user.id, ex.id)) > 0;
+
+  // XP is awarded at most once per exercise (first correct attempt ever).
+  // Re-submitting a correct answer awards nothing → no XP farming via replay.
+  let xpAwarded = 0;
+  if (isCorrect && !isServerRetry) {
+    xpAwarded = ex.xpAward ?? XP.EXERCISE_CORRECT_FIRST;
+    await db.insert(xpEvents).values({
+      workspaceId: ws.id,
+      userId: user.id,
+      amount: xpAwarded,
+      reason: 'exercise_correct',
+      refKind: 'exercise',
+      refId: ex.id,
+    });
+  } else if (isCorrect && isServerRetry) {
+    // Retry-correct after at least one wrong attempt: small reward, once per exercise.
+    if (!(await hasCorrectAttempt(ws.id, user.id, ex.id))) {
+      xpAwarded = XP.EXERCISE_CORRECT_RETRY;
+      await db.insert(xpEvents).values({
+        workspaceId: ws.id,
+        userId: user.id,
+        amount: xpAwarded,
+        reason: 'exercise_correct_retry',
+        refKind: 'exercise',
+        refId: ex.id,
+      });
+    }
+  }
+
   // Record attempt
   await db.insert(userExerciseAttempts).values({
     workspaceId: ws.id,
@@ -196,35 +219,37 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
     timeTakenMs: parsed.timeTakenMs ?? null,
   });
 
-  let xpAwarded = 0;
-  if (isCorrect) {
-    xpAwarded = parsed.isRetry ? XP.EXERCISE_CORRECT_RETRY : (ex.xpAward ?? XP.EXERCISE_CORRECT_FIRST);
-    await db.insert(xpEvents).values({
-      workspaceId: ws.id,
-      userId: user.id,
-      amount: xpAwarded,
-      reason: parsed.isRetry ? 'exercise_correct_retry' : 'exercise_correct',
-      refKind: 'exercise',
-      refId: ex.id,
-    });
-  }
-
-  // Update hearts (decrement on wrong)
-  const heartRows = await db
-    .select()
-    .from(hearts)
-    .where(and(eq(hearts.workspaceId, ws.id), eq(hearts.userId, user.id)))
-    .limit(1);
-  let heartsLeft = heartRows[0]?.current ?? 5;
-  if (!isCorrect && heartsLeft > 0) {
-    heartsLeft = heartsLeft - 1;
-    await db
-      .update(hearts)
-      .set({
-        current: heartsLeft,
-        nextRefillAt: heartRows[0]?.nextRefillAt ?? new Date(Date.now() + 4 * 60 * 60 * 1000),
+  // Update hearts (decrement on wrong) — single atomic upsert to avoid the
+  // read-modify-write race where two concurrent wrong answers both read the
+  // same heart count and only lose one heart.
+  let heartsLeft = 5;
+  if (!isCorrect) {
+    const HEART_REFILL_MS = 4 * 60 * 60 * 1000;
+    const upserted = await db
+      .insert(hearts)
+      .values({
+        workspaceId: ws.id,
+        userId: user.id,
+        current: 4,
+        max: 5,
+        nextRefillAt: new Date(Date.now() + HEART_REFILL_MS),
       })
-      .where(and(eq(hearts.workspaceId, ws.id), eq(hearts.userId, user.id)));
+      .onConflictDoUpdate({
+        target: [hearts.workspaceId, hearts.userId],
+        set: {
+          current: sql`GREATEST(${hearts.current} - 1, 0)`,
+          nextRefillAt: sql`COALESCE(${hearts.nextRefillAt}, NOW() + interval '4 hours')`,
+        },
+      })
+      .returning({ current: hearts.current });
+    heartsLeft = upserted[0]?.current ?? 5;
+  } else {
+    const heartRows = await db
+      .select({ current: hearts.current })
+      .from(hearts)
+      .where(and(eq(hearts.workspaceId, ws.id), eq(hearts.userId, user.id)))
+      .limit(1);
+    heartsLeft = heartRows[0]?.current ?? 5;
   }
 
   await writeAudit({
@@ -235,7 +260,7 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
     resourceType: 'exercise',
     resourceId: ex.id,
     before: null,
-    after: { isCorrect, xpAwarded, isRetry: parsed.isRetry ?? false },
+    after: { isCorrect, xpAwarded, isRetry: isServerRetry },
   });
 
   return {
@@ -264,12 +289,17 @@ export type CompleteResult = {
   newlyUnlockedLevelCodes: string[];
 };
 
+
 export async function completeLesson(input: z.infer<typeof completeInput>): Promise<CompleteResult> {
   const parsed = completeInput.parse(input);
   const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
 
+  // ===== Server-side score: derive from recorded attempts, never trust client =====
+  const scorePct =
+    (await computeLessonScore(ws.id, user.id, parsed.lessonId)) ?? parsed.scorePct;
+
   // Mark progress
-  const mastered = parsed.scorePct >= 0.999;
+  const mastered = scorePct >= 0.999;
   const existing = await db
     .select()
     .from(userLessonProgress)
@@ -282,12 +312,17 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
     )
     .limit(1);
 
+  // First-time transitions gate every XP bonus below (no re-award on replay).
+  const prevStatus = existing[0]?.status ?? null;
+  const firstCompletion = prevStatus !== 'completed' && prevStatus !== 'mastered';
+  const firstMastery = mastered && prevStatus !== 'mastered';
+
   if (existing[0]) {
     await db
       .update(userLessonProgress)
       .set({
         status: mastered ? 'mastered' : 'completed',
-        bestScore: String(Math.max(Number(existing[0].bestScore ?? '0'), parsed.scorePct)),
+        bestScore: String(Math.max(Number(existing[0].bestScore ?? '0'), scorePct)),
         completedAt: new Date(),
       })
       .where(eq(userLessonProgress.id, existing[0].id));
@@ -297,22 +332,37 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
       userId: user.id,
       lessonId: parsed.lessonId,
       status: mastered ? 'mastered' : 'completed',
-      bestScore: String(parsed.scorePct),
+      bestScore: String(scorePct),
       attempts: 1,
       completedAt: new Date(),
       lastAttemptAt: new Date(),
     });
   }
 
-  const bonus = mastered ? XP.LESSON_MASTERED_BONUS : XP.LESSON_COMPLETE_BONUS;
-  await db.insert(xpEvents).values({
-    workspaceId: ws.id,
-    userId: user.id,
-    amount: bonus,
-    reason: mastered ? 'lesson_mastered' : 'lesson_complete',
-    refKind: 'lesson',
-    refId: parsed.lessonId,
-  });
+  // Lesson bonus — only on the first completion, plus a one-time mastery upgrade.
+  let bonus = 0;
+  if (firstCompletion) {
+    await insertXpOnce({
+      workspaceId: ws.id,
+      userId: user.id,
+      amount: XP.LESSON_COMPLETE_BONUS,
+      reason: 'lesson_complete',
+      refKind: 'lesson',
+      refId: parsed.lessonId,
+    });
+    bonus += XP.LESSON_COMPLETE_BONUS;
+  }
+  if (firstMastery) {
+    const awarded = await insertXpOnce({
+      workspaceId: ws.id,
+      userId: user.id,
+      amount: XP.LESSON_MASTERED_BONUS,
+      reason: 'lesson_mastered',
+      refKind: 'lesson',
+      refId: parsed.lessonId,
+    });
+    if (awarded) bonus += XP.LESSON_MASTERED_BONUS;
+  }
 
   // Tick streak
   const streak = await tickStreak(ws.id, user.id);
@@ -329,30 +379,39 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
     workspaceId: ws.id,
     userId: user.id,
     kind: 'lesson_completed',
-    payload: { lessonId: parsed.lessonId, scorePct: parsed.scorePct, mastered },
+    payload: { lessonId: parsed.lessonId, scorePct, mastered },
   });
 
   // ===== Side effects: crowns + unlock + bonuses + badges =====
-  const crowns = await awardCrowns(ws.id, user.id, parsed.lessonId, mastered);
+  // Crowns only advance on real transitions (first completion / first mastery)
+  // — replaying a finished lesson must not keep stacking crowns to the cap.
+  const crowns = await awardCrowns(ws.id, user.id, parsed.lessonId, mastered, {
+    eligible: firstCompletion || firstMastery,
+    masteredUpgrade: firstMastery && !firstCompletion,
+  });
   const unlock = await recomputeUnlocks(ws.id, user.id, parsed.lessonId);
 
   let extraBonus = 0;
   if (unlock.weekCompleted) {
     extraBonus += XP.WEEK_COMPLETE_BONUS;
-    await db.insert(xpEvents).values({
+    await insertXpOnce({
       workspaceId: ws.id,
       userId: user.id,
       amount: XP.WEEK_COMPLETE_BONUS,
       reason: 'week_complete',
+      refKind: 'week',
+      refId: unlock.completedWeekId ?? parsed.lessonId,
     });
   }
   if (unlock.levelCompleted) {
     extraBonus += XP.LEVEL_COMPLETE_BONUS;
-    await db.insert(xpEvents).values({
+    await insertXpOnce({
       workspaceId: ws.id,
       userId: user.id,
       amount: XP.LEVEL_COMPLETE_BONUS,
       reason: 'level_complete',
+      refKind: 'level',
+      refId: unlock.completedTrackId ?? parsed.lessonId,
     });
   }
 
@@ -368,7 +427,7 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
     before: { status: existing[0]?.status ?? null },
     after: {
       status: mastered ? 'mastered' : 'completed',
-      scorePct: parsed.scorePct,
+      scorePct,
       weekCompleted: unlock.weekCompleted,
       levelCompleted: unlock.levelCompleted,
     },

@@ -103,7 +103,7 @@ async function StepOne() {
                 <span className="text-[11px] text-muted-foreground font-mono">
                   Forked {tpl.forksCount ?? 0} times
                 </span>
-                <Button type="submit" size="sm">
+                <Button type="submit" size="sm" className="btn-brand border-0">
                   Use this <ArrowRight className="size-4" />
                 </Button>
               </div>
@@ -199,7 +199,7 @@ async function StepTwo({ workspaceId }: { workspaceId: string }) {
               <ArrowLeft className="size-4" /> Quay lại
             </Link>
           </Button>
-          <Button type="submit">
+          <Button type="submit" className="btn-brand border-0">
             Tiếp tục <ArrowRight className="size-4" />
           </Button>
         </div>
@@ -249,14 +249,14 @@ async function StepThree({
               style={{
                 left: `${(i * 7) % 100}%`,
                 animationDelay: `${(i % 7) * 120}ms`,
-                background: i % 2 === 0 ? 'hsl(var(--primary))' : '#a855f7',
+                background: i % 2 === 0 ? 'hsl(var(--primary))' : 'var(--brand-red)',
               }}
             />
           ))}
         </div>
 
         <div className="surface p-8 text-center space-y-5 relative">
-          <div className="mx-auto size-14 rounded-full accent-gradient flex items-center justify-center shadow-lg shadow-cyan-500/30">
+          <div className="mx-auto size-14 rounded-full accent-gradient flex items-center justify-center shadow-lg shadow-primary/30">
             <CheckCircle2 className="size-7 text-white" aria-hidden="true" />
           </div>
 
@@ -265,22 +265,32 @@ async function StepThree({
             <p className="text-xs text-muted-foreground font-mono mt-1">/w/{resolvedSlug}</p>
           </div>
 
-          <ul className="text-left space-y-2.5 text-sm text-muted-foreground">
-            <li className="flex items-start gap-2.5">
-              <CheckCircle2 className="size-4 mt-0.5 text-cyan-500 shrink-0" />
-              <span>Click cây để drill xuống từng node học tập.</span>
-            </li>
-            <li className="flex items-start gap-2.5">
-              <CheckCircle2 className="size-4 mt-0.5 text-cyan-500 shrink-0" />
-              <span>Đánh dấu xong để track XP, hearts và streak.</span>
-            </li>
-            <li className="flex items-start gap-2.5">
-              <CheckCircle2 className="size-4 mt-0.5 text-cyan-500 shrink-0" />
-              <span>Mời thành viên ở Admin → Members khi sẵn sàng cộng tác.</span>
-            </li>
-          </ul>
+          {/* Actionable next-step checklist — each item links into the new workspace. */}
+          <div className="text-left space-y-2.5 text-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Bước tiếp theo
+            </p>
+            <NextStepLink
+              href={`/w/${resolvedSlug}/skills`}
+              step="1"
+              title="Tự đánh giá kỹ năng"
+              desc="Chọn mức XS → L cho các skill bạn đã biết."
+            />
+            <NextStepLink
+              href={`/w/${resolvedSlug}`}
+              step="2"
+              title="Mở cây học tập"
+              desc="Drill xuống từng node, đánh dấu xong để nhận XP + streak."
+            />
+            <NextStepLink
+              href={`/w/${resolvedSlug}/members`}
+              step="3"
+              title="Mời thành viên"
+              desc="Thêm teammate để học cùng (Admin → Members)."
+            />
+          </div>
 
-          <Button asChild size="lg" className="w-full">
+          <Button asChild size="lg" className="btn-brand border-0 w-full">
             <Link href={`/w/${resolvedSlug}`}>
               Bắt đầu học <ArrowRight className="size-4" />
             </Link>
@@ -305,6 +315,37 @@ async function StepThree({
         `}</style>
       </div>
     </WizardShell>
+  );
+}
+
+/* ---------- Next-step checklist item (links into the new workspace) ---------- */
+function NextStepLink({
+  href,
+  step,
+  title,
+  desc,
+}: {
+  href: string;
+  step: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-start gap-3 rounded-xl border border-border bg-secondary/30 p-3 transition-all hover:border-primary/40 hover:bg-secondary/60 group"
+    >
+      <span className="size-6 rounded-full accent-gradient flex items-center justify-center text-[11px] font-bold text-white shrink-0">
+        {step}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+          {title}
+        </span>
+        <span className="block text-xs text-muted-foreground mt-0.5">{desc}</span>
+      </span>
+      <ArrowRight className="size-4 text-muted-foreground shrink-0 mt-1 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+    </Link>
   );
 }
 

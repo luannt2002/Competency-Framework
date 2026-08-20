@@ -16,10 +16,13 @@ export default function SignInPage() {
   // Sanitize: must start with '/' and not be a protocol-relative URL.
   const rawNext = searchParams.get('next');
   const nextPath = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
+  const errorParam = searchParams.get('error');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    errorParam === 'auth_failed' ? 'Đăng nhập thất bại. Vui lòng thử lại.' : null,
+  );
 
   async function signInWithMagicLink(e: React.FormEvent) {
     e.preventDefault();

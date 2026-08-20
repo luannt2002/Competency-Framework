@@ -14,6 +14,7 @@ import { parseHeadings } from '@/lib/learn/parse-headings';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { getNodeBySlug, getTreeSections, getSiblings } from '@/lib/tree/queries';
 import { NodeBreadcrumb, NodeHeader } from '@/components/learn/node-header';
+import { getNodeTypeOverrides } from '@/lib/theme/node-type-queries';
 import { NodeToolbar } from '@/components/learn/node-toolbar';
 import { VerticalRoadmap } from '@/components/learn/vertical-roadmap';
 import { SiblingNav } from '@/components/learn/sibling-nav';
@@ -44,11 +45,14 @@ export default async function NodeDetailPage({
   const siblings =
     ancestors.length > 0
       ? await getSiblings(ws.id, node.id, node.parentId, node.orderIndex)
-      : { prev: null, next: null };
+      : { prev: null, next: null, position: null, total: 0 };
 
   // Resolve viewer level once so we can gate the quick-note composer.
   const viewerEff = await getEffectiveLevel(ws.id, user.id);
   const canQuickNote = viewerEff.level >= RBAC_LEVELS.LEARNER;
+
+  // Owner-picked node-type appearance (emoji icon + accent color)
+  const typeOverrides = await getNodeTypeOverrides(ws.id);
 
   return (
     <div className="mx-auto max-w-5xl p-6 md:p-8 space-y-6">
@@ -61,6 +65,7 @@ export default async function NodeDetailPage({
       />
 
       <NodeHeader
+        typeOverride={typeOverrides[node.nodeType]}
         node={node}
         actions={
           <NodeToolbar
@@ -122,6 +127,8 @@ export default async function NodeDetailPage({
           prev={siblings.prev}
           next={siblings.next}
           linkBase={`/w/${slug}/n`}
+          position={siblings.position}
+          total={siblings.total}
         />
       )}
 

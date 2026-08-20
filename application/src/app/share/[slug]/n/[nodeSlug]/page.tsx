@@ -16,6 +16,7 @@ import { db } from '@/lib/db/client';
 import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
 import { getNodeBySlug, getTreeSections, getSiblings } from '@/lib/tree/queries';
 import { NodeBreadcrumb, NodeHeader } from '@/components/learn/node-header';
+import { getNodeTypeOverrides } from '@/lib/theme/node-type-queries';
 import { VerticalRoadmap } from '@/components/learn/vertical-roadmap';
 import { ShareLinkButton } from '@/components/learn/share-link-button';
 import { SiblingNav } from '@/components/learn/sibling-nav';
@@ -107,6 +108,7 @@ export default async function ShareNodePage({
   const result = await getNodeBySlug(ws.id, null, nodeSlug);
   if (!result) notFound();
   const { node, children, ancestors } = result;
+  const typeOverrides = await getNodeTypeOverrides(ws.id);
 
   const sections = children.length > 0 ? await getTreeSections(ws.id, null, node.id) : [];
 
@@ -114,7 +116,7 @@ export default async function ShareNodePage({
   const siblings =
     ancestors.length > 0
       ? await getSiblings(ws.id, node.id, node.parentId, node.orderIndex)
-      : { prev: null, next: null };
+      : { prev: null, next: null, position: null, total: 0 };
 
   return (
     <div
@@ -144,7 +146,7 @@ export default async function ShareNodePage({
         nodeBase={`/share/${slug}/n`}
       />
 
-      <NodeHeader node={node} readOnly />
+      <NodeHeader node={node} readOnly typeOverride={typeOverrides[node.nodeType]} />
 
       {node.bodyMd && (
         <section className="surface p-6">
@@ -182,6 +184,8 @@ export default async function ShareNodePage({
           prev={siblings.prev}
           next={siblings.next}
           linkBase={`/share/${slug}/n`}
+          position={siblings.position}
+          total={siblings.total}
         />
       )}
 

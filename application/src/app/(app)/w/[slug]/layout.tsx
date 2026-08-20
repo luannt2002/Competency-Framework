@@ -10,6 +10,7 @@ import { db } from '@/lib/db/client';
 import { xpEvents, streaks as streaksT, hearts as heartsT } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { requireWorkspaceAccess, listMyWorkspaces } from '@/lib/workspace';
+import { workspaceAccentStyle } from '@/lib/theme/workspace-theme';
 
 export default async function WorkspaceLayout({
   children,
@@ -59,6 +60,9 @@ export default async function WorkspaceLayout({
 
   return (
     <div className="flex min-h-dvh">
+      {/* Per-workspace accent theming — owner-picked color overrides the
+          brand variables for this workspace only (multi-tenant theming). */}
+      {ws.color && <style dangerouslySetInnerHTML={{ __html: workspaceAccentStyle(ws.color) }} />}
       {/* Skip-to-content — visually-hidden until keyboard-focused. Sighted
           users never see it; Tab users get instant access to the page body
           without having to traverse the sidebar + topbar each time. */}
@@ -71,8 +75,9 @@ export default async function WorkspaceLayout({
       <AppSidebar
         workspaceSlug={ws.slug}
         workspaceName={ws.name}
+        workspaceIcon={ws.icon}
         isOwner={isOwner}
-        workspaces={myWorkspaces.map((w) => ({ slug: w.slug, name: w.name }))}
+        workspaces={myWorkspaces.map((w) => ({ slug: w.slug, name: w.name, icon: w.icon }))}
       />
       <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
         <Topbar

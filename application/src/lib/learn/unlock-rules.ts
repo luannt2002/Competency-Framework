@@ -21,8 +21,12 @@ import {
 } from '@/lib/db/schema';
 
 export type UnlockResult = {
+  /** True only on the transition where the week becomes completed for the first time. */
   weekCompleted: boolean;
+  /** True only on the transition where the level becomes completed for the first time. */
   levelCompleted: boolean;
+  completedWeekId: string | null;
+  completedTrackId: string | null;
   newlyUnlockedWeekIds: string[];
   newlyUnlockedLevelCodes: string[];
 };
@@ -85,9 +89,11 @@ export async function recomputeUnlocks(
     : [];
 
   const pct = totalLessons === 0 ? 0 : completedLessons.length / totalLessons;
-  const weekJustCompleted = pct >= 0.8;
+  const pctReached = pct >= 0.8;
 
   // 3. Upsert user_week_progress
+  // weekCompleted reports the FIRST transition to completed only — replaying
+  // lessons in an already-completed week must not re-fire completion bonuses.
   const existingWeek = await db
     .select()
     .from(userWeekProgress)
@@ -100,13 +106,15 @@ export async function recomputeUnlocks(
     )
     .limit(1);
 
+  const weekJustCompleted = pctReached && !existingWeek[0]?.completedAt;
+
   if (existingWeek[0]) {
     await db
       .update(userWeekProgress)
       .set({
         pctComplete: String(pct),
         unlocked: true,
-        completedAt: weekJustCompleted && !existingWeek[0].completedAt ? new Date() : existingWeek[0].completedAt,
+        completedAt: pctReached && !existingWeek[0].completedAt ? new Date() : existingWeek[0].completedAt,
       })
       .where(eq(userWeekProgress.id, existingWeek[0].id));
   } else {
@@ -117,13 +125,13 @@ export async function recomputeUnlocks(
       pctComplete: String(pct),
       unlocked: true,
       unlockedAt: new Date(),
-      completedAt: weekJustCompleted ? new Date() : null,
+      completedAt: pctReached ? new Date() : null,
     });
   }
 
   // 4. If week completed → unlock next week in same track
   const newlyUnlockedWeekIds: string[] = [];
-  if (weekJustCompleted) {
+  if (pctReached) {
     const nextWeekRows = await db
       .select()
       .from(weeks)
@@ -192,6 +200,25 @@ export async function recomputeUnlocks(
     .from(levelTracks)
     .where(eq(levelTracks.id, wk.trackId))
     .limit(1);
+
+  // First-time level completion only (prevents infinite +500 XP re-awards).
+  let levelAlreadyCompleted = false;
+  if (trackRow[0]) {
+    const lvlExisting = await db
+      .select()
+      .from(userLevelProgress)
+      .where(
+        and(
+          eq(userLevelProgress.workspaceId, workspaceId),
+          eq(userLevelProgress.userId, userId),
+          eq(userLevelProgress.levelCode, trackRow[0].levelCode),
+        ),
+      )
+      .limit(1);
+    levelAlreadyCompleted = lvlExisting[0]?.status === 'completed';
+  }
+  const levelFirstCompleted = levelJustCompleted && !levelAlreadyCompleted;
+
   if (trackRow[0] && levelJustCompleted) {
     // Mark level completed
     const lvlExisting = await db
@@ -246,7 +273,9 @@ export async function recomputeUnlocks(
 
   return {
     weekCompleted: weekJustCompleted,
-    levelCompleted: levelJustCompleted,
+    levelCompleted: levelFirstCompleted,
+    completedWeekId: weekJustCompleted ? wk.id : null,
+    completedTrackId: levelFirstCompleted && trackRow[0] ? trackRow[0].id : null,
     newlyUnlockedWeekIds,
     newlyUnlockedLevelCodes,
   };
@@ -256,6 +285,8 @@ function empty(): UnlockResult {
   return {
     weekCompleted: false,
     levelCompleted: false,
+    completedWeekId: null,
+    completedTrackId: null,
     newlyUnlockedWeekIds: [],
     newlyUnlockedLevelCodes: [],
   };

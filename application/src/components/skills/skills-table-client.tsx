@@ -49,6 +49,10 @@ type Props = {
 const ALL_LEVELS: LevelCode[] = ['XS', 'S', 'M', 'L'];
 
 export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
+  // Workspace-custom level labels (competency_levels.label) → code→label map
+  const levelLabels: Record<string, string> = Object.fromEntries(
+    rubric.map((r) => [r.code, r.label]),
+  );
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [catFilter, setCatFilter] = useState<Set<string>>(new Set());
@@ -185,9 +189,13 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
                     : 'border-border text-muted-foreground hover:text-foreground'
                 }`}
                 style={
-                  active
-                    ? undefined
-                    : { borderColor: c.color ? `${c.color}30` : undefined }
+                  c.color
+                    ? {
+                        ...(active
+                          ? { borderColor: `${c.color}80`, background: `${c.color}1a`, color: c.color }
+                          : { borderColor: `${c.color}30` }),
+                      }
+                    : undefined
                 }
               >
                 {c.name}
@@ -251,7 +259,7 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
       <div className="surface overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
+            <thead className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
               <tr>
                 <th className="px-4 py-3 text-left">Skill</th>
                 <th className="px-4 py-3 text-left">Category</th>
@@ -295,10 +303,10 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
-                    <LevelBadge code={r.levelCode} />
+                    <LevelBadge code={r.levelCode} label={levelLabels[r.levelCode ?? '']} showLabel />
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    <LevelBadge code={r.targetLevelCode} />
+                    <LevelBadge code={r.targetLevelCode} label={levelLabels[r.targetLevelCode ?? '']} />
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-amber-400 tabular-nums">
                     {r.crowns ?? 0}

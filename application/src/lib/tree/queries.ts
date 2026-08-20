@@ -57,8 +57,11 @@ export async function getSiblings(
 ): Promise<{
   prev: { slug: string; title: string } | null;
   next: { slug: string; title: string } | null;
+  /** 1-based position of this node among its siblings. */
+  position: number | null;
+  total: number;
 }> {
-  if (!parentId) return { prev: null, next: null };
+  if (!parentId) return { prev: null, next: null, position: null, total: 0 };
   const rows = await db
     .select({
       id: roadmapTreeNodes.id,
@@ -82,6 +85,8 @@ export async function getSiblings(
     return {
       prev: before.length ? { slug: before[before.length - 1]!.slug, title: before[before.length - 1]!.title } : null,
       next: after.length ? { slug: after[0]!.slug, title: after[0]!.title } : null,
+      position: before.length + 1,
+      total: rows.length,
     };
   }
   const prev = idx > 0 ? rows[idx - 1]! : null;
@@ -89,6 +94,8 @@ export async function getSiblings(
   return {
     prev: prev ? { slug: prev.slug, title: prev.title } : null,
     next: next ? { slug: next.slug, title: next.title } : null,
+    position: idx + 1,
+    total: rows.length,
   };
 }
 

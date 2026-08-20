@@ -3,10 +3,16 @@
  * Each node has parent_id, order_index. User-defined node types.
  */
 'use server';
+import { resolveWorkspace } from '@/lib/rbac/resolve';
+import {
+  subtreeCondition as subtreeConditionOf,
+  incompleteDescendants,
+  reopenDoneAncestors,
+} from '@/lib/tree/cascade';
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { eq, and, max as drizzleMax, asc, sql as dsql } from 'drizzle-orm';
+import { eq, and, max as drizzleMax, asc, inArray, sql as dsql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import {
   workspaces,
@@ -27,30 +33,6 @@ import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
  * doesn't exist OR the user lacks the level — same response in both cases
  * to avoid leaking workspace existence to non-members.
  */
-async function resolveWorkspace(slug: string, requiredLevel: number) {
-  // Auth gate first — every mutation must be logged in.
-  const user = await requireUser();
-
-  const rows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = rows[0];
-  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-
-  let ctx;
-  try {
-    ctx = await requireMinLevel(ws.id, requiredLevel);
-  } catch (err) {
-    if (err instanceof RBACError) {
-      throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-    }
-    throw err;
-  }
-
-  return { ws, user, ctx };
-}
 
 export type TreeNode = {
   id: string;
@@ -220,6 +202,22 @@ export async function createTreeNode(input: z.infer<typeof createInput>): Promis
     .returning({ id: roadmapTreeNodes.id, slug: roadmapTreeNodes.slug });
   if (!inserted) throw new Error('INSERT_FAILED');
 
+  // Invariant repair: adding a child to a parent that some user already marked
+  // "done" must re-open that parent — a done parent with an undone child
+  // contradicts the hierarchical gate enforced by toggleNodeDone.
+  if (parsed.parentId) {
+    await db
+      .update(userNodeProgress)
+      .set({ status: 'todo', completedAt: null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(userNodeProgress.workspaceId, ws.id),
+          eq(userNodeProgress.nodeId, parsed.parentId),
+          eq(userNodeProgress.status, 'done'),
+        ),
+      );
+  }
+
   await db.insert(activityLog).values({
     workspaceId: ws.id,
     userId: user.id,
@@ -339,10 +337,25 @@ export async function deleteTreeNode(workspaceSlug: string, nodeId: string): Pro
   // Manual cascade: delete children via pathStr LIKE. Tenant-scoped WHERE
   // makes this safe against TOCTOU: a nodeId from another workspace cannot
   // collide because the workspace_id filter rejects it.
-  await db.execute(
-    dsql`DELETE FROM roadmap_tree_nodes WHERE workspace_id = ${ws.id}
-         AND (id = ${nodeId} OR path_str LIKE ${nodeId + '%'} OR path_str LIKE ${'%/' + nodeId + '%'})`,
-  );
+  // Capture the deleted ids first so user_node_progress rows (no FK) can be
+  // cleaned up too — otherwise they become silent orphans.
+  const condition = subtreeConditionOf(ws.id, nodeId);
+  const deletedIds = await db
+    .select({ id: roadmapTreeNodes.id })
+    .from(roadmapTreeNodes)
+    .where(condition);
+  await db.delete(roadmapTreeNodes).where(condition);
+  if (deletedIds.length > 0) {
+    await db.delete(userNodeProgress).where(
+      and(
+        eq(userNodeProgress.workspaceId, ws.id),
+        inArray(
+          userNodeProgress.nodeId,
+          deletedIds.map((r) => r.id),
+        ),
+      ),
+    );
+  }
   await db.insert(activityLog).values({
     workspaceId: ws.id,
     userId: user.id,
@@ -405,15 +418,16 @@ export async function moveTreeNode(input: z.infer<typeof moveInput>): Promise<vo
 
   const a = siblings[idx]!;
   const b = siblings[swapIdx]!;
-  // Swap orderIndex
-  await db
-    .update(roadmapTreeNodes)
-    .set({ orderIndex: b.orderIndex })
-    .where(eq(roadmapTreeNodes.id, a.id));
-  await db
-    .update(roadmapTreeNodes)
-    .set({ orderIndex: a.orderIndex })
-    .where(eq(roadmapTreeNodes.id, b.id));
+  // Swap orderIndex in ONE statement — two separate UPDATEs could leave both
+  // siblings with the same orderIndex if a crash/concurrent request interleaves.
+  await db.execute(
+    dsql`UPDATE roadmap_tree_nodes
+         SET order_index = CASE id
+           WHEN ${a.id}::uuid THEN ${b.orderIndex}
+           WHEN ${b.id}::uuid THEN ${a.orderIndex}
+         END
+         WHERE workspace_id = ${ws.id} AND id IN (${a.id}::uuid, ${b.id}::uuid)`,
+  );
 
   await db.insert(activityLog).values({
     workspaceId: ws.id,
@@ -434,9 +448,11 @@ export async function toggleNodeDone(
   workspaceSlug: string,
   nodeId: string,
 ): Promise<{ action: 'marked_done' | 'marked_todo'; cascadedUp: number; incomplete?: number }> {
-  // Per RBAC spec: progress toggle requires EDITOR (60). Owners + super_admin
-  // also pass. Learners and viewers cannot mark progress on this workspace.
-  const { ws, user, ctx } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.EDITOR);
+  // Marking one's OWN progress is a LEARNER-level action — consistent with
+  // completeLesson (learn.ts) and lab progress (labs.ts). Requiring EDITOR here
+  // blocked learners from tracking their own roadmap progress.
+  const { ws, user, ctx } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
+  nodeId = z.string().uuid().parse(nodeId);
 
   const meRows = await db
     .select()
@@ -467,28 +483,7 @@ export async function toggleNodeDone(
         .set({ status: 'todo', completedAt: null, updatedAt: new Date() })
         .where(eq(userNodeProgress.id, existing[0].id));
     }
-    const ancestorIds = (me.pathStr ?? '').split('/').filter(Boolean);
-    let cascaded = 0;
-    for (const aid of ancestorIds) {
-      const ap = await db
-        .select()
-        .from(userNodeProgress)
-        .where(
-          and(
-            eq(userNodeProgress.workspaceId, ws.id),
-            eq(userNodeProgress.userId, user.id),
-            eq(userNodeProgress.nodeId, aid),
-          ),
-        )
-        .limit(1);
-      if (ap[0]?.status === 'done') {
-        await db
-          .update(userNodeProgress)
-          .set({ status: 'todo', completedAt: null, updatedAt: new Date() })
-          .where(eq(userNodeProgress.id, ap[0].id));
-        cascaded++;
-      }
-    }
+    const cascaded = await reopenDoneAncestors(ws.id, user.id, me.pathStr);
     await db.insert(activityLog).values({
       workspaceId: ws.id,
       userId: user.id,
@@ -509,46 +504,14 @@ export async function toggleNodeDone(
     return { action: 'marked_todo', cascadedUp: cascaded };
   }
 
-  /* === MARK DONE: gate on descendants === */
-  // Find ALL descendant ids of this node via pathStr containment.
-  // pathStr stored as "rootId/childId/grandId" — descendants have nodeId inside their pathStr.
-  const allChildrenRows = await db
-    .select({ id: roadmapTreeNodes.id })
-    .from(roadmapTreeNodes)
-    .where(
-      and(
-        eq(roadmapTreeNodes.workspaceId, ws.id),
-        dsql`(${roadmapTreeNodes.pathStr} = ${nodeId}
-              OR ${roadmapTreeNodes.pathStr} LIKE ${nodeId + '/%'}
-              OR ${roadmapTreeNodes.pathStr} LIKE ${'%/' + nodeId}
-              OR ${roadmapTreeNodes.pathStr} LIKE ${'%/' + nodeId + '/%'})`,
-      ),
+  /* === MARK DONE: gate on descendants (see lib/tree/cascade.ts) === */
+  const { incomplete, total: totalDescendants } = await incompleteDescendants(ws.id, user.id, nodeId);
+  if (incomplete.length > 0) {
+    // Throw with structured info so UI can show count
+    throw new Error(
+      `INCOMPLETE_CHILDREN:${incomplete.length}:Còn ${incomplete.length}/${totalDescendants} mục con chưa xong — hoàn thành chúng trước.`,
     );
-  const descendantIds = allChildrenRows.map((r) => r.id).filter((id) => id !== nodeId);
-
-  if (descendantIds.length > 0) {
-    // Count done among descendants
-    const doneRows = await db
-      .select({ nodeId: userNodeProgress.nodeId })
-      .from(userNodeProgress)
-      .where(
-        and(
-          eq(userNodeProgress.workspaceId, ws.id),
-          eq(userNodeProgress.userId, user.id),
-          eq(userNodeProgress.status, 'done'),
-        ),
-      );
-    const doneSet = new Set(doneRows.map((r) => r.nodeId));
-    const incomplete = descendantIds.filter((id) => !doneSet.has(id));
-    if (incomplete.length > 0) {
-      // Throw with structured info so UI can show count
-      const err = new Error(
-        `INCOMPLETE_CHILDREN:${incomplete.length}:Còn ${incomplete.length}/${descendantIds.length} mục con chưa xong — hoàn thành chúng trước.`,
-      );
-      throw err;
-    }
   }
-
   // OK — mark done
   if (existing[0]) {
     await db
@@ -568,7 +531,7 @@ export async function toggleNodeDone(
     workspaceId: ws.id,
     userId: user.id,
     kind: 'tree_node_done',
-    payload: { nodeId, descendants: descendantIds.length },
+    payload: { nodeId, descendants: totalDescendants },
   });
   await writeAudit({
     workspaceId: ws.id,
@@ -578,7 +541,7 @@ export async function toggleNodeDone(
     resourceType: 'tree_node',
     resourceId: nodeId,
     before: { status: existing[0]?.status ?? 'todo' },
-    after: { status: 'done', descendants: descendantIds.length },
+    after: { status: 'done', descendants: totalDescendants },
   });
   revalidatePath(`/w/${ws.slug}`);
   return { action: 'marked_done', cascadedUp: 0 };

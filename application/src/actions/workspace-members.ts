@@ -19,6 +19,7 @@
  * error so the UI can prompt the user to paste a UUID instead.
  */
 'use server';
+import { resolveOwnerWorkspace } from '@/lib/rbac/resolve';
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
@@ -30,25 +31,6 @@ import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
 /** Internal: resolve workspace + enforce OWNER-min level (admin surface). */
-async function resolveOwnerWorkspace(slug: string) {
-  const user = await requireUser();
-  const rows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = rows[0];
-  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-
-  let ctx;
-  try {
-    ctx = await requireMinLevel(ws.id, RBAC_LEVELS.OWNER);
-  } catch (err) {
-    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-    throw err;
-  }
-  return { ws, user, ctx };
-}
 
 /** Roles the UI can assign via this admin surface. Owner is NOT assignable here. */
 const assignableRole = z.enum(['learner', 'workspace_contributor', 'workspace_editor']);
@@ -133,6 +115,12 @@ export async function updateMemberRole(
     .limit(1);
   const before = beforeRows[0];
   if (!before) throw new Error('MEMBER_NOT_FOUND');
+  // Never let the owner's own (legacy) member row be demoted through this
+  // surface — ownership comes from workspaces.owner_user_id, demoting a member
+  // row for the owner would create a contradictory authz state.
+  if (ws.ownerUserId && before.userId === ws.ownerUserId) {
+    throw new Error('MEMBER_IS_OWNER');
+  }
 
   await db
     .update(workspaceMembers)
@@ -258,6 +246,12 @@ export async function removeMember(workspaceSlug: string, memberId: string): Pro
     .limit(1);
   const before = beforeRows[0];
   if (!before) throw new Error('MEMBER_NOT_FOUND');
+  // Guard: the workspace owner must never be removable via the member admin
+  // surface (ownership is stored on workspaces.owner_user_id and the workspace
+  // would be orphaned with no admin able to manage it).
+  if (ws.ownerUserId && before.userId === ws.ownerUserId) {
+    throw new Error('MEMBER_IS_OWNER');
+  }
 
   await db
     .delete(workspaceMembers)

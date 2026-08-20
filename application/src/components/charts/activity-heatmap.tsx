@@ -24,7 +24,7 @@ function bucketClass(xp: number): string {
   if (xp < 30) return 'bg-cyan-500/30';
   if (xp < 100) return 'bg-cyan-500/60';
   if (xp < 200) return 'bg-violet-500/70';
-  return 'bg-gradient-to-br from-cyan-400 to-violet-500';
+  return 'progress-brand';
 }
 
 export function ActivityHeatmap({ data, weeks = 12 }: Props) {
@@ -70,7 +70,7 @@ export function ActivityHeatmap({ data, weeks = 12 }: Props) {
         <span className="size-3 rounded-sm bg-cyan-500/30" />
         <span className="size-3 rounded-sm bg-cyan-500/60" />
         <span className="size-3 rounded-sm bg-violet-500/70" />
-        <span className="size-3 rounded-sm bg-gradient-to-br from-cyan-400 to-violet-500" />
+        <span className="size-3 rounded-sm progress-brand" />
         <span>More</span>
       </div>
     </div>

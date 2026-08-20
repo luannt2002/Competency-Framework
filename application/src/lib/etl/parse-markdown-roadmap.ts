@@ -330,9 +330,9 @@ function synthesizeWeek(
 
 /* ============================ top-level ============================ */
 
-export function parseMarkdownPhase(filePath: string): ParsedPhase {
-  const raw = readFileSync(filePath, 'utf8');
-  const header = parsePhaseHeader(raw, filePath);
+/** Parse from raw markdown text (used by the import wizard). */
+export function parseMarkdownPhaseText(raw: string, sourceName = 'pasted'): ParsedPhase {
+  const header = parsePhaseHeader(raw, sourceName);
   const lines = raw.split(/\r?\n/);
 
   const weekBlocks = findWeekBlocks(lines);
@@ -392,4 +392,8 @@ export function parseMarkdownPhase(filePath: string): ParsedPhase {
     levelCode: header.levelCode,
     weeks,
   };
+}
+
+export function parseMarkdownPhase(filePath: string): ParsedPhase {
+  return parseMarkdownPhaseText(readFileSync(filePath, 'utf8'), filePath);
 }

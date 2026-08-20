@@ -29,16 +29,19 @@ import {
 import { cn } from '@/lib/utils';
 
 type Item = { href: string; label: string; icon: typeof LayoutDashboard };
-type WorkspaceLite = { slug: string; name: string };
+type WorkspaceLite = { slug: string; name: string; icon?: string | null };
 
 export function AppSidebar({
   workspaceSlug,
   workspaceName,
+  workspaceIcon = null,
   isOwner = false,
   workspaces = [],
 }: {
   workspaceSlug: string;
   workspaceName: string;
+  /** Owner-picked emoji shown in the switcher (falls back to first letter). */
+  workspaceIcon?: string | null;
   /** Show the workspace-admin section when the viewer owns this workspace. */
   isOwner?: boolean;
   /** All workspaces the viewer owns — fed into the switcher dropdown. */
@@ -68,6 +71,7 @@ export function AppSidebar({
       <WorkspaceSwitcher
         currentSlug={workspaceSlug}
         currentName={workspaceName}
+        currentIcon={workspaceIcon}
         workspaces={workspaces}
       />
 
@@ -82,7 +86,7 @@ export function AppSidebar({
               className={cn(
                 'relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all',
                 active
-                  ? 'bg-foreground/5 text-foreground'
+                  ? 'bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5',
               )}
             >
@@ -152,10 +156,12 @@ export function AppSidebar({
 function WorkspaceSwitcher({
   currentSlug,
   currentName,
+  currentIcon = null,
   workspaces,
 }: {
   currentSlug: string;
   currentName: string;
+  currentIcon?: string | null;
   workspaces: WorkspaceLite[];
 }) {
   const [open, setOpen] = useState(false);
@@ -188,8 +194,8 @@ function WorkspaceSwitcher({
         aria-label="Switch workspace"
         className="group flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-secondary"
       >
-        <div className="size-9 rounded-xl accent-gradient flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-cyan-500/20">
-          {currentName.charAt(0).toUpperCase()}
+        <div className="size-9 rounded-xl accent-gradient flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-primary/20">
+          {currentIcon ?? currentName.charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold truncate">{currentName}</div>
@@ -228,10 +234,10 @@ function WorkspaceSwitcher({
                     )}
                   >
                     <div className="size-6 rounded-md accent-gradient flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                      {w.name.charAt(0).toUpperCase()}
+                      {w.icon ?? w.name.charAt(0).toUpperCase()}
                     </div>
                     <span className="flex-1 truncate">{w.name}</span>
-                    {active && <Check className="size-4 text-cyan-500 shrink-0" aria-hidden="true" />}
+                    {active && <Check className="size-4 text-primary shrink-0" aria-hidden="true" />}
                   </Link>
                 </li>
               );
@@ -282,7 +288,7 @@ export function BottomTabBar({ workspaceSlug }: { workspaceSlug: string }) {
             >
               <it.icon className="size-5" />
               {it.label}
-              {active && <Sparkles className="size-2 text-cyan-400 absolute top-1" />}
+              {active && <Sparkles className="size-2 text-primary absolute top-1" />}
             </Link>
           );
         })}

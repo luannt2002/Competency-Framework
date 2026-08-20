@@ -15,41 +15,18 @@
  * stored 'public-readonly' value here so callers stay schema-agnostic.
  */
 'use server';
+import { resolveOwnerWorkspace } from '@/lib/rbac/resolve';
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { eq } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { workspaces } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
-async function resolveOwnerWorkspace(slug: string) {
-  const user = await requireUser();
-  const rows = await db
-    .select({
-      id: workspaces.id,
-      slug: workspaces.slug,
-      name: workspaces.name,
-      visibility: workspaces.visibility,
-    })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = rows[0];
-  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-
-  let ctx;
-  try {
-    ctx = await requireMinLevel(ws.id, RBAC_LEVELS.OWNER);
-  } catch (err) {
-    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-    throw err;
-  }
-  return { ws, user, ctx };
-}
 
 const renameInput = z.object({
   workspaceSlug: z.string(),
@@ -110,6 +87,221 @@ export async function setWorkspaceVisibility(
     after: { visibility: storedValue },
   });
 
+  revalidatePath(`/w/${ws.slug}/settings`);
+}
+
+const appearanceInput = z.object({
+  workspaceSlug: z.string(),
+  icon: z.string().min(1).max(8),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+});
+
+/**
+ * Update workspace appearance (emoji icon + accent color).
+ * Both values are validated against the curated palettes in
+ * `src/lib/theme/workspace-theme.ts` — no free-form CSS/emoji injection.
+ */
+export async function updateWorkspaceAppearance(
+  workspaceSlug: string,
+  icon: string,
+  accentColor: string,
+): Promise<void> {
+  const parsed = appearanceInput.parse({ workspaceSlug, icon, accentColor });
+  const { isEmojiAllowed, isAccentAllowed } = await import('@/lib/theme/workspace-theme');
+  if (!isEmojiAllowed(parsed.icon)) throw new Error('INVALID_ICON');
+  if (!isAccentAllowed(parsed.accentColor)) throw new Error('INVALID_ACCENT');
+
+  const { ws, user, ctx } = await resolveOwnerWorkspace(parsed.workspaceSlug);
+
+  await db
+    .update(workspaces)
+    .set({ icon: parsed.icon, color: parsed.accentColor })
+    .where(eq(workspaces.id, ws.id));
+
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'workspace.appearance_update',
+    resourceType: 'workspace',
+    resourceId: ws.id,
+    after: { icon: parsed.icon, color: parsed.accentColor },
+  });
+
+  revalidatePath(`/w/${ws.slug}`, 'layout');
+  revalidatePath(`/w/${ws.slug}/settings`);
+}
+
+const levelInput = z.object({
+  workspaceSlug: z.string(),
+  levelId: z.string().uuid(),
+  label: z.string().min(1).max(40),
+  description: z.string().max(1000).optional(),
+});
+
+/**
+ * Update a competency level's display label (+ optional description).
+ * The `code` (XS/S/M/L…) stays fixed as the internal key — teams can rename
+ * what learners see (e.g. M → "Senior") without breaking stored progress.
+ */
+export async function updateCompetencyLevel(
+  workspaceSlug: string,
+  levelId: string,
+  label: string,
+  description?: string,
+): Promise<void> {
+  const parsed = levelInput.parse({ workspaceSlug, levelId, label, description });
+  const { ws, user, ctx } = await resolveOwnerWorkspace(parsed.workspaceSlug);
+
+  const { competencyLevels } = await import('@/lib/db/schema');
+  const rows = await db
+    .select({ id: competencyLevels.id, label: competencyLevels.label })
+    .from(competencyLevels)
+    .where(and(eq(competencyLevels.id, parsed.levelId), eq(competencyLevels.workspaceId, ws.id)))
+    .limit(1);
+  const level = rows[0];
+  if (!level) throw new Error('LEVEL_NOT_FOUND');
+
+  await db
+    .update(competencyLevels)
+    .set({
+      label: parsed.label,
+      ...(parsed.description !== undefined ? { description: parsed.description } : {}),
+    })
+    .where(eq(competencyLevels.id, parsed.levelId));
+
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'level.update',
+    resourceType: 'competency_level',
+    resourceId: parsed.levelId,
+    before: { label: level.label },
+    after: { label: parsed.label },
+  });
+
+  revalidatePath(`/w/${ws.slug}/settings`);
+  revalidatePath(`/w/${ws.slug}/skills`);
+}
+
+const nodeTypeRowInput = z.object({
+  nodeType: z.string().min(1).max(40),
+  icon: z.string().min(1).max(8).nullable(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
+});
+
+const nodeTypesInput = z.object({
+  workspaceSlug: z.string(),
+  rows: z.array(nodeTypeRowInput).max(30),
+});
+
+/**
+ * Bulk-save node-type appearance overrides (emoji icon + accent color).
+ * Empty rows (icon=null, color=null) delete the override so defaults return.
+ */
+export async function saveNodeTypeAppearance(
+  workspaceSlug: string,
+  rows: Array<{ nodeType: string; icon: string | null; color: string | null }>,
+): Promise<void> {
+  const parsed = nodeTypesInput.parse({ workspaceSlug, rows });
+  const { isEmojiAllowed, isAccentAllowed } = await import('@/lib/theme/workspace-theme');
+  const { nodeTypeAppearance } = await import('@/lib/db/schema');
+
+  const { ws, user, ctx } = await resolveOwnerWorkspace(parsed.workspaceSlug);
+
+  for (const row of parsed.rows) {
+    if (row.icon !== null && !isEmojiAllowed(row.icon)) throw new Error('INVALID_ICON');
+    if (row.color !== null && !isAccentAllowed(row.color)) throw new Error('INVALID_ACCENT');
+  }
+
+  for (const row of parsed.rows) {
+    await db
+      .insert(nodeTypeAppearance)
+      .values({
+        workspaceId: ws.id,
+        nodeType: row.nodeType,
+        icon: row.icon,
+        color: row.color,
+        updatedAt: new Date().toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: [nodeTypeAppearance.workspaceId, nodeTypeAppearance.nodeType],
+        set: { icon: row.icon, color: row.color, updatedAt: new Date().toISOString() },
+      });
+    // Remove fully-cleared overrides so defaults come back.
+    await db
+      .delete(nodeTypeAppearance)
+      .where(
+        and(
+          eq(nodeTypeAppearance.workspaceId, ws.id),
+          eq(nodeTypeAppearance.nodeType, row.nodeType),
+          isNull(nodeTypeAppearance.icon),
+          isNull(nodeTypeAppearance.color),
+        ),
+      );
+  }
+
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'workspace.nodetype_appearance_update',
+    resourceType: 'workspace',
+    resourceId: ws.id,
+    after: { rows: parsed.rows.length },
+  });
+
+  revalidatePath(`/w/${ws.slug}`, 'layout');
+  revalidatePath(`/w/${ws.slug}/settings`);
+}
+
+const categoryColorInput = z.object({
+  workspaceSlug: z.string(),
+  categoryId: z.string().uuid(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
+});
+
+/** Update a skill-category color (or clear to null for the default gray). */
+export async function updateCategoryColor(
+  workspaceSlug: string,
+  categoryId: string,
+  color: string | null,
+): Promise<void> {
+  const parsed = categoryColorInput.parse({ workspaceSlug, categoryId, color });
+  const { isAccentAllowed } = await import('@/lib/theme/workspace-theme');
+  if (parsed.color !== null && !isAccentAllowed(parsed.color)) throw new Error('INVALID_ACCENT');
+
+  const { ws, user, ctx } = await resolveOwnerWorkspace(parsed.workspaceSlug);
+  const { skillCategories } = await import('@/lib/db/schema');
+
+  const rows = await db
+    .select({ id: skillCategories.id, color: skillCategories.color })
+    .from(skillCategories)
+    .where(
+      and(eq(skillCategories.id, parsed.categoryId), eq(skillCategories.workspaceId, ws.id)),
+    )
+    .limit(1);
+  const cat = rows[0];
+  if (!cat) throw new Error('CATEGORY_NOT_FOUND');
+
+  await db
+    .update(skillCategories)
+    .set({ color: parsed.color })
+    .where(eq(skillCategories.id, parsed.categoryId));
+
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'category.color_update',
+    resourceType: 'skill_category',
+    resourceId: parsed.categoryId,
+    before: { color: cat.color },
+    after: { color: parsed.color },
+  });
+
+  revalidatePath(`/w/${ws.slug}/skills`);
   revalidatePath(`/w/${ws.slug}/settings`);
 }
 

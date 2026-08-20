@@ -46,10 +46,8 @@ export default async function CertificatePage({
   params: Promise<{ slug: string; memberId: string }>;
 }) {
   const { slug, memberId } = await params;
-  await requireUser();
+  const currentUser = await requireUser();
 
-  // Basic shape guard — memberId is either the owner's user_id (uuid) or a
-  // workspace_members.id (also uuid). Either way we expect uuid format.
   if (!UUID_RE.test(memberId)) redirect(`/w/${slug}/members`);
 
   const wsRows = await db
@@ -65,23 +63,29 @@ export default async function CertificatePage({
   const ws = wsRows[0];
   if (!ws) redirect('/');
 
-  // OWNER-only.
-  try {
-    await requireMinLevel(ws.id, RBAC_LEVELS.OWNER);
-  } catch (err) {
-    if (err instanceof RBACError) redirect(`/w/${ws.slug}`);
-    throw err;
-  }
-
-  // Resolve the certificate subject:
-  //   - if memberId == workspaces.owner_user_id → the owner row
-  //   - else look up workspace_members.id
+  // Access rules:
+  //   1. memberId == ws.ownerUserId   → only accessible by the owner themselves
+  //   2. memberId == currentUser.id   → learner viewing their own cert (self-service)
+  //   3. memberId == workspaceMembers.id → owner-only (admin viewing someone else)
   let subjectUserId: string;
   let subjectRole: string;
+
   if (memberId === ws.ownerUserId) {
+    if (currentUser.id !== ws.ownerUserId) redirect(`/w/${ws.slug}`);
     subjectUserId = ws.ownerUserId;
     subjectRole = 'workspace_owner';
+  } else if (memberId === currentUser.id) {
+    // Self-service: any workspace member can view their own cert
+    subjectUserId = currentUser.id;
+    subjectRole = 'learner';
   } else {
+    // Admin path: memberId is workspace_members.id — requires OWNER level
+    try {
+      await requireMinLevel(ws.id, RBAC_LEVELS.OWNER);
+    } catch (err) {
+      if (err instanceof RBACError) redirect(`/w/${ws.slug}`);
+      throw err;
+    }
     const mRows = await db
       .select({ userId: workspaceMembers.userId, role: workspaceMembers.role })
       .from(workspaceMembers)

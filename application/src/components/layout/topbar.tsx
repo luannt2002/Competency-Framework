@@ -8,7 +8,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, Flame, Heart, Zap } from 'lucide-react';
+import Link from 'next/link';
+import { Search, Flame, Heart, Zap, GraduationCap } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
 import { NotificationsBell } from './notifications-bell';
 import { SearchDialog } from '@/components/learn/search-dialog';
@@ -63,6 +64,14 @@ export function Topbar({
         <StatChip icon={Heart} value={hearts} label="Hearts" color="text-rose-500" />
         <NotificationsBell />
         <ThemeToggle />
+        {/* Primary learning CTA — one tap from any workspace page to today's plan. */}
+        <Link
+          href={`/w/${workspaceSlug}/daily`}
+          className="btn-brand hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm"
+        >
+          <GraduationCap className="size-4" />
+          Học ngay
+        </Link>
       </div>
 
       <SearchDialog

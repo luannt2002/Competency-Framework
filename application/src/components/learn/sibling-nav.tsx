@@ -1,9 +1,10 @@
 /**
- * SiblingNav — prev/next pagination at the bottom of a node detail page.
+ * SiblingNav — prev/next pagination footer at the bottom of a node detail page.
  *
- * Server component (no client state needed). Both buttons render even at the
- * boundary, but disabled buttons render as `<div>` (non-link) with reduced
- * opacity so the layout stays balanced.
+ * v2: proper footer bar — large tap targets (min-h-14, 44px+ on mobile), a
+ * centered position indicator "3/12" with a mini progress bar, and Vietnamese
+ * labels. Disabled boundaries render as non-link `<div>` so the layout stays
+ * balanced.
  *
  * `linkBase` is "/w/[slug]/n" in learn mode or "/share/[slug]/n" in share.
  */
@@ -17,19 +18,41 @@ export function SiblingNav({
   prev,
   next,
   linkBase,
+  position = null,
+  total = 0,
 }: {
   prev: Sibling;
   next: Sibling;
   linkBase: string;
+  /** 1-based position among siblings (null at a root node). */
+  position?: number | null;
+  total?: number;
 }) {
   if (!prev && !next) return null;
 
+  const pct = position && total > 0 ? Math.round((position / total) * 100) : 0;
+
   return (
     <nav
-      aria-label="Sibling navigation"
-      className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4"
+      aria-label="Điều hướng giữa các mục"
+      className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 sm:gap-3 pt-4"
     >
       <SiblingButton sibling={prev} linkBase={linkBase} direction="prev" />
+      <div className="flex flex-col items-center justify-center min-w-16 px-2 text-center">
+        {position !== null && total > 0 ? (
+          <>
+            <span className="text-xs font-semibold tabular-nums text-foreground">
+              {position}
+              <span className="text-muted-foreground">/{total}</span>
+            </span>
+            <div className="mt-1.5 h-1 w-14 rounded-full bg-secondary overflow-hidden">
+              <div className="progress-brand h-full" style={{ width: `${Math.max(4, pct)}%` }} />
+            </div>
+          </>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </div>
       <SiblingButton sibling={next} linkBase={linkBase} direction="next" />
     </nav>
   );
@@ -45,12 +68,10 @@ function SiblingButton({
   direction: 'prev' | 'next';
 }) {
   const isPrev = direction === 'prev';
-  const label = isPrev ? '← Prev sibling' : 'Next sibling →';
-  const align = isPrev ? 'text-left' : 'text-right sm:order-2';
+  const label = isPrev ? 'Mục trước' : 'Mục tiếp theo';
   const baseCls = cn(
-    'surface p-4 flex items-center gap-3 transition-all',
-    align,
-    isPrev ? '' : 'sm:justify-end',
+    'surface p-4 min-h-14 flex items-center gap-3 transition-all',
+    isPrev ? 'text-left' : 'text-right justify-end',
   );
 
   if (!sibling) {
@@ -60,11 +81,11 @@ function SiblingButton({
         aria-disabled="true"
       >
         {isPrev && <ArrowLeft className="size-4 text-muted-foreground shrink-0" />}
-        <div className={cn('min-w-0 flex-1', isPrev ? '' : 'sm:text-right')}>
+        <div className={cn('min-w-0 flex-1')}>
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
             {label}
           </div>
-          <div className="text-sm text-muted-foreground italic mt-0.5">— hết —</div>
+          <div className="text-sm text-muted-foreground italic mt-0.5">Đầu danh sách</div>
         </div>
         {!isPrev && <ArrowRight className="size-4 text-muted-foreground shrink-0" />}
       </div>
@@ -79,7 +100,7 @@ function SiblingButton({
       {isPrev && (
         <ArrowLeft className="size-4 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
       )}
-      <div className={cn('min-w-0 flex-1', isPrev ? '' : 'sm:text-right')}>
+      <div className="min-w-0 flex-1">
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
           {label}
         </div>

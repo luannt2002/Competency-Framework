@@ -15,6 +15,7 @@
  * shape is used for non-members so we don't leak workspace existence.
  */
 'use server';
+import { resolveWorkspace } from '@/lib/rbac/resolve';
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
@@ -32,29 +33,6 @@ import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
 /* ============================ helpers ============================ */
 
-async function resolveWorkspace(slug: string, requiredLevel: number) {
-  const user = await requireUser();
-
-  const rows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = rows[0];
-  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-
-  let ctx;
-  try {
-    ctx = await requireMinLevel(ws.id, requiredLevel);
-  } catch (err) {
-    if (err instanceof RBACError) {
-      throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-    }
-    throw err;
-  }
-
-  return { ws, user, ctx };
-}
 
 /** Confirm the node belongs to the workspace (tenant-scoped guard). */
 async function assertNodeInWorkspace(workspaceId: string, nodeId: string) {

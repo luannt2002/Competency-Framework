@@ -64,8 +64,8 @@ export default async function Landing() {
       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
     >
       {/* Hero */}
-      <FadeInSection className="relative overflow-hidden border-b border-border">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_rgba(204,120,92,0.10),_transparent_60%)]" />
+      <FadeInSection className="relative overflow-hidden border-b border-border bg-brand-subtle">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_color-mix(in_srgb,_var(--brand-blue)_12%,_transparent),_transparent_60%)]" />
         <div className="mx-auto max-w-5xl px-6 py-24 md:py-32 text-center">
           <Badge variant="outline" className="mx-auto mb-6 gap-1.5">
             <Sparkles className="size-3 text-primary" />
@@ -82,12 +82,12 @@ export default async function Landing() {
             phân quyền 7-tier như Linear.
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
-            <Button asChild size="lg">
+            <Button asChild size="lg" className="btn-brand border-0">
               <Link href="/discover">
                 Khám phá roadmap <ArrowRight className="size-4" />
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline">
+            <Button asChild size="lg" variant="outline" className="btn-brand-outline border-2">
               <Link href={`/share/${showcaseList[0]!.slug}`}>Xem demo</Link>
             </Button>
             <Button asChild size="lg" variant="outline">
@@ -107,19 +107,16 @@ export default async function Landing() {
           />
           <div className="grid md:grid-cols-3 gap-6">
             <FeatureCard
-              emoji="🌳"
               icon={Network}
               title="Cây học tập đa cấp"
               desc="CRUD cây n-depth: giai đoạn → tuần → buổi → lesson / lab / project. Drag-drop sắp lại, materialized path để query nhanh, mỗi node có description + body Markdown."
             />
             <FeatureCard
-              emoji="👀"
               icon={Eye}
               title="Showcase công khai"
               desc="Bật visibility = public-readonly là có ngay link /share/<slug> chia sẻ Slack / Zalo / Twitter. OG image động render mỗi roadmap một preview riêng."
             />
             <FeatureCard
-              emoji="🔐"
               icon={ShieldCheck}
               title="Phân quyền 7-tier"
               desc="Super-admin → Org-owner → Org-admin → WS-owner → Editor → Learner → Guest. Mỗi role nhìn thấy + sửa được những gì, kiểm tra ở cả server action và DB guard."
@@ -168,6 +165,29 @@ export default async function Landing() {
         </div>
       </FadeInSection>
 
+      {/* Final CTA band — closes the page so the bottom doesn't feel empty */}
+      <FadeInSection className="border-t border-border bg-brand-subtle">
+        <div className="mx-auto max-w-5xl px-6 py-16 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+            Xây lộ trình cho team bạn <span className="accent-gradient-text">trong 2 phút</span>
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm md:text-base text-muted-foreground">
+            Fork một framework có sẵn, tuỳ biến icon — màu — cấp độ theo culture team,
+            chia sẻ link công khai ngay lập tức.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Button asChild size="lg" className="btn-brand border-0">
+              <Link href="/sign-in">
+                Tạo workspace miễn phí <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="btn-brand-outline border-2">
+              <Link href={`/share/${showcaseList[0]!.slug}`}>Xem roadmap mẫu</Link>
+            </Button>
+          </div>
+        </div>
+      </FadeInSection>
+
       {/* Footer */}
       <footer className="border-t border-border">
         <div className="mx-auto max-w-5xl px-6 py-8 text-xs text-muted-foreground flex flex-col md:flex-row gap-2 justify-between">
@@ -185,23 +205,18 @@ export default async function Landing() {
 }
 
 function FeatureCard({
-  emoji,
   icon: Icon,
   title,
   desc,
 }: {
-  emoji: string;
   icon: typeof Network;
   title: string;
   desc: string;
 }) {
   return (
     <div className="surface surface-lift p-6">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="text-3xl leading-none">{emoji}</div>
-        <div className="size-9 rounded-xl bg-primary/10 flex items-center justify-center">
-          <Icon className="size-4 text-primary" />
-        </div>
+      <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+        <Icon className="size-5 text-primary" />
       </div>
       <h3 className="font-semibold text-lg mb-2">{title}</h3>
       <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>

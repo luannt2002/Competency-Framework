@@ -11,6 +11,8 @@
  * All mutations log to activity_log + audit_log. All paths gate by RBAC.
  */
 'use server';
+import { resolveWorkspace } from '@/lib/rbac/resolve';
+import { isoDate, todayISO, tomorrowISO, daysBetween } from '@/lib/learn/planner-dates';
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
@@ -47,52 +49,6 @@ import {
 } from '@/lib/learn/daily-planner';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
-
-/* ============================ HELPERS ============================ */
-
-async function resolveWorkspace(slug: string, requiredLevel: number) {
-  const user = await requireUser();
-  const rows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = rows[0];
-  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  try {
-    const ctx = await requireMinLevel(ws.id, requiredLevel);
-    return { ws, user, ctx };
-  } catch (err) {
-    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-    throw err;
-  }
-}
-
-/** Today/tomorrow as ISO date (yyyy-mm-dd) in server local time. */
-function isoDate(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function todayISO(): string {
-  return isoDate(new Date());
-}
-
-function tomorrowISO(): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + 1);
-  return isoDate(d);
-}
-
-/** Days between two ISO date strings (positive => `b` is after `a`). */
-function daysBetween(aIso: string | null, bIso: string): number {
-  if (!aIso) return Number.POSITIVE_INFINITY;
-  const a = new Date(`${aIso}T00:00:00Z`).getTime();
-  const b = new Date(`${bIso}T00:00:00Z`).getTime();
-  return Math.floor((b - a) / 86_400_000);
-}
 
 /* ============================ READ + GENERATE ============================ */
 

@@ -1,11 +1,13 @@
 /**
  * Crown grant logic — called after a lesson is completed.
  *
- * Rule (MVP simplified):
+ * Rule:
  *   For every skill linked to this lesson via lesson_skill_map:
- *     - On first 'completed' lesson for that skill: crowns += 1 (max 5).
- *     - On a 'mastered' completion of a lesson already marked 'completed': crowns += 1.
+ *     - On FIRST completion of the lesson: crowns += 1 (mastered: += 2).
+ *     - On first MASTERY upgrade of an already-completed lesson: crowns += 1.
  *     - Cap at 5.
+ *   Replaying an already-completed/mastered lesson grants nothing (eligibility
+ *   is decided by the caller from the user_lesson_progress status transition).
  *   Also if user has no progress row yet for that skill, create with level_source='learned'.
  */
 import { and, eq } from 'drizzle-orm';
@@ -26,7 +28,11 @@ export async function awardCrowns(
   userId: string,
   lessonId: string,
   mastered: boolean,
+  opts: { eligible: boolean; masteredUpgrade?: boolean } = { eligible: true },
 ): Promise<CrownAdvance[]> {
+  // Not a real status transition (replay of a finished lesson) → no crowns.
+  if (!opts.eligible) return [];
+
   const links = await db
     .select({
       skillId: lessonSkillMap.skillId,
@@ -55,7 +61,8 @@ export async function awardCrowns(
       )
       .limit(1);
 
-    const incrementBy = mastered ? 2 : 1; // mastered worth a bit more
+    // First completion: mastered counts double. A completed → mastered upgrade: +1.
+    const incrementBy = opts.masteredUpgrade ? 1 : mastered ? 2 : 1;
     const oldCrowns = existing[0]?.crowns ?? 0;
     const newCrowns = Math.min(5, oldCrowns + incrementBy);
     const delta = newCrowns - oldCrowns;

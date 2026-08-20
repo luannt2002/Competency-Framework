@@ -9,6 +9,7 @@
  * a follow-up migration — see deviation note in handover).
  */
 'use server';
+import { resolveWorkspace } from '@/lib/rbac/resolve';
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
@@ -37,23 +38,6 @@ import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
 
 /* ============================ HELPERS ============================ */
 
-async function resolveWorkspace(slug: string, requiredLevel: number) {
-  const user = await requireUser();
-  const rows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = rows[0];
-  if (!ws) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-  try {
-    const ctx = await requireMinLevel(ws.id, requiredLevel);
-    return { ws, user, ctx };
-  } catch (err) {
-    if (err instanceof RBACError) throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
-    throw err;
-  }
-}
 
 async function assertSkillInWorkspace(skillId: string, workspaceId: string) {
   const rows = await db

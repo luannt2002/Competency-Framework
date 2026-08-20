@@ -4,52 +4,78 @@
 
 @layer base {
   :root {
-    /* Light theme — Claude paper-coral aesthetic
-       (cream paper bg, white cards, warm beige borders, coral accent)
-       Inspired by hueanmy.github.io main site design language. */
-    --background: 46 41% 97%;            /* #faf9f5 cream paper */
-    --foreground: 45 9% 9%;              /* #1a1915 charcoal */
-    --card: 0 0% 100%;                   /* #ffffff */
-    --card-foreground: 45 9% 9%;
+    /* Light theme — Innocom brand (blue primary / red accent)
+       Blue = trust, tech, primary actions. Red = energy accents ONLY
+       (dots, borders, gradient endpoints) per brand guide "Don't overuse". */
+    --background: 220 20% 98%;            /* near-white cool paper */
+    --foreground: 222 47% 11%;            /* #111827 gray-900 */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 45 9% 9%;
-    --primary: 18 53% 58%;               /* #cc785c Claude coral */
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 35%;               /* brand blue #1e40af */
     --primary-foreground: 0 0% 100%;
-    --secondary: 42 21% 93%;             /* #f3f1ea elevated paper */
-    --secondary-foreground: 45 9% 17%;
-    --muted: 42 21% 93%;
-    --muted-foreground: 38 4% 47%;       /* #7a7770 warm slate */
-    --accent: 42 21% 93%;
-    --accent-foreground: 45 9% 17%;
-    --destructive: 0 72% 51%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;       /* #6b7280 gray-500 */
+    --accent: 221 83% 35%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 74% 42%;             /* brand red #dc2626 family */
     --destructive-foreground: 0 0% 100%;
-    --border: 40 30% 88%;                /* #e8e4d8 warm beige border */
-    --input: 40 30% 88%;
-    --ring: 18 53% 58%;                  /* coral focus ring */
-    --radius: 0.625rem;                  /* 10px matching reference */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 45%;                  /* blue focus ring */
+    --radius: 0.625rem;
+
+    /* ===== Innocom brand tokens (see brand guide) ===== */
+    --brand-blue: #1e40af;
+    --brand-blue-dark: #1e3a8a;
+    --brand-blue-light: #3b82f6;
+    --brand-red: #dc2626;
+    --brand-red-dark: #b91c1c;
+    --brand-red-light: #ef4444;
+    --gradient-primary: linear-gradient(135deg, #1e40af 0%, #dc2626 100%);
+    --gradient-horizontal: linear-gradient(90deg, #1e40af 0%, #dc2626 100%);
+    --gradient-bg-subtle: linear-gradient(135deg, rgba(30, 64, 175, 0.04) 0%, rgba(220, 38, 38, 0.04) 100%);
+    --shadow-brand: 0 4px 12px rgba(220, 38, 38, 0.2);
+    --shadow-brand-hover: 0 6px 16px rgba(220, 38, 38, 0.3);
   }
 
   .dark {
-    /* Dark theme — Competency Framework signature look (Linear/Vercel inspired) */
-    --background: 220 24% 5%;        /* #0A0C10 */
-    --foreground: 220 13% 91%;        /* #E6E8EC */
-    --card: 220 18% 10%;              /* #161A22 */
-    --card-foreground: 220 13% 91%;
-    --popover: 220 18% 10%;
-    --popover-foreground: 220 13% 91%;
-    --primary: 187 85% 53%;           /* cyan-400 */
-    --primary-foreground: 220 24% 5%;
-    --secondary: 220 14% 14%;         /* #1B2029 */
-    --secondary-foreground: 220 13% 91%;
-    --muted: 220 14% 14%;
-    --muted-foreground: 220 9% 64%;   /* #9BA1AA */
-    --accent: 220 14% 14%;
-    --accent-foreground: 220 13% 91%;
+    /* Dark theme — Innocom on dark: keep blue primary, lighter for contrast */
+    --background: 222 25% 5%;          /* #0a0e17 */
+    --foreground: 218 18% 91%;
+    --card: 221 20% 9%;
+    --card-foreground: 218 18% 91%;
+    --popover: 221 20% 9%;
+    --popover-foreground: 218 18% 91%;
+    --primary: 217 91% 60%;            /* blue-500 #3b82f6 — AA on dark */
+    --primary-foreground: 221 83% 8%;
+    --secondary: 221 16% 13%;
+    --secondary-foreground: 218 18% 91%;
+    --muted: 221 16% 13%;
+    --muted-foreground: 218 10% 64%;
+    --accent: 217 91% 60%;
+    --accent-foreground: 221 83% 8%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 12% 17%;            /* #242A33 */
-    --input: 220 12% 17%;
-    --ring: 187 85% 53%;
+    --border: 220 14% 17%;
+    --input: 220 14% 17%;
+    --ring: 217 91% 60%;
+
+    /* Brand tokens on dark — slightly lifted for legibility */
+    --brand-blue: #3b82f6;
+    --brand-blue-dark: #1e40af;
+    --brand-blue-light: #60a5fa;
+    --brand-red: #ef4444;
+    --brand-red-dark: #dc2626;
+    --brand-red-light: #f87171;
+    --gradient-primary: linear-gradient(135deg, #2563eb 0%, #dc2626 100%);
+    --gradient-horizontal: linear-gradient(90deg, #2563eb 0%, #dc2626 100%);
+    --gradient-bg-subtle: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(220, 38, 38, 0.06) 100%);
+    --shadow-brand: 0 4px 12px rgba(220, 38, 38, 0.25);
+    --shadow-brand-hover: 0 6px 16px rgba(220, 38, 38, 0.35);
   }
 
   * {
@@ -76,17 +102,17 @@
     background:
       radial-gradient(
         circle at 10% 8%,
-        rgba(6, 182, 212, 0.06) 0%,
+        rgba(30, 64, 175, 0.05) 0%,
         transparent 45%
       ),
       radial-gradient(
         circle at 92% 12%,
-        rgba(147, 51, 234, 0.06) 0%,
+        rgba(59, 130, 246, 0.05) 0%,
         transparent 45%
       ),
       radial-gradient(
         circle at 55% 95%,
-        rgba(236, 72, 153, 0.06) 0%,
+        rgba(220, 38, 38, 0.04) 0%,
         transparent 50%
       );
   }
@@ -119,17 +145,17 @@
     background:
       radial-gradient(
         circle at 10% 8%,
-        rgba(0, 212, 212, 0.10) 0%,
+        rgba(37, 99, 235, 0.09) 0%,
         transparent 45%
       ),
       radial-gradient(
         circle at 92% 12%,
-        rgba(168, 85, 247, 0.10) 0%,
+        rgba(59, 130, 246, 0.07) 0%,
         transparent 45%
       ),
       radial-gradient(
         circle at 55% 95%,
-        rgba(244, 114, 182, 0.10) 0%,
+        rgba(220, 38, 38, 0.06) 0%,
         transparent 50%
       );
   }
@@ -225,11 +251,129 @@
 
 @layer utilities {
   .accent-gradient {
-    @apply bg-gradient-to-br from-cyan-400 to-violet-500;
+    background: var(--gradient-primary);
   }
   .accent-gradient-text {
-    @apply bg-gradient-to-br from-cyan-400 to-violet-500 bg-clip-text text-transparent;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
+
+  /* ============================================================
+     Innocom brand utilities (v2) — see brand guide.
+     Blue = primary/trust; Red = accent only; gradient = primary CTAs.
+     ============================================================ */
+
+  /* Signature gradient button — primary actions only (CTA, submit). */
+  .btn-brand {
+    background: var(--gradient-primary);
+    color: #fff;
+    font-weight: 700;
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-brand);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  }
+  .btn-brand:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-brand-hover);
+  }
+  .btn-brand:active {
+    transform: translateY(0);
+  }
+
+  /* Outline blue secondary button. */
+  .btn-brand-outline {
+    background: transparent;
+    color: var(--brand-blue);
+    border: 2px solid var(--brand-blue);
+    font-weight: 600;
+    border-radius: 0.75rem;
+    transition: background-color 0.2s, color 0.2s;
+  }
+  .btn-brand-outline:hover {
+    background: var(--brand-blue);
+    color: #fff;
+  }
+
+  /* Card with red top accent — important/featured cards. */
+  .card-brand {
+    border-top: 3px solid var(--brand-red);
+  }
+
+  /* Red accent dot after titles. */
+  .brand-dot {
+    display: inline-block;
+    width: 0.375rem;
+    height: 0.375rem;
+    background: var(--brand-red);
+    border-radius: 50%;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+  }
+
+  /* Nav active state — blue tint bg + left indicator. */
+  .nav-item-brand-active {
+    background: color-mix(in srgb, var(--brand-blue) 12%, transparent);
+    color: var(--brand-blue);
+    border-left: 3px solid var(--brand-blue);
+    font-weight: 600;
+  }
+
+  /* Gradient progress bar fill. */
+  .progress-brand {
+    background: var(--gradient-horizontal);
+    border-radius: inherit;
+    transition: width 0.3s ease-in-out;
+  }
+
+  /* Badges */
+  .badge-brand-blue {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.375rem;
+    background: color-mix(in srgb, var(--brand-blue) 12%, transparent);
+    color: var(--brand-blue);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .badge-brand-red {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.375rem;
+    background: color-mix(in srgb, var(--brand-red) 12%, transparent);
+    color: var(--brand-red);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .badge-brand-gradient {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.375rem;
+    background: var(--gradient-primary);
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  /* Subtle brand page/section background tint. */
+  .bg-brand-subtle {
+    background: var(--gradient-bg-subtle);
+  }
+
+  /* Mobile touch targets (brand guide: min 44x44px). */
+  @media (max-width: 768px) {
+    .btn-brand,
+    .btn-brand-outline {
+      min-height: 44px;
+      min-width: 44px;
+      padding: 0.875rem 1.25rem;
+    }
+  }
+
   /* Card-like surface — paper-coral hover effect (lift -2px + coral glow)
      inspired by hueanmy.github.io reference. */
   .surface {

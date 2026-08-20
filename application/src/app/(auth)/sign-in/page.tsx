@@ -68,7 +68,7 @@ export default function SignInPage() {
         </Link>
 
         <div className="surface p-8 shadow-sm">
-          <div className="size-12 rounded-2xl accent-gradient flex items-center justify-center mb-5 shadow-lg shadow-cyan-500/20">
+          <div className="size-12 rounded-2xl accent-gradient flex items-center justify-center mb-5 shadow-lg shadow-hue-1/20">
             <Mail className="size-6 text-white" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>

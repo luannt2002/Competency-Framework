@@ -93,7 +93,7 @@ export default async function SkillsPage({ params }: { params: Promise<{ slug: s
     >
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
         <div className="flex items-center gap-3">
-          <Grid3x3 className="size-7 text-cyan-500" />
+          <Grid3x3 className="size-7 text-hue-1" />
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Skills Matrix</h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -112,7 +112,7 @@ export default async function SkillsPage({ params }: { params: Promise<{ slug: s
           label="Total skills"
           value={String(skillRows.length)}
           sub="in this workspace"
-          color="text-cyan-500"
+          color="text-hue-1"
         />
         <StatChip
           icon={CheckCircle2}
@@ -133,7 +133,7 @@ export default async function SkillsPage({ params }: { params: Promise<{ slug: s
           label="Levels in rubric"
           value={String(rubricRows.length)}
           sub="competency tiers"
-          color="text-purple-500"
+          color="text-hue-2"
         />
       </section>
 

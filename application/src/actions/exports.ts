@@ -11,10 +11,9 @@ import { resolveWorkspace } from '@/lib/rbac/resolve';
 
 import { eq, and, asc } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { skills, skillCategories, userSkillProgress, competencyLevels, workspaces } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
+import { skills, skillCategories, userSkillProgress, competencyLevels } from '@/lib/db/schema';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 
 type ExportRow = {

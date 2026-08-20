@@ -55,6 +55,15 @@ export function FadeInSection({
       setVisible(true);
       return;
     }
+    // Backstop for restored scroll positions (browser back / reload lands
+    // mid-page): anything already at or above the fold is revealed straight
+    // away. Without this, an IntersectionObserver never fires for elements
+    // that are entirely ABOVE the viewport at mount, leaving them stuck at
+    // opacity 0 for the rest of the session.
+    if (el.getBoundingClientRect().top < window.innerHeight) {
+      setVisible(true);
+      return;
+    }
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -65,7 +74,15 @@ export function FadeInSection({
           }
         }
       },
-      { threshold: 0.5 },
+      // threshold 0 + a negative bottom rootMargin: reveal as soon as the
+      // section's top edge crosses ~12% up from the viewport bottom.
+      //
+      // A ratio-based threshold (the previous `0.5`) is unusable here: the
+      // ratio is `intersection area / element area`, so any section taller
+      // than 2× the viewport can never reach 0.5 and would stay permanently
+      // invisible — which is exactly what happened to the long landing
+      // sections on a 360px phone.
+      { threshold: 0, rootMargin: '0px 0px -12% 0px' },
     );
     observer.observe(el);
     return () => observer.disconnect();

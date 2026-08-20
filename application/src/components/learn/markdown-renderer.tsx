@@ -202,7 +202,7 @@ const components: Components = {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 underline decoration-cyan-500/40 hover:decoration-cyan-500 text-cyan-600 dark:text-cyan-400"
+          className="inline-flex items-center gap-1 underline decoration-hue-1/40 hover:decoration-hue-1 text-hue-1"
           {...props}
         >
           {children}
@@ -213,7 +213,7 @@ const components: Components = {
     return (
       <a
         href={href}
-        className="underline decoration-cyan-500/40 hover:decoration-cyan-500 text-cyan-600 dark:text-cyan-400"
+        className="underline decoration-hue-1/40 hover:decoration-hue-1 text-hue-1"
         {...props}
       >
         {children}
@@ -241,7 +241,7 @@ const components: Components = {
   },
   blockquote({ children }) {
     return (
-      <blockquote className="my-4 border-l-4 border-[#ff6b6b] pl-4 italic text-muted-foreground">
+      <blockquote className="my-4 border-l-4 border-primary pl-4 italic text-muted-foreground">
         {children}
       </blockquote>
     );

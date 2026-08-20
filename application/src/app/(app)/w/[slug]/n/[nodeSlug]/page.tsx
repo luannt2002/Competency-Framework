@@ -24,6 +24,7 @@ import { ResourcesSection } from '@/components/learn/resources-section';
 import { CommentThread } from '@/components/social/comment-thread';
 import { getEffectiveLevel } from '@/lib/rbac/server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { getNodeProgress } from '@/lib/learn/node-progress';
 
 export default async function NodeDetailPage({
   params,
@@ -54,6 +55,15 @@ export default async function NodeDetailPage({
   // Owner-picked node-type appearance (emoji icon + accent color)
   const typeOverrides = await getNodeTypeOverrides(ws.id);
 
+  // Raw own progress row — `node.status` above can read 'in_progress' purely
+  // because a child is done, which is not the same as "I started this node".
+  const ownProgress = await getNodeProgress({
+    workspaceId: ws.id,
+    userId: user.id,
+    nodeId: node.id,
+  });
+  const evidenceUrls = (ownProgress?.evidenceUrls ?? []).filter(Boolean);
+
   return (
     <div className="mx-auto max-w-5xl p-6 md:p-8 space-y-6">
       <NodeBreadcrumb
@@ -80,10 +90,34 @@ export default async function NodeDetailPage({
               status: node.status,
               childrenCount: node.childrenCount,
               parentSlug,
+              ownStatus: (ownProgress?.status ?? 'todo') as 'todo' | 'doing' | 'done',
+              evidenceUrls,
             }}
           />
         }
       />
+
+      {evidenceUrls.length > 0 && (
+        <section className="surface p-4">
+          <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+            Bằng chứng đã gắn ({evidenceUrls.length})
+          </h2>
+          <ul className="space-y-1">
+            {evidenceUrls.map((url) => (
+              <li key={url} className="text-sm">
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline break-all"
+                >
+                  {url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {node.bodyMd && (
         <section className="surface p-6">
@@ -112,7 +146,7 @@ export default async function NodeDetailPage({
         </div>
 
         {children.length === 0 ? (
-          <div className="surface p-8 text-center text-sm text-muted-foreground border-dashed border-cyan-500/30 bg-cyan-500/5">
+          <div className="surface p-8 text-center text-sm text-muted-foreground border-dashed border-hue-1/30 bg-hue-1/5">
             <p className="mb-3">
               Chưa có node con trong &quot;{node.title}&quot;. Click &quot;Thêm con&quot; ở trên để bắt đầu.
             </p>

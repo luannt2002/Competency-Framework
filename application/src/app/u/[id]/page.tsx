@@ -166,9 +166,9 @@ export default async function PublicProfilePage({
       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
     >
       {/* Profile card */}
-      <section className="surface p-6 md:p-8 mb-10 bg-gradient-to-br from-cyan-50 via-violet-50 to-pink-50 dark:from-cyan-950/30 dark:via-violet-950/30 dark:to-pink-950/30">
+      <section className="surface p-6 md:p-8 mb-10 bg-gradient-to-br from-hue-1 via-hue-2 to-hue-5 dark:from-hue-1/30 dark:via-hue-2/30 dark:to-hue-5/30">
         <div className="flex items-start gap-4">
-          <div className="size-16 rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center shrink-0">
+          <div className="size-16 rounded-full bg-gradient-to-br from-hue-1 to-hue-2 flex items-center justify-center shrink-0">
             <User className="size-8 text-white" />
           </div>
           <div className="min-w-0 flex-1">
@@ -196,12 +196,12 @@ export default async function PublicProfilePage({
           <Link
             key={w.id}
             href={`/share/${w.slug}`}
-            className="surface p-4 hover:border-cyan-500/40 transition-colors group"
+            className="surface p-4 hover:border-hue-1/40 transition-colors group"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1.5">
-                  {w.icon && <span className="text-xl">{w.icon}</span>}
+                  {w.icon && <span className="text-xl font-emoji leading-none">{w.icon}</span>}
                   <h3 className="text-sm font-semibold truncate">{w.name}</h3>
                 </div>
                 <p className="text-xs text-muted-foreground font-mono truncate">

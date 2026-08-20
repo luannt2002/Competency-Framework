@@ -15,8 +15,9 @@
  */
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { BRAND } from '@/lib/constants/palette';
 
-const CORAL = '#cc785c';
+const CORAL = BRAND.blue;
 
 type IllProps = {
   /** Additional classes for sizing / colouring the neutral strokes. */

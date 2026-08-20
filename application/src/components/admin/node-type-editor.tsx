@@ -72,7 +72,7 @@ export function NodeTypeEditor({
               aria-expanded={open}
             >
               <span
-                className="flex size-8 items-center justify-center rounded-lg text-base"
+                className="flex size-8 items-center justify-center rounded-lg text-base font-emoji"
                 style={{ background: `${o.color ?? '#888'}22`, color: o.color ?? undefined }}
               >
                 {o.icon ?? '•'}
@@ -108,7 +108,7 @@ export function NodeTypeEditor({
                         aria-label={`${t.label} icon ${e}`}
                         aria-pressed={o.icon === e}
                         className={cn(
-                          'flex size-8 items-center justify-center rounded-lg border text-base transition-colors hover:bg-secondary',
+                          'flex size-8 items-center justify-center rounded-lg border text-base font-emoji transition-colors hover:bg-secondary',
                           o.icon === e ? 'border-primary bg-primary/10' : 'border-border',
                         )}
                       >

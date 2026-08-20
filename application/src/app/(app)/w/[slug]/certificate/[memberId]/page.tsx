@@ -1,3 +1,6 @@
+// guard-no-adhoc-color: allow — printable A4 certificate. Print styles are
+// resolved by the browser's print engine, where the app's CSS variables and
+// dark-mode class are not in play; literals keep the printed output stable.
 /**
  * /w/[slug]/certificate/[memberId] — Printable completion certificate.
  *

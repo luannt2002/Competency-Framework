@@ -7,7 +7,9 @@
 
 import { and, eq, inArray, count, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { exercises, userExerciseAttempts } from '@/lib/db/schema';
+import { exercises, userExerciseAttempts, xpEvents } from '@/lib/db/schema';
+import { tickStreak, type StreakTickResult } from '@/lib/gamification/streak';
+import { XP, streakMilestoneBonus } from './xp-rules';
 
 export type XpOnceParams = {
   workspaceId: string;
@@ -40,6 +42,44 @@ export async function insertXpOnce(params: XpOnceParams): Promise<boolean> {
     RETURNING id
   `);
   return res.length === 1;
+}
+
+export type StreakReward = StreakTickResult & {
+  /** XP paid for the daily tick + any milestone bonus (0 when already ticked). */
+  xpAwarded: number;
+};
+
+/**
+ * Tick the learning streak and pay the XP it earns.
+ *
+ * `tickStreak` is already idempotent per (Vietnamese) day via a conditional
+ * UPDATE, so gating the XP inserts on `ticked` makes them idempotent too —
+ * no unique index needed. Called by every "the user did something today"
+ * path (node done, daily task done) so the streak is not a lesson-only
+ * concept. Flow F: daily tick +5, 7-day +50, 30-day +300.
+ */
+export async function awardStreakTick(
+  workspaceId: string,
+  userId: string,
+): Promise<StreakReward> {
+  const streak = await tickStreak(workspaceId, userId);
+  if (!streak.ticked) return { ...streak, xpAwarded: 0 };
+
+  const rows: Array<typeof xpEvents.$inferInsert> = [
+    { workspaceId, userId, amount: XP.DAILY_STREAK_TICK, reason: 'daily_streak' },
+  ];
+  const milestone = streakMilestoneBonus(streak.newStreak);
+  if (milestone > 0) {
+    rows.push({
+      workspaceId,
+      userId,
+      amount: milestone,
+      reason: 'streak_milestone',
+      refKind: 'streak',
+    });
+  }
+  await db.insert(xpEvents).values(rows);
+  return { ...streak, xpAwarded: XP.DAILY_STREAK_TICK + milestone };
 }
 
 /**

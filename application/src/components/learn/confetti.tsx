@@ -13,10 +13,11 @@
  * Lazy-imports canvas-confetti so we don't ship it in the initial bundle.
  */
 import confetti from 'canvas-confetti';
+import { CONFETTI_PALETTE } from '@/lib/constants/palette';
 
 export type ConfettiIntensity = 'small' | 'big';
 
-const PALETTE = ['#ff6b6b', '#22d3ee', '#a78bfa', '#f472b6'];
+const PALETTE = [...CONFETTI_PALETTE];
 
 /**
  * Optional "ding" sound after firing confetti — gated by the user-controlled

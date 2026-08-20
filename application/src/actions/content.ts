@@ -10,17 +10,15 @@ import { revalidatePath } from 'next/cache';
 import { eq, and, max as drizzleMax } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import {
-  workspaces,
   modules as modulesT,
   lessons as lessonsT,
   labs as labsT,
   weeks as weeksT,
   activityLog,
 } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
 import { toSlug } from '@/lib/utils';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 
 async function assertWeekInWorkspace(workspaceId: string, weekId: string) {

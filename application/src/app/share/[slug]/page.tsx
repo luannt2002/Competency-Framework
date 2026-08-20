@@ -176,8 +176,8 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
 
       {/* Stats row — structural (no progress) */}
       <div className="grid grid-cols-3 gap-3 mb-10 max-w-3xl mx-auto">
-        <StatChip icon={Layers} label="Giai đoạn" value={String(totalSections)} sub="cấp 1" color="text-cyan-500" />
-        <StatChip icon={Sparkles} label="Tuần / Buổi" value={String(totalSubs)} sub="cấp 2" color="text-violet-500" />
+        <StatChip icon={Layers} label="Giai đoạn" value={String(totalSections)} sub="cấp 1" color="text-hue-1" />
+        <StatChip icon={Sparkles} label="Tuần / Buổi" value={String(totalSubs)} sub="cấp 2" color="text-hue-2" />
         <StatChip icon={Sparkles} label="Tổng mục" value={String(totalNodes)} sub="trong cây" color="text-amber-500" />
       </div>
 

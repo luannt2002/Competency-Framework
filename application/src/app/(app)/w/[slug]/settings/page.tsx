@@ -99,7 +99,7 @@ export default async function WorkspaceSettingsPage({
       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
     >
       <header className="flex items-center gap-4">
-        <div className="size-12 rounded-2xl accent-gradient flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <div className="size-12 rounded-2xl accent-gradient flex items-center justify-center shadow-lg shadow-hue-1/20">
           <SlidersHorizontal className="size-6 text-white" />
         </div>
         <div>
@@ -227,7 +227,7 @@ export default async function WorkspaceSettingsPage({
             className="surface flex items-center justify-between gap-3 p-3 hover:bg-secondary/40 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <Users className="size-4 text-cyan-500" />
+              <Users className="size-4 text-hue-1" />
               <div>
                 <div className="text-sm font-medium">Members</div>
                 <div className="text-[11px] text-muted-foreground">Manage access</div>

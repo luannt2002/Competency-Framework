@@ -99,7 +99,7 @@ export function NodeHeader({
           style={overrideColor ? { background: `${overrideColor}22` } : undefined}
         >
           {overrideIcon ? (
-            <span className="text-2xl leading-none" role="img" aria-label={meta.label}>
+            <span className="text-2xl leading-none font-emoji" role="img" aria-label={meta.label}>
               {overrideIcon}
             </span>
           ) : (

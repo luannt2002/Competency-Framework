@@ -17,6 +17,7 @@
 import { useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { HEATMAP_RGB } from '@/lib/constants/palette';
 import {
   Sheet,
   SheetContent,
@@ -69,10 +70,10 @@ function cellStyle(pct: number): React.CSSProperties {
   if (pct <= 0) {
     return { backgroundColor: 'transparent' };
   }
-  // Coral accent (oklch-friendly via rgba fallback). Alpha scales 0.08 → 0.95
-  // so even 1% is faintly visible while 100% reaches full saturation.
+  // Brand accent tinted by alpha 0.08 → 0.95, so even 1% stays faintly
+  // visible while 100% reaches full saturation. One hue, one quantity.
   const alpha = 0.08 + (pct / 100) * 0.87;
-  return { backgroundColor: `rgba(255, 122, 89, ${alpha.toFixed(3)})` };
+  return { backgroundColor: `rgba(${HEATMAP_RGB}, ${alpha.toFixed(3)})` };
 }
 
 export function RosterTable({
@@ -259,7 +260,7 @@ export function RosterTable({
                             className="h-full rounded-full transition-all"
                             style={{
                               width: `${c.pct}%`,
-                              backgroundColor: 'rgb(255, 122, 89)',
+                              backgroundColor: `rgb(${HEATMAP_RGB})`,
                             }}
                           />
                         </div>

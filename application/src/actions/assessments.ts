@@ -9,10 +9,9 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { skills, userSkillProgress, activityLog, workspaces } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
+import { skills, userSkillProgress, activityLog } from '@/lib/db/schema';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 
 const updateInput = z.object({

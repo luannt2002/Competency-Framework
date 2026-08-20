@@ -18,11 +18,10 @@ import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db/client';
-import { lessons, exercises, workspaces, activityLog } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
+import { lessons, exercises, activityLog } from '@/lib/db/schema';
 import type { ExerciseKind } from '@/types';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 
 const input = z.object({

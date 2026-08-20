@@ -15,15 +15,19 @@ import { revalidatePath } from 'next/cache';
 import { eq, and, max as drizzleMax, asc, inArray, sql as dsql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import {
-  workspaces,
   roadmapTreeNodes,
   userNodeProgress,
   activityLog,
 } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
 import { toSlug } from '@/lib/utils';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
+import {
+  awardNodeCompletion,
+  attachNodeEvidence,
+  getNodeProgress,
+  upsertNodeStatus,
+} from '@/lib/learn/node-progress';
 
 /**
  * Resolve a workspace by slug, then enforce the RBAC level needed for the
@@ -444,10 +448,22 @@ export async function moveTreeNode(input: z.infer<typeof moveInput>): Promise<vo
  *  - Marking TODO cascades UP: any "done" ancestor gets un-marked (data consistency).
  *  - Error code INCOMPLETE_CHILDREN allows UI to show meaningful message in Vietnamese.
  */
+export type ToggleNodeDoneResult = {
+  action: 'marked_done' | 'marked_todo';
+  cascadedUp: number;
+  incomplete?: number;
+  /** XP credited by this call (node award + streak tick). 0 when un-doing. */
+  xpAwarded: number;
+  /** Streak length after the tick, so the UI can celebrate milestones. */
+  streak: number;
+  /** Badges unlocked by this completion. */
+  badges: { slug: string; name: string; icon: string | null }[];
+};
+
 export async function toggleNodeDone(
   workspaceSlug: string,
   nodeId: string,
-): Promise<{ action: 'marked_done' | 'marked_todo'; cascadedUp: number; incomplete?: number }> {
+): Promise<ToggleNodeDoneResult> {
   // Marking one's OWN progress is a LEARNER-level action — consistent with
   // completeLesson (learn.ts) and lab progress (labs.ts). Requiring EDITOR here
   // blocked learners from tracking their own roadmap progress.
@@ -462,27 +478,21 @@ export async function toggleNodeDone(
   if (!meRows[0]) throw new Error('NODE_NOT_FOUND');
   const me = meRows[0];
 
-  const existing = await db
-    .select()
-    .from(userNodeProgress)
-    .where(
-      and(
-        eq(userNodeProgress.workspaceId, ws.id),
-        eq(userNodeProgress.userId, user.id),
-        eq(userNodeProgress.nodeId, nodeId),
-      ),
-    )
-    .limit(1);
-  const isDone = existing[0]?.status === 'done';
+  const existing = await getNodeProgress({
+    workspaceId: ws.id,
+    userId: user.id,
+    nodeId,
+  });
+  const isDone = existing?.status === 'done';
 
   if (isDone) {
     /* === UN-DONE: cascade up (any ancestor "done" must un-done) === */
-    if (existing[0]) {
-      await db
-        .update(userNodeProgress)
-        .set({ status: 'todo', completedAt: null, updatedAt: new Date() })
-        .where(eq(userNodeProgress.id, existing[0].id));
-    }
+    await upsertNodeStatus({
+      workspaceId: ws.id,
+      userId: user.id,
+      nodeId,
+      status: 'todo',
+    });
     const cascaded = await reopenDoneAncestors(ws.id, user.id, me.pathStr);
     await db.insert(activityLog).values({
       workspaceId: ws.id,
@@ -501,7 +511,9 @@ export async function toggleNodeDone(
       after: { status: 'todo', cascadedAncestors: cascaded },
     });
     revalidatePath(`/w/${ws.slug}`);
-    return { action: 'marked_todo', cascadedUp: cascaded };
+    revalidatePath(`/w/${ws.slug}/n/${me.slug}`);
+    // XP is never clawed back (Flow F: "XP chỉ tăng, không bao giờ giảm").
+    return { action: 'marked_todo', cascadedUp: cascaded, xpAwarded: 0, streak: 0, badges: [] };
   }
 
   /* === MARK DONE: gate on descendants (see lib/tree/cascade.ts) === */
@@ -512,26 +524,22 @@ export async function toggleNodeDone(
       `INCOMPLETE_CHILDREN:${incomplete.length}:Còn ${incomplete.length}/${totalDescendants} mục con chưa xong — hoàn thành chúng trước.`,
     );
   }
-  // OK — mark done
-  if (existing[0]) {
-    await db
-      .update(userNodeProgress)
-      .set({ status: 'done', completedAt: new Date(), updatedAt: new Date() })
-      .where(eq(userNodeProgress.id, existing[0].id));
-  } else {
-    await db.insert(userNodeProgress).values({
-      workspaceId: ws.id,
-      userId: user.id,
-      nodeId,
-      status: 'done',
-      completedAt: new Date(),
-    });
-  }
+  await upsertNodeStatus({ workspaceId: ws.id, userId: user.id, nodeId, status: 'done' });
+
+  // Reward chain: node XP (once) → streak tick (+ milestone) → badge sweep.
+  const reward = await awardNodeCompletion({
+    workspaceId: ws.id,
+    userId: user.id,
+    nodeId,
+    depth: me.depth,
+    hasChildren: totalDescendants > 0,
+  });
+
   await db.insert(activityLog).values({
     workspaceId: ws.id,
     userId: user.id,
     kind: 'tree_node_done',
-    payload: { nodeId, descendants: totalDescendants },
+    payload: { nodeId, descendants: totalDescendants, xp: reward.totalXp },
   });
   await writeAudit({
     workspaceId: ws.id,
@@ -540,9 +548,145 @@ export async function toggleNodeDone(
     action: 'tree_node.toggle_done',
     resourceType: 'tree_node',
     resourceId: nodeId,
-    before: { status: existing[0]?.status ?? 'todo' },
-    after: { status: 'done', descendants: totalDescendants },
+    before: { status: existing?.status ?? 'todo' },
+    after: {
+      status: 'done',
+      descendants: totalDescendants,
+      xpAwarded: reward.totalXp,
+      streak: reward.streak.newStreak,
+    },
   });
   revalidatePath(`/w/${ws.slug}`);
-  return { action: 'marked_done', cascadedUp: 0 };
+  revalidatePath(`/w/${ws.slug}/n/${me.slug}`);
+  revalidatePath(`/w/${ws.slug}/daily`);
+  return {
+    action: 'marked_done',
+    cascadedUp: 0,
+    xpAwarded: reward.totalXp,
+    streak: reward.streak.newStreak,
+    badges: reward.badges.map((b) => ({ slug: b.slug, name: b.name, icon: b.icon })),
+  };
+}
+
+/* ============================ Start / pause a node (status = doing) ============================
+ * Flow B4: "[Đang học] — set status = doing". Nothing used to write this state,
+ * so `getLastInProgressNode` (dashboard "Tiếp tục từ chỗ bạn dừng") and the ◑
+ * in-progress pill on the tree could never light up.
+ */
+const setStatusInput = z.object({
+  workspaceSlug: z.string(),
+  nodeId: z.string().uuid(),
+  status: z.enum(['todo', 'doing']),
+});
+
+export async function setNodeStatus(
+  input: z.infer<typeof setStatusInput>,
+): Promise<{ status: 'todo' | 'doing' }> {
+  const parsed = setStatusInput.parse(input);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
+
+  const rows = await db
+    .select({ id: roadmapTreeNodes.id, slug: roadmapTreeNodes.slug })
+    .from(roadmapTreeNodes)
+    .where(
+      and(eq(roadmapTreeNodes.id, parsed.nodeId), eq(roadmapTreeNodes.workspaceId, ws.id)),
+    )
+    .limit(1);
+  const node = rows[0];
+  if (!node) throw new Error('NODE_NOT_FOUND');
+
+  const before = await getNodeProgress({
+    workspaceId: ws.id,
+    userId: user.id,
+    nodeId: node.id,
+  });
+  await upsertNodeStatus({
+    workspaceId: ws.id,
+    userId: user.id,
+    nodeId: node.id,
+    status: parsed.status,
+  });
+
+  await db.insert(activityLog).values({
+    workspaceId: ws.id,
+    userId: user.id,
+    kind: parsed.status === 'doing' ? 'tree_node_started' : 'tree_node_reset',
+    payload: { nodeId: node.id },
+  });
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'tree_node.set_status',
+    resourceType: 'tree_node',
+    resourceId: node.id,
+    before: { status: before?.status ?? 'todo' },
+    after: { status: parsed.status },
+  });
+
+  revalidatePath(`/w/${ws.slug}`);
+  revalidatePath(`/w/${ws.slug}/n/${node.slug}`);
+  return { status: parsed.status };
+}
+
+/* ============================ Evidence + journal note on a node ============================
+ * Flow B4: "[Gắn evidence] — paste URL bằng chứng". The columns
+ * user_node_progress.evidence_urls / .note existed but nothing ever wrote them.
+ */
+const evidenceInput = z.object({
+  workspaceSlug: z.string(),
+  nodeId: z.string().uuid(),
+  evidenceUrls: z.array(z.string().url().max(2_000)).max(10),
+  note: z.string().max(5_000).optional(),
+});
+
+export async function setNodeEvidence(
+  input: z.infer<typeof evidenceInput>,
+): Promise<{ count: number }> {
+  const parsed = evidenceInput.parse(input);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
+
+  const rows = await db
+    .select({ id: roadmapTreeNodes.id, slug: roadmapTreeNodes.slug })
+    .from(roadmapTreeNodes)
+    .where(
+      and(eq(roadmapTreeNodes.id, parsed.nodeId), eq(roadmapTreeNodes.workspaceId, ws.id)),
+    )
+    .limit(1);
+  const node = rows[0];
+  if (!node) throw new Error('NODE_NOT_FOUND');
+
+  const before = await getNodeProgress({
+    workspaceId: ws.id,
+    userId: user.id,
+    nodeId: node.id,
+  });
+
+  await attachNodeEvidence({
+    workspaceId: ws.id,
+    userId: user.id,
+    nodeId: node.id,
+    evidenceUrls: parsed.evidenceUrls,
+    note: parsed.note?.trim() ? parsed.note.trim() : null,
+  });
+
+  await db.insert(activityLog).values({
+    workspaceId: ws.id,
+    userId: user.id,
+    kind: 'tree_node_evidence_set',
+    payload: { nodeId: node.id, count: parsed.evidenceUrls.length },
+  });
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'tree_node.set_evidence',
+    resourceType: 'tree_node',
+    resourceId: node.id,
+    before: { evidenceCount: (before?.evidenceUrls ?? []).length },
+    after: { evidenceCount: parsed.evidenceUrls.length },
+  });
+
+  revalidatePath(`/w/${ws.slug}/n/${node.slug}`);
+  return { count: parsed.evidenceUrls.length };
 }

@@ -4,6 +4,16 @@
 
 @layer base {
   :root {
+    /* Emoji fallback chain.
+       Outfit / Geist / JetBrains ship no emoji glyphs, so any data-driven
+       emoji (workspace icon, node-type override, picker palette) rendered
+       under them falls through to the generic `sans-serif` — which on Linux
+       and headless renderers is often a text font with no emoji coverage,
+       producing tofu boxes (□). Every font stack below ends with this var,
+       and `.emoji` forces it for spots that render emoji directly. */
+    --font-emoji: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+      'Noto Color Emoji', 'Twemoji Mozilla', 'EmojiOne Color', 'Android Emoji';
+
     /* Light theme — Innocom brand (blue primary / red accent)
        Blue = trust, tech, primary actions. Red = energy accents ONLY
        (dots, borders, gradient endpoints) per brand guide "Don't overuse". */
@@ -176,15 +186,15 @@
      ============================================================ */
   :where(h1):not([class*='text-']):not([class*='font-']) {
     @apply text-3xl md:text-5xl font-extrabold leading-[1.1] tracking-tight;
-    font-family: var(--font-outfit), 'Outfit', sans-serif;
+    font-family: var(--font-outfit), 'Outfit', sans-serif, var(--font-emoji);
   }
   :where(h2):not([class*='text-']):not([class*='font-']) {
     @apply text-2xl md:text-3xl font-bold tracking-tight;
-    font-family: var(--font-outfit), 'Outfit', sans-serif;
+    font-family: var(--font-outfit), 'Outfit', sans-serif, var(--font-emoji);
   }
   :where(h3):not([class*='text-']):not([class*='font-']) {
     @apply text-lg md:text-xl font-semibold;
-    font-family: var(--font-outfit), 'Outfit', sans-serif;
+    font-family: var(--font-outfit), 'Outfit', sans-serif, var(--font-emoji);
   }
   :where(p):not([class*='text-']):not([class*='leading-']) {
     @apply text-base leading-relaxed;
@@ -402,7 +412,7 @@
     @apply flex items-end justify-between gap-4 pb-3 mb-6 border-b border-border;
   }
   .section-numbered-index {
-    font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
+    font-family: var(--font-jetbrains), 'JetBrains Mono', monospace, var(--font-emoji);
     @apply text-2xl md:text-3xl font-bold leading-none tabular-nums bg-clip-text text-transparent;
     background-image: linear-gradient(
       135deg,
@@ -421,7 +431,7 @@
     color: hsl(var(--primary));
     border-radius: 4px;
     font-size: 0.66rem;
-    font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
+    font-family: var(--font-jetbrains), 'JetBrains Mono', monospace, var(--font-emoji);
     font-weight: 500;
     letter-spacing: 0.03em;
     line-height: 1.4;
@@ -432,12 +442,32 @@
      Inspired by hueanmy.github.io/claude-roadmap
      ============================================================ */
   :root {
+    /* CATEGORICAL SCALE — the single source of truth for "these things are
+       different from each other": node types, competency levels, skill
+       categories, roadmap phases.
+
+       Stored as HSL triplets (not hex) for the same reason the shadcn tokens
+       are: Tailwind can then expose them as real colours and `bg-hue-1/10`,
+       `ring-hue-2/20` work. Components used to reach for `bg-cyan-500/10`,
+       `text-violet-700`, `ring-sky-500/20` ad hoc — 177 occurrences across 47
+       files, a third palette that no theme could reach.
+
+       The `--rm-*` hexes below are DERIVED from these, so the roadmap keeps
+       rendering exactly as before while there is only one place to change a
+       hue. See scripts/guard-no-adhoc-color.ts, which fails the build if a
+       component invents its own. */
+    --hue-1: 189 94% 43%;   /* cyan   — was #06b6d4 */
+    --hue-2: 271 81% 56%;   /* purple — was #9333ea */
+    --hue-3: 41 96% 40%;    /* yellow — was #ca8a04 */
+    --hue-4: 160 84% 39%;   /* green  — was #10b981 */
+    --hue-5: 330 81% 60%;   /* pink   — was #ec4899 */
+
     /* Light palette — soft pastel gradients matching the reference */
-    --rm-cyan: #06b6d4;
-    --rm-purple: #9333ea;
-    --rm-yellow: #ca8a04;
-    --rm-green: #10b981;
-    --rm-pink: #ec4899;
+    --rm-cyan: hsl(var(--hue-1));
+    --rm-purple: hsl(var(--hue-2));
+    --rm-yellow: hsl(var(--hue-3));
+    --rm-green: hsl(var(--hue-4));
+    --rm-pink: hsl(var(--hue-5));
     --rm-node-cyan-bg: linear-gradient(135deg, #cffafe, #a5f3fc);
     --rm-node-purple-bg: linear-gradient(135deg, #ede9fe, #ddd6fe);
     --rm-node-yellow-bg: linear-gradient(135deg, #fef9c3, #fef08a);
@@ -445,12 +475,21 @@
     --rm-node-pink-bg: linear-gradient(135deg, #fce7f3, #fbcfe8);
   }
   .dark {
+    /* Dark overrides for the categorical scale — lifted lightness so the same
+       five hues stay AA-legible on the dark base. Every `hue-N` utility and
+       every `--rm-*` derived value follows automatically. */
+    --hue-1: 180 100% 42%;  /* cyan   — was #00d4d4 */
+    --hue-2: 271 91% 65%;   /* purple — was #a855f7 */
+    --hue-3: 43 96% 56%;    /* yellow — was #fbbf24 */
+    --hue-4: 158 64% 52%;   /* green  — was #34d399 */
+    --hue-5: 329 86% 70%;   /* pink   — was #f472b6 */
+
     /* Dark palette overrides — deeper saturation, dim glow backgrounds */
-    --rm-cyan: #00d4d4;
-    --rm-purple: #a855f7;
-    --rm-yellow: #fbbf24;
-    --rm-green: #34d399;
-    --rm-pink: #f472b6;
+    --rm-cyan: hsl(var(--hue-1));
+    --rm-purple: hsl(var(--hue-2));
+    --rm-yellow: hsl(var(--hue-3));
+    --rm-green: hsl(var(--hue-4));
+    --rm-pink: hsl(var(--hue-5));
     --rm-node-cyan-bg: linear-gradient(135deg, #003333, #004444);
     --rm-node-purple-bg: linear-gradient(135deg, #1a0033, #220044);
     --rm-node-yellow-bg: linear-gradient(135deg, #1a1200, #221800);
@@ -460,7 +499,7 @@
 
   /* Phase label with side lines */
   .rm-phase-label {
-    font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
+    font-family: var(--font-jetbrains), 'JetBrains Mono', monospace, var(--font-emoji);
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 2px;
@@ -688,7 +727,7 @@
     margin-top: 3px;
     font-size: 0.7rem;
     color: hsl(var(--muted-foreground));
-    font-family: var(--font-jetbrains), monospace;
+    font-family: var(--font-jetbrains), monospace, var(--font-emoji);
     letter-spacing: 0.4px;
   }
   .rm-path-item.right .rm-path-sub { text-align: right; }
@@ -721,7 +760,7 @@
     background: hsl(var(--card));
     color: hsl(var(--foreground));
     font-size: 0.7rem;
-    font-family: var(--font-jetbrains), monospace;
+    font-family: var(--font-jetbrains), monospace, var(--font-emoji);
     line-height: 1.3;
     max-width: 220px;
     text-decoration: none;
@@ -783,7 +822,7 @@
     flex-direction: column;
     align-items: center;
     gap: 0;
-    font-family: var(--font-outfit), 'Outfit', sans-serif;
+    font-family: var(--font-outfit), 'Outfit', sans-serif, var(--font-emoji);
   }
   .rm-section {
     width: 100%;

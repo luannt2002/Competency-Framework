@@ -18,9 +18,22 @@ import { getRootNodes, getTreeSections, getLastInProgressNode } from '@/lib/tree
 import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
 import { ShareLinkButton } from '@/components/learn/share-link-button';
 import { StatChip } from '@/components/learn/stat-chip';
+import { DashboardRail } from '@/components/learn/dashboard-rail';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Sparkles, Zap, Flame, Heart, Eye, ArrowRight, Play, Award } from 'lucide-react';
+import {
+  Plus,
+  Sparkles,
+  Zap,
+  Flame,
+  Heart,
+  Eye,
+  ArrowRight,
+  Play,
+  Award,
+  Calendar,
+  NotebookPen,
+} from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { NoNodesIllustration } from '@/components/ui/empty-state-illustrations';
 
@@ -65,7 +78,10 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
 
   const totalXp = Number(xpRow[0]?.s ?? 0);
   const streak = streakRow[0]?.currentStreak ?? 0;
-  const hearts = heartRow[0]?.current ?? 0;
+  // No hearts row yet = the learner has not lost any; show a full bar rather
+  // than a scary 0 (same default the topbar uses).
+  const heartsMax = heartRow[0]?.max ?? 5;
+  const hearts = heartRow[0]?.current ?? heartsMax;
   const totalNodes = totalNodesRow[0]?.n ?? 0;
   const totalDone = totalDoneRow[0]?.n ?? 0;
   const overallPct = totalNodes === 0 ? 0 : Math.round((totalDone / totalNodes) * 100);
@@ -95,8 +111,12 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
     return candidates.find((n) => n.status !== 'done') ?? null;
   })();
 
+  // "Ghi chú hôm nay" needs a node to hang the note off — journal entries are
+  // node-scoped. Prefer where the learner left off, else the next open step.
+  const noteTarget = lastInProgress ?? firstIncomplete;
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 md:py-16">
+    <div className="mx-auto max-w-6xl px-4 py-10 md:py-16">
       {/* Top action bar: share / overview */}
       <div className="flex items-center justify-end gap-2 mb-6">
         {overallPct >= 80 && (
@@ -121,7 +141,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
       {lastInProgress ? (
         <Link
           href={`/w/${slug}/n/${lastInProgress.slug}`}
-          className="surface surface-lift p-4 flex items-center gap-4 mb-6 border-l-4 border-l-[#ff6b6b] hover:border-l-[#ff8787] transition-colors"
+          className="surface surface-lift p-4 flex items-center gap-4 mb-6 border-l-4 border-l-primary hover:border-l-primary/70 transition-colors"
         >
           <div className="text-2xl shrink-0" aria-hidden>🎯</div>
           <div className="min-w-0 flex-1">
@@ -130,14 +150,14 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
             </div>
             <div className="font-semibold truncate">{lastInProgress.title}</div>
           </div>
-          <ArrowRight className="size-5 text-[#ff6b6b] shrink-0" />
+          <ArrowRight className="size-5 text-primary shrink-0" />
         </Link>
       ) : firstIncomplete ? (
         <Link
           href={`/w/${slug}/n/${firstIncomplete.slug}`}
-          className="surface surface-lift p-3 flex items-center gap-3 mb-6 text-sm hover:border-[#ff6b6b]/40 transition-colors"
+          className="surface surface-lift p-3 flex items-center gap-3 mb-6 text-sm hover:border-primary/40 transition-colors"
         >
-          <Play className="size-4 text-[#ff6b6b] shrink-0" />
+          <Play className="size-4 text-primary shrink-0" />
           <span className="text-muted-foreground">Bắt đầu học:</span>
           <span className="font-medium truncate flex-1">{firstIncomplete.title}</span>
           <ArrowRight className="size-4 text-muted-foreground shrink-0" />
@@ -146,10 +166,34 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
 
       {/* Stat strip (compact, on top) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10 max-w-3xl mx-auto">
-        <StatChip icon={Sparkles} label="Tiến độ" value={`${overallPct}%`} sub={`${totalDone}/${totalNodes}`} color="text-cyan-500" />
+        <StatChip icon={Sparkles} label="Tiến độ" value={`${overallPct}%`} sub={`${totalDone}/${totalNodes}`} color="text-hue-1" />
         <StatChip icon={Zap} label="XP" value={totalXp.toLocaleString()} sub="all-time" color="text-amber-500" />
         <StatChip icon={Flame} label="Streak" value={String(streak)} sub="ngày" color="text-orange-500" />
-        <StatChip icon={Heart} label="Hearts" value={String(hearts)} sub="còn lại" color="text-rose-500" />
+        <StatChip icon={Heart} label="Hearts" value={`${hearts}/${heartsMax}`} sub="còn lại" color="text-rose-500" />
+      </div>
+
+      {/* Quick actions (Flow B3) — one click to today's plan / today's note. */}
+      <div className="flex flex-wrap items-center justify-center gap-2 mb-10">
+        <Link
+          href={`/w/${slug}/daily`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary"
+        >
+          <Calendar className="size-3.5 text-amber-500" /> Tới Daily Planner
+        </Link>
+        {noteTarget && (
+          <Link
+            href={`/w/${slug}/n/${noteTarget.slug}#quick-note`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary"
+          >
+            <NotebookPen className="size-3.5 text-primary" /> Ghi chú hôm nay
+          </Link>
+        )}
+        <Link
+          href={`/w/${slug}/skills`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary"
+        >
+          <Sparkles className="size-3.5 text-primary" /> Skills Matrix
+        </Link>
       </div>
 
       {rootNodes.length === 0 ? (
@@ -167,11 +211,14 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
           }
         />
       ) : (
-        <>
-          <RoadmapHero badge={`${totalNodes} nodes`} title={heroTitle} subtitle={heroSubtitle} />
-          <VerticalRoadmap sections={sections} workspaceSlug={slug} />
-          <RoadmapLegend />
-        </>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="min-w-0">
+            <RoadmapHero badge={`${totalNodes} nodes`} title={heroTitle} subtitle={heroSubtitle} />
+            <VerticalRoadmap sections={sections} workspaceSlug={slug} />
+            <RoadmapLegend showStatus />
+          </div>
+          <DashboardRail workspaceId={ws.id} workspaceSlug={slug} userId={user.id} />
+        </div>
       )}
 
       {/* Quick-help footer */}

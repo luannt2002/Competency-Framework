@@ -210,7 +210,7 @@ export async function CommentThread({
           ))}
         </ul>
       ) : (
-        <div className="surface p-6 text-center text-sm text-muted-foreground border-dashed border-cyan-500/20 bg-cyan-500/5 mb-4">
+        <div className="surface p-6 text-center text-sm text-muted-foreground border-dashed border-hue-1/20 bg-hue-1/5 mb-4">
           {readOnly
             ? 'Mục này chưa có bình luận nào.'
             : 'Mở đầu cuộc trò chuyện về mục này.'}

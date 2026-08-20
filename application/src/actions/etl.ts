@@ -20,12 +20,10 @@ import { resolve } from 'node:path';
 import { revalidatePath } from 'next/cache';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { workspaces } from '@/lib/db/schema';
 import { importLogs } from '@/lib/db/schema-etl';
-import { requireUser } from '@/lib/auth/supabase-server';
 import { runIngestion, type IngestionResult } from '@/lib/etl/import-runner';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 const sourceEnum = z.enum(['markdown', 'csv']);
 const inputSchema = z.object({

@@ -95,7 +95,7 @@ export default async function MembersPage({
     >
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="size-12 rounded-2xl accent-gradient flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <div className="size-12 rounded-2xl accent-gradient flex items-center justify-center shadow-lg shadow-hue-1/20">
             <Users className="size-6 text-white" />
           </div>
           <div>
@@ -114,7 +114,7 @@ export default async function MembersPage({
           label="Members"
           value={String(members.length)}
           sub="non-owner"
-          color="text-cyan-500"
+          color="text-hue-1"
         />
         <StatChip
           icon={Users}

@@ -29,7 +29,23 @@ export interface EmptyStateProps extends Omit<React.HTMLAttributes<HTMLDivElemen
   description?: React.ReactNode;
   /** Optional CTA — typically a <Button>. */
   action?: React.ReactNode;
+  /**
+   * Visual tone. `default` = neutral "nothing here yet"; `destructive` =
+   * "we tried and it failed" (tinted halo + border). Lets failure surfaces
+   * reuse this component instead of forking a near-identical error card.
+   */
+  tone?: 'default' | 'destructive';
 }
+
+const TONE_SURFACE: Record<'default' | 'destructive', string> = {
+  default: 'surface',
+  destructive: 'surface border-destructive/30 bg-destructive/5',
+};
+
+const TONE_HALO: Record<'default' | 'destructive', string> = {
+  default: 'bg-secondary/60 text-muted-foreground',
+  destructive: 'bg-destructive/10 text-destructive',
+};
 
 export function EmptyState({
   icon: Icon,
@@ -37,13 +53,16 @@ export function EmptyState({
   title,
   description,
   action,
+  tone = 'default',
   className,
   ...rest
 }: EmptyStateProps) {
   return (
     <div
+      role={tone === 'destructive' ? 'alert' : undefined}
       className={cn(
-        'surface flex flex-col items-center justify-center gap-3 p-10 text-center',
+        TONE_SURFACE[tone],
+        'flex flex-col items-center justify-center gap-3 p-8 text-center sm:p-10',
         className,
       )}
       {...rest}
@@ -55,7 +74,12 @@ export function EmptyState({
         <div className="mb-1">{illustration}</div>
       ) : (
         Icon && (
-          <div className="flex size-12 items-center justify-center rounded-full bg-secondary/60 text-muted-foreground">
+          <div
+            className={cn(
+              'flex size-12 items-center justify-center rounded-full',
+              TONE_HALO[tone],
+            )}
+          >
             <Icon className="size-6" aria-hidden="true" />
           </div>
         )

@@ -47,6 +47,22 @@ const config: Config = {
           m: '#10B981',
           l: '#8B5CF6',
         },
+        // Categorical scale — for things that must READ AS DIFFERENT from
+        // each other (node type, competency level, skill category). NOT for
+        // brand or interaction: that is `primary`. NOT for success/warning/
+        // danger: emerald/amber/red keep those meanings.
+        //
+        // Declared once in globals.css as `--hue-N` (HSL triplets, with dark
+        // overrides). `<alpha-value>` is what makes `bg-hue-1/10` and
+        // `ring-hue-2/20` resolve — the exact shapes components were faking
+        // with `bg-cyan-500/10` before. guard-no-adhoc-color.ts enforces it.
+        hue: {
+          1: 'hsl(var(--hue-1) / <alpha-value>)',
+          2: 'hsl(var(--hue-2) / <alpha-value>)',
+          3: 'hsl(var(--hue-3) / <alpha-value>)',
+          4: 'hsl(var(--hue-4) / <alpha-value>)',
+          5: 'hsl(var(--hue-5) / <alpha-value>)',
+        },
         // Gamification
         xp: '#F59E0B',
         streak: '#F97316',
@@ -58,8 +74,12 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-geist-mono)', 'monospace'],
+        // `var(--font-emoji)` closes every stack: the Geist/Outfit/JetBrains
+        // webfonts carry no emoji glyphs, so without it a data-driven emoji
+        // (workspace icon, node-type override) renders as a tofu box.
+        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif', 'var(--font-emoji)'],
+        mono: ['var(--font-geist-mono)', 'monospace', 'var(--font-emoji)'],
+        emoji: ['var(--font-emoji)', 'sans-serif'],
       },
       backgroundImage: {
         'accent-gradient': 'linear-gradient(135deg, #22D3EE 0%, #8B5CF6 100%)',

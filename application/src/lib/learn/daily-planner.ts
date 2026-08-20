@@ -7,14 +7,21 @@
  *
  * Priority order (descending):
  *   1. streak_keeper       (when streakAtRisk)
- *   2. lesson              (continuation from current week)
- *   3. lab                 (unfinished from current week / carryover)
- *   4. weak_skill_review   (least-recently-touched weak skill)
- *   5. stretch             (next-level peek, only if 4 slots not filled)
+ *   2. tree node           (USER_FLOWS B5 "Nodes đang doing (ưu tiên hoàn
+ *                           thành dở)" — in-progress first, then next up)
+ *   3. lesson              (continuation from current week)
+ *   4. lab                 (unfinished from current week / carryover)
+ *   5. weak_skill_review   (least-recently-touched weak skill)
+ *   6. stretch             (next-level peek, only if 4 slots not filled)
  *
  * The planner caps total tasks at 5 and guarantees >=3 when possible. When
  * no context is available it returns a single streak_keeper if at-risk, or
  * a stretch entry if any weak skills exist, or an empty array.
+ *
+ * Roadmap tree nodes and the legacy week/lesson tables are two different
+ * learning surfaces. `nodes` is optional so the engine keeps working for
+ * lesson-only workspaces; the caller feeds whichever surface the workspace
+ * actually has.
  */
 
 export type WeakSkillContext = {
@@ -36,6 +43,19 @@ export type LabContext = {
   estMinutes: number;
 };
 
+/** An unfinished node of the roadmap tree (`roadmap_tree_nodes`). */
+export type NodeTaskContext = {
+  id: string;
+  title: string;
+  /** URL slug so the task row can deep-link to /w/<ws>/n/<slug>. */
+  slug: string;
+  /** roadmap_tree_nodes.node_type — decides the icon/kind shown. */
+  nodeType: string;
+  estMinutes: number;
+  /** true when user_node_progress.status = 'doing' (started, not finished). */
+  inProgress: boolean;
+};
+
 export type UserContext = {
   currentWeek: {
     id: string;
@@ -50,6 +70,12 @@ export type UserContext = {
   yesterdayExercise: { exerciseId: string; promptShort: string } | null;
   /** true if no XP today and last_active was yesterday */
   streakAtRisk: boolean;
+  /**
+   * Unfinished roadmap tree nodes, already ordered by the caller
+   * (in-progress first, then next-up in tree order). Optional: workspaces
+   * that only use the legacy week/lesson tables leave it undefined.
+   */
+  unfinishedNodes?: NodeTaskContext[];
 };
 
 export type PlannedTaskKind =
@@ -79,6 +105,12 @@ export type PlannerOptions = {
   includeStretch?: boolean;
   /** kinds to exclude from generation (e.g. user preferences). */
   excludeKinds?: PlannedTaskKind[];
+  /**
+   * Longest estimate a node may carry and still be proposed as a task for
+   * TODAY. A multi-day container (a whole "week" node) is real work but it is
+   * not a daily task — the learner tracks those on the tree. Default 120.
+   */
+  maxTaskMinutes?: number;
 };
 
 const DEFAULT_OPTIONS: Required<PlannerOptions> = {
@@ -86,6 +118,7 @@ const DEFAULT_OPTIONS: Required<PlannerOptions> = {
   minTasks: 3,
   includeStretch: true,
   excludeKinds: [],
+  maxTaskMinutes: 120,
 };
 
 /**
@@ -122,25 +155,37 @@ export function planDay({
     tryAdd(makeStreakKeeper(userContext.yesterdayExercise));
   }
 
-  // ── 2. Lesson from current unlocked week (continuation) ───────────────
+  // ── 2. Roadmap tree nodes — "finish what you started" first ───────────
+  // Cap the main pass at 2 so a long backlog cannot crowd out weak-skill
+  // review; the backfill below tops up from the same list if needed.
+  const nodePicks = pickNodeTasks(userContext.unfinishedNodes ?? [], opts.maxTaskMinutes);
+  for (const t of nodePicks.slice(0, MAIN_PASS_NODE_SLOTS)) tryAdd(t);
+
+  // ── 3. Lesson from current unlocked week (continuation) ───────────────
   const lessonPick = pickLessonFromWeek(userContext);
   if (lessonPick) tryAdd(lessonPick);
 
-  // ── 3. Lab — unfinished from current week or carryover ────────────────
+  // ── 4. Lab — unfinished from current week or carryover ────────────────
   const labPick = pickLab(userContext);
   if (labPick) tryAdd(labPick);
 
-  // ── 4. Weak-skill review (least-recently-touched first) ───────────────
+  // ── 5. Weak-skill review (least-recently-touched first) ───────────────
   const weakPick = pickWeakSkill(userContext);
   if (weakPick) tryAdd(weakPick);
 
-  // ── 5. Stretch goal — only if we still have headroom ──────────────────
+  // ── 6. Stretch goal — only if we still have headroom ──────────────────
   if (opts.includeStretch && plan.length < opts.maxTasks) {
     const stretchPick = pickStretch(userContext);
     if (stretchPick) tryAdd(stretchPick);
   }
 
-  // ── Fallback: backfill with extra lessons/labs to hit minTasks ────────
+  // ── Fallback: backfill with extra nodes/lessons/labs to hit minTasks ──
+  if (plan.length < opts.minTasks) {
+    for (const t of nodePicks) {
+      if (plan.length >= opts.minTasks) break;
+      tryAdd(t);
+    }
+  }
   if (plan.length < opts.minTasks) {
     for (const l of userContext.unfinishedLessons) {
       if (plan.length >= opts.minTasks) break;
@@ -178,6 +223,50 @@ export function planDay({
 }
 
 /* ============================ INTERNAL HELPERS ============================ */
+
+/** How many tree-node tasks the priority pass may take before other kinds. */
+const MAIN_PASS_NODE_SLOTS = 2;
+
+/** node types that read as hands-on work rather than reading. */
+const HANDS_ON_NODE_TYPES = new Set(['lab', 'project', 'exam', 'tool']);
+
+/** Map a roadmap node onto one of the five persisted task kinds. */
+export function nodeTaskKind(nodeType: string): PlannedTaskKind {
+  return HANDS_ON_NODE_TYPES.has(nodeType) ? 'lab' : 'lesson';
+}
+
+/**
+ * Candidate node tasks for today, in the caller's order.
+ *
+ * Nodes estimated longer than one sitting are dropped so the plan stays
+ * actionable — unless dropping them would leave nothing at all, in which case
+ * we keep the original list rather than hand back an empty day.
+ */
+function pickNodeTasks(
+  nodes: readonly NodeTaskContext[],
+  maxTaskMinutes: number,
+): PlannedTaskInput[] {
+  const fits = nodes.filter((n) => n.estMinutes <= maxTaskMinutes);
+  return (fits.length > 0 ? fits : nodes).map(makeNodeTask);
+}
+
+/**
+ * Turn an unfinished tree node into a planned task. `refKind: 'node'` is what
+ * lets the UI deep-link the row back to /w/<slug>/n/<node-slug> — lesson/lab
+ * refs point at legacy tables that have no page.
+ */
+function makeNodeTask(node: NodeTaskContext): PlannedTaskInput {
+  return {
+    kind: nodeTaskKind(node.nodeType),
+    refKind: 'node',
+    refId: node.id,
+    title: node.title,
+    description: node.inProgress
+      ? 'Đang học dở — hoàn thành nốt hôm nay'
+      : 'Bước tiếp theo trong cây học tập',
+    estMinutes: node.estMinutes,
+  };
+}
 
 function makeStreakKeeper(yesterday: { exerciseId: string; promptShort: string }): PlannedTaskInput {
   return {

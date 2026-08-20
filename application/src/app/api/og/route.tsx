@@ -1,3 +1,5 @@
+// guard-no-adhoc-color: allow — next/og (satori) renders outside the DOM:
+// no CSS variables, no stylesheet. Colours must be literals here.
 /**
  * Dynamic Open Graph image endpoint.
  *

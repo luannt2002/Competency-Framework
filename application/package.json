@@ -2,7 +2,7 @@
   "name": "competency-framework",
   "version": "0.1.0",
   "private": true,
-  "description": "Competency Framework × Duolingo-style self-learning platform. Workspace-first, framework-agnostic. MVP seeds DevOps.",
+  "description": "Competency Framework \u00d7 Duolingo-style self-learning platform. Workspace-first, framework-agnostic. MVP seeds DevOps.",
   "scripts": {
     "dev": "next dev --turbo",
     "build": "next build",
@@ -10,7 +10,7 @@
     "lint": "next lint",
     "guard:no-mock": "tsx scripts/guard-no-mock.ts",
     "guard:no-hardcode": "tsx scripts/guard-no-hardcode.ts",
-    "guard": "pnpm guard:no-mock && pnpm guard:no-hardcode",
+    "guard": "pnpm guard:no-mock && pnpm guard:no-hardcode && pnpm guard:no-adhoc-color",
     "quality:check": "pnpm guard && pnpm lint && pnpm typecheck && pnpm test",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
@@ -22,7 +22,8 @@
     "gen:seed-from-csv": "tsx drizzle/scripts/gen-seed-from-csv.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "guard:no-adhoc-color": "tsx scripts/guard-no-adhoc-color.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

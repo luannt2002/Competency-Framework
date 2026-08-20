@@ -233,7 +233,7 @@ function WorkspaceSwitcher({
                         : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5',
                     )}
                   >
-                    <div className="size-6 rounded-md accent-gradient flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                    <div className="size-6 rounded-md accent-gradient flex items-center justify-center text-white text-[10px] font-bold font-emoji shrink-0">
                       {w.icon ?? w.name.charAt(0).toUpperCase()}
                     </div>
                     <span className="flex-1 truncate">{w.name}</span>

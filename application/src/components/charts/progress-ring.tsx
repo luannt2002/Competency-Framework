@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { BRAND_GRADIENT } from '@/lib/constants/palette';
 
 type Props = {
   value: number; // 0..100
@@ -25,8 +26,8 @@ export function ProgressRing({ value, label, size = 140, stroke = 12 }: Props) {
       <svg width={size} height={size} className="-rotate-90">
         <defs>
           <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#22D3EE" />
-            <stop offset="100%" stopColor="#8B5CF6" />
+            <stop offset="0%" stopColor={BRAND_GRADIENT.from} />
+            <stop offset="100%" stopColor={BRAND_GRADIENT.to} />
           </linearGradient>
         </defs>
         <circle

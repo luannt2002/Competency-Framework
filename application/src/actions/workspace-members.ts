@@ -25,10 +25,8 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { workspaces, workspaceMembers } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
-import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { workspaceMembers } from '@/lib/db/schema';
+import { writeAudit } from '@/lib/rbac/server';
 
 /** Internal: resolve workspace + enforce OWNER-min level (admin surface). */
 

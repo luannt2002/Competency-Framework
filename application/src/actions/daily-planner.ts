@@ -16,10 +16,9 @@ import { isoDate, todayISO, tomorrowISO, daysBetween } from '@/lib/learn/planner
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { eq, and, desc, asc, isNull, inArray, sql } from 'drizzle-orm';
+import { eq, and, desc, asc, max as drizzleMax } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import {
-  workspaces,
   activityLog,
   lessons,
   labs,
@@ -40,15 +39,21 @@ import {
   type DailyTask,
   type DailyTaskKind,
 } from '@/lib/db/schema-v9';
-import { requireUser } from '@/lib/auth/supabase-server';
 import {
   planDay,
   type UserContext,
+  type NodeTaskContext,
   type PlannedTaskInput,
   type PlannedTaskKind,
 } from '@/lib/learn/daily-planner';
+import { insertXpOnce, awardStreakTick } from '@/lib/learn/xp-award';
+import {
+  listUnfinishedLeafNodes,
+  DEFAULT_NODE_EST_MINUTES,
+} from '@/lib/learn/node-progress';
+import { XP } from '@/lib/learn/xp-rules';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 /* ============================ READ + GENERATE ============================ */
 
@@ -187,13 +192,27 @@ async function loadSettings(workspaceId: string, userId: string) {
 
 /* ============================ CONTEXT GATHER ============================ */
 
+/** Upper bound on how many candidate nodes we hand to the planner. */
+const NODE_CANDIDATE_LIMIT = 12;
+
 async function gatherUserContext(workspaceId: string, userId: string): Promise<UserContext> {
   const today = todayISO();
   const settings = await loadSettings(workspaceId, userId);
   const excludedSkillSet = new Set(settings.excludedSkillIds);
 
+  // The roadmap tree is the surface the app actually navigates (/w/<ws>/n/…).
+  // When a workspace has one, plan from it and skip the legacy week/lesson/lab
+  // tables entirely — those rows have no page, so tasks pointing at them are
+  // dead ends for the learner.
+  const unfinishedNodes: NodeTaskContext[] = await listUnfinishedLeafNodes(
+    workspaceId,
+    userId,
+    NODE_CANDIDATE_LIMIT,
+  );
+  const treeFirst = unfinishedNodes.length > 0;
+
   // ─ current week: smallest weekIndex that has at least one not-completed lesson
-  const allLessons = await db
+  const allLessons = treeFirst ? [] : await db
     .select({
       id: lessons.id,
       title: lessons.title,
@@ -208,10 +227,17 @@ async function gatherUserContext(workspaceId: string, userId: string): Promise<U
     .where(eq(lessons.workspaceId, workspaceId))
     .orderBy(asc(weeks.weekIndex), asc(lessons.displayOrder));
 
-  const lessonProgress = await db
-    .select({ lessonId: userLessonProgress.lessonId, status: userLessonProgress.status })
-    .from(userLessonProgress)
-    .where(and(eq(userLessonProgress.workspaceId, workspaceId), eq(userLessonProgress.userId, userId)));
+  const lessonProgress = treeFirst
+    ? []
+    : await db
+        .select({ lessonId: userLessonProgress.lessonId, status: userLessonProgress.status })
+        .from(userLessonProgress)
+        .where(
+          and(
+            eq(userLessonProgress.workspaceId, workspaceId),
+            eq(userLessonProgress.userId, userId),
+          ),
+        );
   const statusByLesson = new Map(lessonProgress.map((p) => [p.lessonId, p.status]));
 
   const unfinishedLessonsAll = allLessons.filter((l) => {
@@ -245,20 +271,22 @@ async function gatherUserContext(workspaceId: string, userId: string): Promise<U
   }));
 
   // ─ unfinished labs (any in workspace where progress not done) ──────────
-  const allLabs = await db
-    .select({
-      id: labs.id,
-      title: labs.title,
-      estMinutes: labs.estMinutes,
-      weekId: labs.weekId,
-      status: userLabProgress.status,
-    })
-    .from(labs)
-    .leftJoin(
-      userLabProgress,
-      and(eq(userLabProgress.labId, labs.id), eq(userLabProgress.userId, userId)),
-    )
-    .where(eq(labs.workspaceId, workspaceId));
+  const allLabs = treeFirst
+    ? []
+    : await db
+        .select({
+          id: labs.id,
+          title: labs.title,
+          estMinutes: labs.estMinutes,
+          weekId: labs.weekId,
+          status: userLabProgress.status,
+        })
+        .from(labs)
+        .leftJoin(
+          userLabProgress,
+          and(eq(userLabProgress.labId, labs.id), eq(userLabProgress.userId, userId)),
+        )
+        .where(eq(labs.workspaceId, workspaceId));
 
   const unfinishedLabs = allLabs
     .filter((l) => l.status !== 'done')
@@ -370,6 +398,7 @@ async function gatherUserContext(workspaceId: string, userId: string): Promise<U
     weakSkills,
     yesterdayExercise,
     streakAtRisk,
+    unfinishedNodes,
   };
 }
 
@@ -397,7 +426,16 @@ async function loadTask(workspaceId: string, userId: string, taskId: string) {
   return row;
 }
 
-export async function markTaskDone(input: z.infer<typeof taskIdInput>): Promise<void> {
+export type TaskDoneResult = {
+  /** XP credited by this tick (task award + streak tick). */
+  xpAwarded: number;
+  /** Streak length after the tick. */
+  streak: number;
+};
+
+export async function markTaskDone(
+  input: z.infer<typeof taskIdInput>,
+): Promise<TaskDoneResult> {
   const parsed = taskIdInput.parse(input);
   const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
   const task = await loadTask(ws.id, user.id, parsed.taskId);
@@ -407,11 +445,30 @@ export async function markTaskDone(input: z.infer<typeof taskIdInput>): Promise<
     .set({ status: 'done', completedAt: new Date() })
     .where(eq(dailyTasks.id, task.id));
 
+  // Flow B5: "Khi tick done → +XP ngay lập tức, Streak cập nhật".
+  // Keyed on the task row so re-ticking a task never double-pays.
+  const paid = await insertXpOnce({
+    workspaceId: ws.id,
+    userId: user.id,
+    amount: XP.DAILY_TASK_COMPLETE,
+    reason: 'daily_task_complete',
+    refKind: 'daily_task',
+    refId: task.id,
+  });
+  const streak = await awardStreakTick(ws.id, user.id);
+  const xpAwarded = (paid ? XP.DAILY_TASK_COMPLETE : 0) + streak.xpAwarded;
+
   await db.insert(activityLog).values({
     workspaceId: ws.id,
     userId: user.id,
     kind: 'daily_task_done',
-    payload: { taskId: task.id, kind: task.kind, refKind: task.refKind, refId: task.refId },
+    payload: {
+      taskId: task.id,
+      kind: task.kind,
+      refKind: task.refKind,
+      refId: task.refId,
+      xp: xpAwarded,
+    },
   });
 
   await writeAudit({
@@ -422,10 +479,84 @@ export async function markTaskDone(input: z.infer<typeof taskIdInput>): Promise<
     resourceType: 'daily_task',
     resourceId: task.id,
     before: { status: task.status },
-    after: { status: 'done' },
+    after: { status: 'done', xpAwarded, streak: streak.newStreak },
   });
 
   revalidatePath(`/w/${ws.slug}/daily`);
+  revalidatePath(`/w/${ws.slug}`);
+  return { xpAwarded, streak: streak.newStreak };
+}
+
+/* ============================ CUSTOM TASK ============================ */
+
+const customTaskInput = z.object({
+  workspaceSlug: z.string(),
+  title: z.string().trim().min(1).max(200),
+  estMinutes: z.number().int().min(1).max(600).optional(),
+});
+
+/**
+ * Flow B5 "+ Add custom task" — the learner types their own item for today.
+ *
+ * Stored with `refKind: 'custom'` and a fresh uuid so it satisfies the
+ * (workspace, user, date, ref) uniqueness index without colliding with the
+ * generated tasks. `kind: 'stretch'` is the generic bucket of the persisted
+ * enum (see schema-v9.dailyTaskKindEnum).
+ */
+export async function addCustomTask(
+  input: z.infer<typeof customTaskInput>,
+): Promise<{ id: string }> {
+  const parsed = customTaskInput.parse(input);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
+  const today = todayISO();
+
+  const [{ next } = { next: null }] = await db
+    .select({ next: drizzleMax(dailyTasks.displayOrder) })
+    .from(dailyTasks)
+    .where(
+      and(
+        eq(dailyTasks.workspaceId, ws.id),
+        eq(dailyTasks.userId, user.id),
+        eq(dailyTasks.planDate, today),
+      ),
+    );
+
+  const [inserted] = await db
+    .insert(dailyTasks)
+    .values({
+      workspaceId: ws.id,
+      userId: user.id,
+      planDate: today,
+      kind: 'stretch',
+      refKind: 'custom',
+      refId: crypto.randomUUID(),
+      title: parsed.title,
+      description: 'Task bạn tự thêm',
+      estMinutes: parsed.estMinutes ?? DEFAULT_NODE_EST_MINUTES,
+      displayOrder: (next ?? -1) + 1,
+    })
+    .returning({ id: dailyTasks.id });
+  if (!inserted) throw new Error('INSERT_FAILED');
+
+  await db.insert(activityLog).values({
+    workspaceId: ws.id,
+    userId: user.id,
+    kind: 'daily_task_added',
+    payload: { taskId: inserted.id, title: parsed.title },
+  });
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'daily_task.add_custom',
+    resourceType: 'daily_task',
+    resourceId: inserted.id,
+    before: null,
+    after: { title: parsed.title, planDate: today },
+  });
+
+  revalidatePath(`/w/${ws.slug}/daily`);
+  return { id: inserted.id };
 }
 
 export async function markTaskSkipped(input: z.infer<typeof taskIdInput>): Promise<void> {
@@ -596,8 +727,3 @@ export async function updatePlannerSettings(input: z.infer<typeof settingsInput>
 // Re-export types for client component imports.
 export type { DailyTask, DailyTaskKind };
 export type { PlannedTaskInput };
-
-// silence unused-import warnings on helpers we keep for future use
-void isNull;
-void inArray;
-void sql;

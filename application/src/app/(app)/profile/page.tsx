@@ -95,7 +95,7 @@ export default async function ProfilePage() {
     >
       {/* Hero — avatar shrinks on narrow viewports so the email gets more room */}
       <header className="flex items-center gap-3 sm:gap-5">
-        <div className="size-12 sm:size-16 rounded-full accent-gradient flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-lg shadow-cyan-500/20 shrink-0">
+        <div className="size-12 sm:size-16 rounded-full accent-gradient flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-lg shadow-hue-1/20 shrink-0">
           {(user.email ?? 'U').charAt(0).toUpperCase()}
         </div>
         <div className="min-w-0">
@@ -114,7 +114,7 @@ export default async function ProfilePage() {
             <Link
               key={ws.id}
               href={`/w/${ws.slug}/n/${node.slug}`}
-              className="surface surface-lift p-4 flex items-center gap-4 border-l-4 border-l-[#ff6b6b] hover:border-l-[#ff8787] transition-colors"
+              className="surface surface-lift p-4 flex items-center gap-4 border-l-4 border-l-primary hover:border-l-primary/70 transition-colors"
             >
               <div className="text-2xl shrink-0" aria-hidden>🎯</div>
               <div className="min-w-0 flex-1">
@@ -123,7 +123,7 @@ export default async function ProfilePage() {
                 </div>
                 <div className="font-semibold truncate">{node.title}</div>
               </div>
-              <ArrowRight className="size-5 text-[#ff6b6b] shrink-0" />
+              <ArrowRight className="size-5 text-primary shrink-0" />
             </Link>
           ))}
         </section>
@@ -157,7 +157,7 @@ export default async function ProfilePage() {
           value={String(lessonsDone)}
           label="Lessons done"
           sub="completed"
-          color="text-cyan-600"
+          color="text-hue-1"
         />
       </section>
 
@@ -165,7 +165,7 @@ export default async function ProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <CalendarDays className="size-4 text-cyan-600" />
+            <CalendarDays className="size-4 text-hue-1" />
             Learning activity · last 12 weeks
           </CardTitle>
           <CardDescription>XP earned per day, GitHub-style.</CardDescription>
@@ -213,7 +213,7 @@ export default async function ProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Boxes className="size-4 text-violet-600" />
+            <Boxes className="size-4 text-hue-2" />
             My Workspaces ({workspaces.length})
           </CardTitle>
         </CardHeader>

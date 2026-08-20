@@ -1,5 +1,7 @@
 'use client';
 
+import { CHART } from '@/lib/constants/palette';
+
 import {
   Radar,
   RadarChart,
@@ -36,15 +38,15 @@ export function RadarCoverage({ data }: { data: RadarDatum[] }) {
         <Radar
           name="Current"
           dataKey="current"
-          stroke="#22D3EE"
+          stroke={CHART.primary}
           fill="url(#radarGrad)"
           fillOpacity={0.5}
           isAnimationActive
         />
         <defs>
           <linearGradient id="radarGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#22D3EE" stopOpacity={0.6} />
-            <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0.3} />
+            <stop offset="0%" stopColor={CHART.primary} stopOpacity={0.6} />
+            <stop offset="100%" stopColor={CHART.secondary} stopOpacity={0.3} />
           </linearGradient>
         </defs>
       </RadarChart>

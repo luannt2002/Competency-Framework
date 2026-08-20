@@ -23,9 +23,7 @@ import { redirect } from 'next/navigation';
 import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { workspaces } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
-import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 
 const renameInput = z.object({

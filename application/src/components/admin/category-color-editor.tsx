@@ -11,6 +11,7 @@ import { ACCENT_PALETTE } from '@/lib/theme/workspace-theme';
 import { updateCategoryColor } from '@/actions/workspace-admin';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { NEUTRAL_FALLBACK } from '@/lib/constants/palette';
 
 export type CategoryRow = { id: string; name: string; color: string | null };
 
@@ -54,7 +55,7 @@ export function CategoryColorEditor({
           <div key={c.id} className="flex items-center gap-3">
             <span
               className="size-3.5 shrink-0 rounded-full border"
-              style={{ background: cur ?? '#475569', borderColor: `${cur ?? '#475569'}60` }}
+              style={{ background: cur ?? NEUTRAL_FALLBACK, borderColor: `${cur ?? NEUTRAL_FALLBACK}60` }}
             />
             <span className="flex-1 truncate text-sm font-medium">{c.name}</span>
             <div className="flex flex-wrap items-center gap-1 justify-end">

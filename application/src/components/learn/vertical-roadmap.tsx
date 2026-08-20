@@ -38,6 +38,27 @@ function nodeHref(linkBase: string, slug: string): string {
   return `${linkBase.replace(/\/$/, '')}/${slug}`;
 }
 
+/**
+ * Status marks required by USER_FLOWS Flow B3
+ * ("Mỗi node hiện trạng thái: ○ todo | ◑ doing | ● done").
+ */
+const STATUS_MARK = { todo: '○', in_progress: '◑', done: '●' } as const;
+const STATUS_LABEL = {
+  todo: 'chưa học',
+  in_progress: 'đang học',
+  done: 'đã xong',
+} as const;
+
+/** Small "◑ đang học" chip — rendered only in learn mode. */
+function StatusChip({ status }: { status: NodeWithStats['status'] }) {
+  if (status !== 'in_progress') return null;
+  return (
+    <span className="text-[11px] font-mono px-2 py-0.5 rounded-md ml-1 bg-amber-500/15 text-amber-700 dark:text-amber-300">
+      {STATUS_MARK.in_progress} {STATUS_LABEL.in_progress}
+    </span>
+  );
+}
+
 export function VerticalRoadmap({
   sections,
   workspaceSlug,
@@ -136,6 +157,7 @@ function MainPill({
           {node.childrenCount} mục
         </span>
       )}
+      {!readOnly && <StatusChip status={node.status} />}
     </Link>
   );
 }
@@ -174,6 +196,7 @@ function DuolingoPath({
         {subs.map((s, i) => {
           const side = i % 2 === 0 ? 'left' : 'right';
           const isDone = !readOnly && s.status === 'done';
+          const isDoing = !readOnly && s.status === 'in_progress';
           const isCurrent = i === firstUndoneIdx;
           const isLocked = !readOnly && firstUndoneIdx >= 0 && i > firstUndoneIdx + 2;
           const href = nodeHref(linkBase, s.slug);
@@ -188,7 +211,9 @@ function DuolingoPath({
                 href={href}
                 className={`rm-circle ${color}${isDone ? ' done' : ''}${isCurrent ? ' current' : ''}${isLocked ? ' locked' : ''}`}
                 title={s.title}
-                aria-label={s.title}
+                aria-label={
+                  readOnly ? s.title : `${s.title} — ${STATUS_LABEL[s.status]}`
+                }
               >
                 {isDone ? (
                   <Check className="size-7" strokeWidth={3} />
@@ -209,6 +234,11 @@ function DuolingoPath({
                     )}
                     {readOnly && s.childrenCount > 0 && <> · {s.childrenCount} mục</>}
                     {s.estMinutes ? <> · ~{s.estMinutes}p</> : null}
+                    {isDoing && (
+                      <span className="text-amber-600 dark:text-amber-400">
+                        {' '}· {STATUS_MARK.in_progress} {STATUS_LABEL.in_progress}
+                      </span>
+                    )}
                   </div>
                 </Link>
               </div>
@@ -290,11 +320,14 @@ export function RoadmapHero({
   );
 }
 
-/** Static legend (cyan/purple/yellow/green/pink dots). */
-export function RoadmapLegend() {
+/**
+ * Static legend: section colors plus (in learn mode) the ○/◑/● status key
+ * that Flow B3 promises the learner.
+ */
+export function RoadmapLegend({ showStatus = true }: { showStatus?: boolean } = {}) {
   return (
     <div
-      className="mt-20 mx-auto flex flex-wrap gap-4 justify-center p-6 border rounded-xl"
+      className="mt-20 mx-auto flex flex-col gap-3 p-6 border rounded-xl"
       style={{
         borderColor: 'hsl(var(--border))',
         background: 'hsl(var(--card))',
@@ -302,6 +335,19 @@ export function RoadmapLegend() {
         fontFamily: 'var(--font-outfit), sans-serif',
       }}
     >
+      {showStatus && (
+        <div className="flex flex-wrap gap-4 justify-center border-b border-border pb-3 text-xs text-muted-foreground">
+          {(['todo', 'in_progress', 'done'] as const).map((s) => (
+            <span key={s} className="flex items-center gap-1.5">
+              <span aria-hidden className="font-mono">
+                {STATUS_MARK[s]}
+              </span>
+              {STATUS_LABEL[s]}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-4 justify-center">
       {(
         [
           { c: 'var(--rm-cyan)', label: 'Cyan · Phase 1' },
@@ -316,6 +362,7 @@ export function RoadmapLegend() {
           {it.label}
         </div>
       ))}
+      </div>
     </div>
   );
 }

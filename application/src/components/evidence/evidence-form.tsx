@@ -138,7 +138,7 @@ export function EvidenceForm({
                   'flex flex-col items-start gap-0.5 rounded-xl border px-3 py-2 text-left transition-colors',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   selected
-                    ? 'border-cyan-400/60 bg-cyan-500/10'
+                    ? 'border-hue-1/60 bg-hue-1/10'
                     : 'border-border bg-secondary/30 hover:bg-secondary/60',
                 )}
               >
@@ -174,7 +174,7 @@ export function EvidenceForm({
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={score}
-          className="w-full accent-cyan-400"
+          className="w-full accent-hue-1"
         />
       </div>
 

@@ -67,7 +67,7 @@ export function NodeToc({ headings }: { headings: TocHeading[] }) {
                   'block py-1 -ml-px border-l-2 transition-colors',
                   h.level === 3 ? 'pl-6' : 'pl-3',
                   activeSlug === h.slug
-                    ? 'border-cyan-500 text-foreground font-medium'
+                    ? 'border-hue-1 text-foreground font-medium'
                     : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
                 )}
               >

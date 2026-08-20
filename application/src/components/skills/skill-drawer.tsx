@@ -56,6 +56,7 @@ import {
 } from '@/actions/evidence';
 import type { ConfidenceResult, ConfidenceSource } from '@/lib/evidence/confidence';
 import { cn } from '@/lib/utils';
+import { NEUTRAL_FALLBACK } from '@/lib/constants/palette';
 
 export type LevelCode = 'XS' | 'S' | 'M' | 'L';
 
@@ -217,7 +218,7 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
             <Badge
               variant="outline"
               style={{
-                borderColor: `${data.categoryColor ?? '#475569'}40`,
+                borderColor: `${data.categoryColor ?? NEUTRAL_FALLBACK}40`,
                 color: data.categoryColor ?? undefined,
               }}
             >
@@ -297,7 +298,7 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
                   className={cn(
                     'rounded-xl border p-3 text-center transition-all active:scale-95',
                     level === lvl
-                      ? 'border-primary bg-gradient-to-br from-cyan-400/20 to-violet-500/20 ring-2 ring-primary/40'
+                      ? 'border-primary bg-gradient-to-br from-hue-1/20 to-hue-2/20 ring-2 ring-primary/40'
                       : 'border-border bg-secondary/30 hover:bg-secondary/60',
                   )}
                 >
@@ -400,7 +401,7 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
               ) : (
                 <ChevronRight className="size-4 text-muted-foreground" />
               )}
-              <ShieldCheck className="size-4 text-cyan-400" aria-hidden />
+              <ShieldCheck className="size-4 text-hue-1" aria-hidden />
               <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold group-hover:text-foreground transition-colors">
                 Verified evidence (V8)
               </h3>
@@ -549,7 +550,7 @@ function SourcePill({ source }: { source: ConfidenceSource }) {
   if (source === 'verified') {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-full border border-transparent bg-gradient-to-r from-cyan-400/30 to-violet-500/30 px-2 py-0.5 text-[10px] font-medium text-foreground"
+        className="inline-flex items-center gap-1 rounded-full border border-transparent bg-gradient-to-r from-hue-1/30 to-hue-2/30 px-2 py-0.5 text-[10px] font-medium text-foreground"
         title="Verified — manager review on file"
       >
         <ShieldCheck className="size-3" /> verified
@@ -558,7 +559,7 @@ function SourcePill({ source }: { source: ConfidenceSource }) {
   }
   if (source === 'learned') {
     return (
-      <span className="inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-700 dark:text-cyan-300">
+      <span className="inline-flex items-center rounded-full border border-hue-1/30 bg-hue-1/10 px-2 py-0.5 text-[10px] font-medium text-hue-1">
         learned
       </span>
     );
@@ -578,8 +579,8 @@ const KIND_LABEL: Record<EvidenceRow['kind'], string> = {
 };
 
 const KIND_TONE: Record<EvidenceRow['kind'], string> = {
-  lab: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
-  project: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30',
+  lab: 'bg-primary/15 text-primary border-primary/30',
+  project: 'bg-hue-2/15 text-hue-2 border-hue-2/30',
   peer_review: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
   manager_review: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
 };

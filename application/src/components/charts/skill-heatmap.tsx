@@ -13,9 +13,9 @@ export type HeatmapRow = {
 
 const LVL_BG: Record<string, string> = {
   XS: 'bg-slate-500/40',
-  S: 'bg-sky-500/60',
+  S: 'bg-primary/60',
   M: 'bg-emerald-500/70',
-  L: 'bg-violet-500/85',
+  L: 'bg-hue-2/85',
 };
 
 export function SkillHeatmap({ rows }: { rows: HeatmapRow[] }) {
@@ -48,9 +48,9 @@ export function SkillHeatmap({ rows }: { rows: HeatmapRow[] }) {
         <span>Legend:</span>
         <LegendCell color="bg-secondary/40" label="—" />
         <LegendCell color="bg-slate-500/40" label="XS" />
-        <LegendCell color="bg-sky-500/60" label="S" />
+        <LegendCell color="bg-primary/60" label="S" />
         <LegendCell color="bg-emerald-500/70" label="M" />
-        <LegendCell color="bg-violet-500/85" label="L" />
+        <LegendCell color="bg-hue-2/85" label="L" />
       </div>
     </div>
   );

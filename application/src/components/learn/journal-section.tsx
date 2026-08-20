@@ -94,7 +94,7 @@ export async function JournalSection({
               ? 'Mục này chưa có ghi chú, blog hay tổng kết lab.'
               : 'Ghi chú, blog, hoặc tổng kết bài lab — tất cả đều ở đây.'
           }
-          className="border-dashed border-violet-500/30 bg-violet-500/5"
+          className="border-dashed border-hue-2/30 bg-hue-2/5"
         />
       ) : (
         <ul className="space-y-4">

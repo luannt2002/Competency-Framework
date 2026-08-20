@@ -50,6 +50,7 @@ import { roadmapTreeNodes } from '@/lib/db/schema-tree';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { frameworkPayloadSchema, type FrameworkPayload } from '@/lib/framework/payload-schema';
 import { toSlug } from '@/lib/utils';
+import { reserveWorkspaceSlug } from '@/lib/workspace/slug';
 import { writeAudit } from '@/lib/rbac/server';
 
 const forkInput = z.object({
@@ -82,12 +83,16 @@ async function forkTemplateCore(input: {
 
   const payload: FrameworkPayload = frameworkPayloadSchema.parse(tpl.payload);
 
+  // Slug must be free across the whole table (migration 0010), not just for
+  // this owner — otherwise the insert races into workspaces_slug_uq.
+  const slug = await reserveWorkspaceSlug(parsed.slug);
+
   // Insert workspace
   const [ws] = await db
     .insert(workspaces)
     .values({
       ownerUserId: user.id,
-      slug: parsed.slug,
+      slug,
       name: parsed.name,
       icon: payload.icon,
       color: payload.color,
@@ -357,7 +362,7 @@ export async function forkTemplate(formData: FormData): Promise<void> {
  * we don't collide if the user has already forked the same template before.
  */
 export async function forkTemplateForOnboarding(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  await requireUser();
   const templateId = String(formData.get('templateId') ?? '');
   if (!templateId) throw new Error('TEMPLATE_ID_REQUIRED');
 
@@ -370,13 +375,13 @@ export async function forkTemplateForOnboarding(formData: FormData): Promise<voi
   const tpl = tplRows[0];
   if (!tpl) throw new Error('TEMPLATE_NOT_FOUND');
 
-  // Auto-pick a unique slug: <tpl-slug>-<userId-prefix>-<random>
-  const suffix = Math.random().toString(36).slice(2, 6);
-  const baseSlug = toSlug(`${tpl.slug}-${user.id.slice(0, 4)}-${suffix}`);
-
+  // Readable slug derived from the template name; reserveWorkspaceSlug (called
+  // inside forkTemplateCore) appends -2/-3 only if it is actually taken. The
+  // old `<slug>-<uid4>-<random>` produced URLs like `devops-77b0-k3xa` for
+  // every fork, even the first one.
   const ws = await forkTemplateCore({
     templateId,
-    slug: baseSlug,
+    slug: tpl.slug,
     name: `${tpl.name} (Mine)`,
   });
 
@@ -405,22 +410,15 @@ export async function renameOnboardingWorkspace(formData: FormData): Promise<voi
   if (!ws) throw new Error('WORKSPACE_NOT_FOUND');
   if (ws.ownerUserId !== user.id) throw new Error('FORBIDDEN');
 
-  const desiredSlug = toSlug(rawName).slice(0, 40) || ws.slug;
+  // Exclude self so re-saving the same name is a no-op instead of bumping to -2.
+  const finalSlug = await reserveWorkspaceSlug(rawName || ws.slug, {
+    excludeWorkspaceId: workspaceId,
+  });
 
-  // Try slug update; fall back to existing slug on uniqueness conflict
-  let finalSlug = ws.slug;
-  try {
-    await db
-      .update(workspaces)
-      .set({ name: rawName.slice(0, 80), slug: desiredSlug })
-      .where(eq(workspaces.id, workspaceId));
-    finalSlug = desiredSlug;
-  } catch {
-    await db
-      .update(workspaces)
-      .set({ name: rawName.slice(0, 80) })
-      .where(eq(workspaces.id, workspaceId));
-  }
+  await db
+    .update(workspaces)
+    .set({ name: rawName.slice(0, 80), slug: finalSlug })
+    .where(eq(workspaces.id, workspaceId));
 
   revalidatePath('/');
   redirect(`/onboarding?step=3&ws=${workspaceId}&slug=${finalSlug}`);
@@ -434,8 +432,7 @@ export async function renameOnboardingWorkspace(formData: FormData): Promise<voi
 export async function createBlankWorkspace(): Promise<void> {
   const user = await requireUser();
 
-  const suffix = Math.random().toString(36).slice(2, 6);
-  const slug = toSlug(`workspace-${user.id.slice(0, 4)}-${suffix}`);
+  const slug = await reserveWorkspaceSlug('cay-trong');
 
   const [ws] = await db
     .insert(workspaces)
@@ -511,9 +508,9 @@ export async function forkWorkspace(formData: FormData): Promise<void> {
     idMap.set(node.id, crypto.randomUUID());
   }
 
-  // Create new workspace for the current user
-  const suffix = Math.random().toString(36).slice(2, 6);
-  const newSlug = toSlug(`${srcWs.slug}-${user.id.slice(0, 4)}-${suffix}`).slice(0, 40);
+  // Create new workspace for the current user. Forking a public roadmap should
+  // give a readable URL (`devops-test-2`), not `devops-test-77b0-k3xa`.
+  const newSlug = await reserveWorkspaceSlug(srcWs.slug);
 
   const [newWs] = await db
     .insert(workspaces)

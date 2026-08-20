@@ -17,7 +17,6 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import {
   skills,
-  workspaces,
   userSkillProgress,
   activityLog,
 } from '@/lib/db/schema';
@@ -27,14 +26,13 @@ import {
   type EvidenceKind,
   type EvidenceGrade,
 } from '@/lib/db/schema-v8';
-import { requireUser } from '@/lib/auth/supabase-server';
 import {
   computeConfidenceFromGrades,
   VERIFIED_MIN_SCORE,
   type ConfidenceResult,
 } from '@/lib/evidence/confidence';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 /* ============================ HELPERS ============================ */
 

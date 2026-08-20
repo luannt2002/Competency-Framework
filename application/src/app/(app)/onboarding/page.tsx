@@ -368,7 +368,7 @@ function WizardShell({
     >
       <div className="w-full max-w-3xl py-8">
         <div className="text-center mb-8">
-          <div className="mx-auto size-12 rounded-2xl accent-gradient flex items-center justify-center mb-4 shadow-lg shadow-cyan-500/20">
+          <div className="mx-auto size-12 rounded-2xl accent-gradient flex items-center justify-center mb-4 shadow-lg shadow-hue-1/20">
             <Sparkles className="size-6 text-white" aria-hidden="true" />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{title}</h1>

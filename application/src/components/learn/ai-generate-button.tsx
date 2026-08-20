@@ -39,7 +39,7 @@ export function AiGenerateButton({ workspaceSlug, lessonId, count = 2 }: Props) 
 
   return (
     <Button onClick={handle} variant="outline" size="sm" disabled={busy}>
-      {busy ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3 text-violet-400" />}
+      {busy ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3 text-hue-2" />}
       Generate more exercises (AI)
     </Button>
   );

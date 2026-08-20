@@ -36,10 +36,10 @@ const KIND_META: Record<
   ResourceKind,
   { label: string; Icon: typeof Link2; colorClass: string }
 > = {
-  link: { label: 'Link', Icon: Link2, colorClass: 'text-cyan-500' },
+  link: { label: 'Link', Icon: Link2, colorClass: 'text-hue-1' },
   video: { label: 'Video', Icon: Video, colorClass: 'text-rose-500' },
   doc: { label: 'Tài liệu', Icon: FileText, colorClass: 'text-amber-500' },
-  book: { label: 'Sách', Icon: BookOpen, colorClass: 'text-violet-500' },
+  book: { label: 'Sách', Icon: BookOpen, colorClass: 'text-hue-2' },
 };
 
 const KIND_ORDER: ResourceKind[] = ['link', 'video', 'doc', 'book'];

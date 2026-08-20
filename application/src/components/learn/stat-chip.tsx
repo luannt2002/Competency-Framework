@@ -9,7 +9,7 @@ export function StatChip({
   label,
   value,
   sub,
-  color = 'text-cyan-500',
+  color = 'text-hue-1',
 }: {
   icon: LucideIcon;
   label: string;

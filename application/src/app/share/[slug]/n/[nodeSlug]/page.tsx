@@ -211,7 +211,7 @@ export default async function ShareNodePage({
       />
 
       {/* Login CTA */}
-      <section className="surface p-6 text-center bg-gradient-to-br from-cyan-50 via-violet-50 to-pink-50 dark:from-cyan-950/30 dark:via-violet-950/30 dark:to-pink-950/30">
+      <section className="surface p-6 text-center bg-gradient-to-br from-hue-1 via-hue-2 to-hue-5 dark:from-hue-1/30 dark:via-hue-2/30 dark:to-hue-5/30">
         <h3 className="text-lg font-bold mb-2">Muốn học và lưu tiến độ?</h3>
         <p className="text-sm text-muted-foreground mb-4">
           Đăng nhập để mở khoá: đánh dấu xong, thêm note, theo dõi streak, XP.

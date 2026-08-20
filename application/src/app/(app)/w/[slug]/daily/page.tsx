@@ -5,11 +5,12 @@
  * (returns today's existing plan if any, otherwise generates fresh).
  * Renders header + progress bar + task list (client component for interactivity).
  */
-import { Calendar, Clock, Sparkles, Target, Plus, Zap, ListChecks } from 'lucide-react';
+import Link from 'next/link';
+import { Calendar, Clock, Sparkles, Target, Zap, ListChecks, ArrowRight } from 'lucide-react';
 import { requireWorkspaceAccess } from '@/lib/workspace';
 import { getOrGenerateDailyPlan } from '@/actions/daily-planner';
 import { TodayFocus } from '@/components/daily/today-focus';
-import { Button } from '@/components/ui/button';
+import { DailyQuickAdd } from '@/components/learn/daily-quick-add';
 import { StatChip } from '@/components/learn/stat-chip';
 import { cn } from '@/lib/utils';
 
@@ -59,10 +60,7 @@ export default async function DailyPage({
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" disabled title="Quick-add coming soon">
-          <Plus className="size-3" />
-          Quick add
-        </Button>
+        <DailyQuickAdd workspaceSlug={ws.slug} />
       </header>
 
       {/* Stat chips */}
@@ -86,7 +84,7 @@ export default async function DailyPage({
           label="Time planned"
           value={`${view.totalEstMinutes}m`}
           sub="estimated"
-          color="text-cyan-500"
+          color="text-hue-1"
         />
       </section>
 
@@ -94,7 +92,7 @@ export default async function DailyPage({
       <section className="surface p-5 space-y-3">
         <div className="flex items-center justify-between text-sm">
           <span className="flex items-center gap-2 font-medium">
-            <Target className="size-4 text-cyan-500" />
+            <Target className="size-4 text-hue-1" />
             Daily goal
           </span>
           <span className="tabular-nums text-muted-foreground">
@@ -122,8 +120,33 @@ export default async function DailyPage({
         )}
       </section>
 
-      {/* Tasks */}
-      <TodayFocus workspaceSlug={ws.slug} tasks={view.tasks} />
+      {/* Tasks — empty state per USER_FLOWS "Error States và Empty States":
+          no fake rows, just the truth + a way to act on it. */}
+      {view.tasks.length === 0 ? (
+        <section className="surface p-8 text-center space-y-3 border-dashed">
+          <Calendar className="size-8 text-amber-400/70 mx-auto" aria-hidden />
+          <h2 className="font-semibold text-sm">Không có gợi ý hôm nay</h2>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+            Chưa có node nào đang học dở và không có kỹ năng nào cần ôn. Thêm task thủ công
+            hoặc mở cây học tập để chọn bước tiếp theo.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+            <DailyQuickAdd
+              workspaceSlug={ws.slug}
+              variant="block"
+              label="Thêm task thủ công"
+            />
+            <Link
+              href={`/w/${ws.slug}`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary mt-2"
+            >
+              Mở cây học tập <ArrowRight className="size-3.5" />
+            </Link>
+          </div>
+        </section>
+      ) : (
+        <TodayFocus workspaceSlug={ws.slug} tasks={view.tasks} />
+      )}
     </div>
   );
 }

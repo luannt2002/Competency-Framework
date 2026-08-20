@@ -1,11 +1,12 @@
 'use client';
 
 /**
- * Inline action toolbar for a node detail page:
- *  - Toggle done (with hierarchical gate enforced server-side)
- *  - Add child node
- *  - Edit current node
- *  - Delete (with subtree confirmation)
+ * Inline action toolbar for a node detail page (USER_FLOWS.md → Flow B4
+ * "Action panel"):
+ *  - Đang học      → status = doing
+ *  - Gắn evidence  → evidence URLs on user_node_progress
+ *  - Đánh dấu xong → toggle done (hierarchical gate enforced server-side)
+ *  - Thêm con / Sửa / Xoá (creator affordances)
  *
  * The "Đánh dấu xong" button is optimistic — the visual flips immediately
  * (and confetti fires) before the server commits. On error we revert and
@@ -23,6 +24,8 @@ import {
   Pencil,
   X,
   Save,
+  Play,
+  Link2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +43,8 @@ import {
   createTreeNode,
   updateTreeNode,
   deleteTreeNode,
+  setNodeStatus,
+  setNodeEvidence,
 } from '@/actions/tree-nodes';
 import { NODE_TYPE_OPTIONS } from '@/lib/tree/node-meta';
 import { fireConfetti } from './confetti';
@@ -57,6 +62,10 @@ type Props = {
     status: 'todo' | 'in_progress' | 'done';
     childrenCount: number;
     parentSlug?: string | null;
+    /** Raw own progress status — 'in_progress' above can come from children. */
+    ownStatus?: 'todo' | 'doing' | 'done';
+    /** Evidence URLs already attached to this node by the current learner. */
+    evidenceUrls?: string[];
   };
 };
 
@@ -64,7 +73,9 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
   const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const evidenceCount = (node.evidenceUrls ?? []).length;
 
   // Optimistic mirror of the done state. We don't try to model the cascade
   // here (children blocking the toggle) — that comes from the server. The
@@ -89,7 +100,15 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
       try {
         const res = await toggleNodeDone(workspaceSlug, node.id);
         if (res.action === 'marked_done') {
-          toast.success('Đánh dấu xong');
+          const bits: string[] = [];
+          if (res.xpAwarded > 0) bits.push(`+${res.xpAwarded} XP`);
+          if (res.streak > 0) bits.push(`🔥 streak ${res.streak}`);
+          toast.success('Đánh dấu xong', {
+            description: bits.length > 0 ? bits.join(' · ') : undefined,
+          });
+          for (const b of res.badges) {
+            toast.success(`Huy hiệu mới: ${b.icon ?? '🏅'} ${b.name}`);
+          }
         } else {
           toast.info(
             res.cascadedUp > 0
@@ -136,9 +155,50 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
     });
   };
 
+  const isDoing = node.ownStatus === 'doing';
+
+  const onToggleDoing = () => {
+    startTransition(async () => {
+      try {
+        const next = isDoing ? 'todo' : 'doing';
+        await setNodeStatus({ workspaceSlug, nodeId: node.id, status: next });
+        toast.success(next === 'doing' ? 'Đang học node này' : 'Đã bỏ đánh dấu đang học');
+        router.refresh();
+      } catch (e) {
+        toast.error('Lỗi', { description: e instanceof Error ? e.message : String(e) });
+      }
+    });
+  };
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
+        {!isDone && (
+          <Button
+            onClick={onToggleDoing}
+            disabled={pending}
+            variant={isDoing ? 'secondary' : 'outline'}
+            size="sm"
+            aria-pressed={isDoing}
+          >
+            <Play className="size-3" />
+            {isDoing ? 'Đang học' : 'Bắt đầu học'}
+          </Button>
+        )}
+        <Button
+          onClick={() => setEvidenceOpen(true)}
+          disabled={pending}
+          variant="outline"
+          size="sm"
+        >
+          <Link2 className="size-3" />
+          Gắn evidence
+          {evidenceCount > 0 && (
+            <span className="ml-1 rounded-full bg-emerald-500/15 px-1.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+              {evidenceCount}
+            </span>
+          )}
+        </Button>
         <Button
           onClick={onToggleDone}
           disabled={pending}
@@ -181,7 +241,110 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
         workspaceSlug={workspaceSlug}
         node={node}
       />
+      <EvidenceDialog
+        open={evidenceOpen}
+        onOpenChange={setEvidenceOpen}
+        workspaceSlug={workspaceSlug}
+        nodeId={node.id}
+        nodeTitle={node.title}
+        initialUrls={node.evidenceUrls ?? []}
+      />
     </>
+  );
+}
+
+/**
+ * Evidence panel — one URL per line, validated client-side before the action
+ * runs so the learner sees which line is wrong instead of a zod dump.
+ */
+function EvidenceDialog({
+  open,
+  onOpenChange,
+  workspaceSlug,
+  nodeId,
+  nodeTitle,
+  initialUrls,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  workspaceSlug: string;
+  nodeId: string;
+  nodeTitle: string;
+  initialUrls: string[];
+}) {
+  const router = useRouter();
+  const [text, setText] = useState(initialUrls.join('\n'));
+  const [pending, startTransition] = useTransition();
+
+  const urls = text
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const invalid = urls.filter((u) => {
+    try {
+      new URL(u);
+      return false;
+    } catch {
+      return true;
+    }
+  });
+
+  const submit = () => {
+    if (invalid.length > 0) {
+      toast.error('URL không hợp lệ', { description: invalid[0] });
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const res = await setNodeEvidence({ workspaceSlug, nodeId, evidenceUrls: urls });
+        toast.success(
+          res.count === 0 ? 'Đã xoá hết evidence' : `Đã lưu ${res.count} link bằng chứng`,
+        );
+        onOpenChange(false);
+        router.refresh();
+      } catch (e) {
+        toast.error('Lỗi lưu evidence', {
+          description: e instanceof Error ? e.message : String(e),
+        });
+      }
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Bằng chứng cho &quot;{nodeTitle}&quot;</DialogTitle>
+          <DialogDescription>
+            Dán link chứng minh bạn đã làm: repo, PR, bài viết, ảnh chụp lab… Mỗi dòng một URL.
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={5}
+          placeholder={'https://github.com/me/demo\nhttps://blog.me/what-i-learned'}
+          aria-label="Danh sách URL bằng chứng"
+        />
+        <p className="text-xs text-muted-foreground">
+          {urls.length} link
+          {invalid.length > 0 && (
+            <span className="text-destructive"> · {invalid.length} dòng không phải URL</span>
+          )}
+        </p>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <X className="size-4" />
+            Huỷ
+          </Button>
+          <Button onClick={submit} disabled={pending || invalid.length > 0}>
+            {pending && <Loader2 className="size-3 animate-spin" />}
+            <Save className="size-4" />
+            Lưu
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -1,28 +1,43 @@
 /**
  * Lesson runner server actions.
  * - startLesson: load lesson + exercises, init user_lesson_progress
- * - submitExercise: evaluate, award XP, decrement hearts on wrong
+ * - submitExercise: grade, award XP, decrement hearts on wrong
  * - completeLesson: bonus XP, tick streak, mark progress
+ * - listGradingQueue / gradeSubmission: EDITOR+ manual grading (essay, rubric)
+ *
+ * Grading itself lives in `@/lib/exercises` (registry + domain). This file only
+ * validates input, resolves the workspace, delegates, and audits.
  */
 'use server';
 import { resolveWorkspace } from '@/lib/rbac/resolve';
 
 import { z } from 'zod';
-import { eq, and, asc, inArray, count, sql } from 'drizzle-orm';
+import { eq, and, asc, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db/client';
 import {
   lessons,
-  exercises,
   userLessonProgress,
-  userExerciseAttempts,
   xpEvents,
   hearts,
-  workspaces,
   activityLog,
+  notifications,
 } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
-import { evaluateExercise, type ExerciseKind } from '@/lib/learn/exercise-evaluator';
+import {
+  openExercises as exercises,
+  exerciseAttempts as userExerciseAttempts,
+} from '@/lib/db/schema-exercises';
+import { gradeAnswer } from '@/lib/exercises/registry';
+import { sanitizePayload } from '@/lib/exercises/sanitize';
+import { loadTypeResolver } from '@/lib/exercises/type-repo';
+import { resolveExerciseType } from '@/lib/exercises/resolve';
+import {
+  listPendingAttempts,
+  countPendingAttempts,
+  gradeAttempt,
+  type PendingAttempt,
+} from '@/lib/exercises/grading';
+import type { GradeResult, GradeStatus } from '@/lib/exercises/types';
 import { XP } from '@/lib/learn/xp-rules';
 import { tickStreak } from '@/lib/gamification/streak';
 import { awardCrowns, type CrownAdvance } from '@/lib/gamification/crowns';
@@ -35,7 +50,7 @@ import {
   hasCorrectAttempt,
 } from '@/lib/learn/xp-award';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 
 export type LessonRunData = {
@@ -44,10 +59,15 @@ export type LessonRunData = {
   introMd: string | null;
   estMinutes: number;
   exercises: Array<{
+    /** Open kind slug — resolved via `exercise_types`, no longer an enum. */
     id: string;
-    kind: ExerciseKind;
+    kind: string;
+    /** Human label of the kind, e.g. "Tự luận". */
+    typeLabel: string;
+    /** `manual`/`hybrid` tell the UI to promise a grade later, not a verdict now. */
+    gradingMode: 'auto' | 'manual' | 'hybrid';
     promptMd: string;
-    /** Public payload (correct answer stripped if applicable). */
+    /** Public payload — every secret path stripped server-side. */
     payload: unknown;
     xpAward: number;
   }>;
@@ -110,40 +130,34 @@ export async function startLesson(input: z.infer<typeof startInput>): Promise<Le
     });
   }
 
+  // One catalogue read per lesson; kinds seen on rows are passed in so a kind
+  // whose type row was retired still resolves via the code registry.
+  const resolver = await loadTypeResolver(
+    ws.id,
+    exerciseRows.map((e) => e.kind),
+  );
+
   return {
     lessonId: lesson.id,
     title: lesson.title,
     introMd: lesson.introMd ?? null,
     estMinutes: lesson.estMinutes ?? 8,
-    exercises: exerciseRows.map((e) => ({
-      id: e.id,
-      kind: e.kind,
-      promptMd: e.promptMd,
-      // Strip server-only correct answer fields for safety
-      payload: stripCorrect(e.kind, e.payload),
-      xpAward: e.xpAward ?? 10,
-    })),
+    exercises: exerciseRows.map((e) => {
+      const type = resolver.get(e.kind) ?? resolveExerciseType(e.kind);
+      return {
+        id: e.id,
+        kind: e.kind,
+        typeLabel: type.label,
+        gradingMode: type.gradingMode,
+        promptMd: e.promptMd,
+        // Answers never leave the server. `secretPaths` is the union of what
+        // the engine declares and what the tenant flagged secret, so a kind
+        // invented at runtime is stripped as thoroughly as a built-in one.
+        payload: sanitizePayload(e.payload, { secretPaths: type.secretPaths }),
+        xpAward: e.xpAward ?? 10,
+      };
+    }),
   };
-}
-
-function stripCorrect(kind: ExerciseKind, payload: unknown): unknown {
-  if (!payload || typeof payload !== 'object') return payload;
-  const p = { ...(payload as Record<string, unknown>) };
-  if (kind === 'mcq' || kind === 'code_block_review') delete p.correctId;
-  if (kind === 'mcq_multi') delete p.correctIds;
-  if (kind === 'fill_blank') {
-    const blanks = (p.blanks as Array<Record<string, unknown>>)?.map((b) => ({
-      id: b.id,
-      // keep matchKind for client hint; strip accepts
-    }));
-    p.blanks = blanks;
-  }
-  if (kind === 'order_steps') delete p.correctOrder;
-  if (kind === 'type_answer') {
-    delete p.accepts;
-    // keep `hint`
-  }
-  return p;
 }
 
 const submitInput = z.object({
@@ -156,7 +170,17 @@ const submitInput = z.object({
 });
 
 export type SubmitResult = {
+  /** Legacy field: true only for a settled, fully-correct attempt. */
   isCorrect: boolean;
+  /** Full verdict. `pending_review` means a human still has to grade it. */
+  status: GradeStatus;
+  /** 0..1. Meaningless while `status === 'pending_review'`. */
+  score: number;
+  /** False when a human produced (or still owes) the grade. */
+  autoGraded: boolean;
+  /** Learner-safe note from the engine. Never contains the answer. */
+  feedback: string | null;
+  /** Withheld until the attempt is settled, so an essay can't be peeked at. */
   explanationMd: string | null;
   xpAwarded: number;
   heartsLeft: number;
@@ -174,7 +198,19 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
   const ex = exRows[0];
   if (!ex) throw new Error('EXERCISE_NOT_FOUND');
 
-  const isCorrect = evaluateExercise(ex.kind, ex.payload, parsed.answer);
+  // Resolve kind -> engine through the catalogue, then grade. `manual` kinds
+  // come back `pending_review`: nothing is settled, so no XP and no heart lost
+  // until a human grades it on /w/[slug]/grading.
+  const resolver = await loadTypeResolver(ws.id, [ex.kind]);
+  const type = resolver.get(ex.kind) ?? resolveExerciseType(ex.kind);
+  const result: GradeResult =
+    type.gradingMode === 'manual'
+      ? { status: 'pending_review', score: 0, autoGraded: false }
+      : gradeAnswer(type.engine, ex.payload, parsed.answer, { config: type.config });
+
+  const isCorrect = result.status === 'correct';
+  const isPending = result.status === 'pending_review';
+  const isWrong = result.status === 'incorrect';
 
   // Server-side retry detection: prior attempts decide retry status, NOT the client.
   // (Client `isRetry` is advisory only — trusting it allowed full first-try XP forever.)
@@ -183,9 +219,14 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
 
   // XP is awarded at most once per exercise (first correct attempt ever).
   // Re-submitting a correct answer awards nothing → no XP farming via replay.
+  //
+  // Scaled by `score`, which is 1 or 0 for every legacy kind — so the six
+  // ported kinds pay exactly what they always paid. A `partial` result pays
+  // proportionally; a `pending_review` one pays nothing until it is graded.
   let xpAwarded = 0;
-  if (isCorrect && !isServerRetry) {
-    xpAwarded = ex.xpAward ?? XP.EXERCISE_CORRECT_FIRST;
+  const earnsXp = !isPending && result.score > 0;
+  if (earnsXp && !isServerRetry) {
+    xpAwarded = Math.round((ex.xpAward ?? XP.EXERCISE_CORRECT_FIRST) * result.score);
     await db.insert(xpEvents).values({
       workspaceId: ws.id,
       userId: user.id,
@@ -194,10 +235,10 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
       refKind: 'exercise',
       refId: ex.id,
     });
-  } else if (isCorrect && isServerRetry) {
+  } else if (earnsXp && isServerRetry) {
     // Retry-correct after at least one wrong attempt: small reward, once per exercise.
     if (!(await hasCorrectAttempt(ws.id, user.id, ex.id))) {
-      xpAwarded = XP.EXERCISE_CORRECT_RETRY;
+      xpAwarded = Math.round(XP.EXERCISE_CORRECT_RETRY * result.score);
       await db.insert(xpEvents).values({
         workspaceId: ws.id,
         userId: user.id,
@@ -209,21 +250,28 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
     }
   }
 
-  // Record attempt
+  // Record attempt. `is_correct` stays in lockstep with `status` so the legacy
+  // readers (computeLessonScore, hasCorrectAttempt) need no change.
   await db.insert(userExerciseAttempts).values({
     workspaceId: ws.id,
     userId: user.id,
     exerciseId: ex.id,
     answer: parsed.answer as Record<string, unknown>,
     isCorrect,
+    status: result.status,
+    score: String(result.score),
     timeTakenMs: parsed.timeTakenMs ?? null,
   });
 
-  // Update hearts (decrement on wrong) — single atomic upsert to avoid the
-  // read-modify-write race where two concurrent wrong answers both read the
-  // same heart count and only lose one heart.
+  // Update hearts — single atomic upsert to avoid the read-modify-write race
+  // where two concurrent wrong answers both read the same heart count and only
+  // lose one heart.
+  //
+  // Only a settled WRONG answer costs a heart. An essay awaiting review has not
+  // been judged yet, and a partial answer was not wrong — charging either would
+  // punish the learner for the grader's latency.
   let heartsLeft = 5;
-  if (!isCorrect) {
+  if (isWrong) {
     const HEART_REFILL_MS = 4 * 60 * 60 * 1000;
     const upserted = await db
       .insert(hearts)
@@ -260,12 +308,26 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
     resourceType: 'exercise',
     resourceId: ex.id,
     before: null,
-    after: { isCorrect, xpAwarded, isRetry: isServerRetry },
+    after: {
+      isCorrect,
+      status: result.status,
+      score: result.score,
+      kind: ex.kind,
+      engine: type.engine,
+      xpAwarded,
+      isRetry: isServerRetry,
+    },
   });
 
   return {
     isCorrect,
-    explanationMd: ex.explanationMd ?? null,
+    status: result.status,
+    score: result.score,
+    autoGraded: result.autoGraded,
+    feedback: result.feedback ?? null,
+    // Holding the explanation back while the attempt is unsettled stops a
+    // learner from reading the model answer out of a pending essay.
+    explanationMd: isPending ? null : ex.explanationMd ?? null,
     xpAwarded,
     heartsLeft,
   };
@@ -448,5 +510,130 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
     weekCompleted: unlock.weekCompleted,
     levelCompleted: unlock.levelCompleted,
     newlyUnlockedLevelCodes: unlock.newlyUnlockedLevelCodes,
+  };
+}
+
+/* ============================ manual grading (EDITOR+) ============================ */
+
+/**
+ * Read the pending-review queue for a workspace.
+ *
+ * EDITOR is the floor: grading decides someone's XP and progress, so it sits
+ * with the people who own the content, not with every learner.
+ */
+export async function listGradingQueue(input: {
+  workspaceSlug: string;
+  limit?: number;
+}): Promise<{ items: PendingAttempt[]; total: number }> {
+  const parsed = z
+    .object({
+      workspaceSlug: z.string(),
+      limit: z.number().int().min(1).max(200).optional(),
+    })
+    .parse(input);
+
+  const { ws } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
+  const [items, total] = await Promise.all([
+    listPendingAttempts(ws.id, parsed.limit ?? 50),
+    countPendingAttempts(ws.id),
+  ]);
+  return { items, total };
+}
+
+const gradeInput = z
+  .object({
+    workspaceSlug: z.string(),
+    attemptId: z.string().uuid(),
+    /** Direct 0..1 score — essay and manual overrides. */
+    score: z.number().min(0).max(1).optional(),
+    /** Per-criterion 0..1 scores — rubric. The engine does the weighting. */
+    rubricScores: z.record(z.number().min(0).max(1)).optional(),
+    feedbackMd: z.string().max(10_000).optional(),
+  })
+  .refine((v) => v.score !== undefined || v.rubricScores !== undefined, {
+    message: 'score or rubricScores is required',
+  });
+
+export type GradeSubmissionResult = {
+  status: GradeStatus;
+  score: number;
+  xpAwarded: number;
+};
+
+/**
+ * Settle one pending attempt: score it, notify the learner, audit the decision.
+ *
+ * The action itself only validates, resolves the workspace and delegates —
+ * every rule (which engine, how a rubric totals, whether XP is owed) lives in
+ * `@/lib/exercises/grading`.
+ */
+export async function gradeSubmission(
+  input: z.infer<typeof gradeInput>,
+): Promise<GradeSubmissionResult> {
+  const parsed = gradeInput.parse(input);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
+
+  const outcome = await gradeAttempt({
+    workspaceId: ws.id,
+    attemptId: parsed.attemptId,
+    graderUserId: user.id,
+    score: parsed.score,
+    rubricScores: parsed.rubricScores,
+    feedbackMd: parsed.feedbackMd,
+  });
+
+  // Tell the learner. A notification failure must not undo the grade.
+  try {
+    await db.insert(notifications).values({
+      recipientUserId: outcome.learnerUserId,
+      kind: 'attempt.graded',
+      workspaceId: ws.id,
+      resourceType: 'exercise',
+      resourceId: outcome.exerciseId,
+      title: 'Bài của bạn đã được chấm',
+      body: parsed.feedbackMd
+        ? parsed.feedbackMd.slice(0, 200)
+        : `Kết quả: ${outcome.result.status} (${Math.round(outcome.result.score * 100)}%).`,
+    });
+  } catch (err) {
+    console.error('[learn.gradeSubmission] notification failed:', err);
+  }
+
+  await db.insert(activityLog).values({
+    workspaceId: ws.id,
+    userId: outcome.learnerUserId,
+    kind: 'attempt_graded',
+    payload: {
+      attemptId: outcome.attemptId,
+      exerciseId: outcome.exerciseId,
+      status: outcome.result.status,
+      score: outcome.result.score,
+    },
+  });
+
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'attempt.grade',
+    resourceType: 'exercise_attempt',
+    resourceId: outcome.attemptId,
+    before: outcome.before,
+    after: {
+      status: outcome.result.status,
+      score: outcome.result.score,
+      learnerUserId: outcome.learnerUserId,
+      xpAwarded: outcome.xpAwarded,
+      rubricScores: parsed.rubricScores ?? null,
+    },
+  });
+
+  revalidatePath(`/w/${ws.slug}/grading`);
+  revalidatePath(`/w/${ws.slug}`);
+
+  return {
+    status: outcome.result.status,
+    score: outcome.result.score,
+    xpAwarded: outcome.xpAwarded,
   };
 }

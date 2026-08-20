@@ -8,10 +8,9 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { workspaces, userWeekNotes, weeks, activityLog } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
+import { userWeekNotes, weeks, activityLog } from '@/lib/db/schema';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 
 const addInput = z.object({

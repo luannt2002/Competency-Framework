@@ -66,9 +66,13 @@ export function QuickNoteComposer({ workspaceSlug, nodeId }: Props) {
   };
 
   return (
-    <div className="surface p-4 space-y-2 border-dashed border-[#ff6b6b]/30 bg-[#ff6b6b]/5">
+    // `id` is the scroll target of the dashboard's "Ghi chú hôm nay" quick action.
+    <div
+      id="quick-note"
+      className="surface scroll-mt-20 p-4 space-y-2 border-dashed border-primary/30 bg-primary/5"
+    >
       <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-mono text-muted-foreground">
-        <StickyNote className="size-3.5 text-[#ff6b6b]" />
+        <StickyNote className="size-3.5 text-primary" />
         Note nhanh
       </div>
       <Textarea

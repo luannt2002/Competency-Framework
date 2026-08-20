@@ -21,9 +21,9 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function bucketClass(xp: number): string {
   if (xp === 0) return 'bg-secondary/40';
-  if (xp < 30) return 'bg-cyan-500/30';
-  if (xp < 100) return 'bg-cyan-500/60';
-  if (xp < 200) return 'bg-violet-500/70';
+  if (xp < 30) return 'bg-hue-1/30';
+  if (xp < 100) return 'bg-hue-1/60';
+  if (xp < 200) return 'bg-hue-2/70';
   return 'progress-brand';
 }
 
@@ -67,9 +67,9 @@ export function ActivityHeatmap({ data, weeks = 12 }: Props) {
       <div className="mt-3 flex items-center gap-2 text-[10px] text-muted-foreground">
         <span>Less</span>
         <span className="size-3 rounded-sm bg-secondary/40" />
-        <span className="size-3 rounded-sm bg-cyan-500/30" />
-        <span className="size-3 rounded-sm bg-cyan-500/60" />
-        <span className="size-3 rounded-sm bg-violet-500/70" />
+        <span className="size-3 rounded-sm bg-hue-1/30" />
+        <span className="size-3 rounded-sm bg-hue-1/60" />
+        <span className="size-3 rounded-sm bg-hue-2/70" />
         <span className="size-3 rounded-sm progress-brand" />
         <span>More</span>
       </div>

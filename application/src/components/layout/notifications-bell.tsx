@@ -177,7 +177,7 @@ export function NotificationsBell() {
                     onClick={() => onClickItem(n)}
                     className={cn(
                       'block w-full text-left px-3 py-2.5 hover:bg-secondary/50 transition-colors',
-                      n.readAt === null && 'bg-cyan-500/5',
+                      n.readAt === null && 'bg-hue-1/5',
                     )}
                   >
                     <div className="flex items-start gap-2">

@@ -45,8 +45,8 @@ const KIND_META: Record<
   DailyTaskKind,
   { icon: typeof BookOpen; label: string; accent: string }
 > = {
-  lesson: { icon: BookOpen, label: 'Lesson', accent: 'text-violet-400' },
-  lab: { icon: Beaker, label: 'Lab', accent: 'text-cyan-400' },
+  lesson: { icon: BookOpen, label: 'Lesson', accent: 'text-hue-2' },
+  lab: { icon: Beaker, label: 'Lab', accent: 'text-hue-1' },
   weak_skill_review: { icon: Target, label: 'Weak skill', accent: 'text-amber-400' },
   streak_keeper: { icon: Flame, label: 'Streak keeper', accent: 'text-orange-400' },
   stretch: { icon: Sparkles, label: 'Stretch', accent: 'text-emerald-400' },

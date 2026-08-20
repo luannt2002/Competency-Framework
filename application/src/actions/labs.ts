@@ -9,10 +9,9 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { labs, userLabProgress, workspaces, activityLog, xpEvents } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
+import { labs, userLabProgress, activityLog, xpEvents } from '@/lib/db/schema';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 
 export type LabWithProgress = {

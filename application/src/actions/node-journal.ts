@@ -22,14 +22,12 @@ import { revalidatePath } from 'next/cache';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import {
-  workspaces,
   roadmapTreeNodes,
   nodeJournalEntries,
   activityLog,
 } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, writeAudit, RBACError } from '@/lib/rbac/server';
+import { writeAudit } from '@/lib/rbac/server';
 
 /* ============================ helpers ============================ */
 

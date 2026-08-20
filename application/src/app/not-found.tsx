@@ -23,7 +23,7 @@ export default function NotFound() {
             aria-hidden="true"
           />
           <div
-            className="text-7xl md:text-8xl font-extrabold leading-none tabular-nums bg-clip-text text-transparent bg-gradient-to-br from-cyan-400 via-violet-500 to-pink-500"
+            className="text-7xl md:text-8xl font-extrabold leading-none tabular-nums bg-clip-text text-transparent bg-gradient-to-br from-hue-1 via-hue-2 to-hue-5"
             style={{ fontFamily: 'var(--font-jetbrains), JetBrains Mono, monospace' }}
           >
             404

@@ -41,7 +41,7 @@ export function NumberedSection({
       <div className="flex items-baseline gap-3 md:gap-4 min-w-0">
         <span
           aria-hidden="true"
-          className="bg-clip-text text-transparent bg-gradient-to-br from-cyan-400 via-violet-500 to-pink-500 text-2xl md:text-3xl font-bold leading-none tabular-nums"
+          className="bg-clip-text text-transparent bg-gradient-to-br from-hue-1 via-hue-2 to-hue-5 text-2xl md:text-3xl font-bold leading-none tabular-nums"
           style={{ fontFamily: 'var(--font-jetbrains), JetBrains Mono, monospace' }}
         >
           {padded}

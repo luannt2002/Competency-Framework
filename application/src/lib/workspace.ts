@@ -36,7 +36,7 @@ export type WorkspaceResolved = {
  * slug enumeration.
  */
 export async function requireWorkspaceAccess(slug: string): Promise<WorkspaceResolved> {
-  const user = await requireUser();
+  await requireUser();
   const rows = await db
     .select({
       id: workspaces.id,

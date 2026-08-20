@@ -15,7 +15,7 @@ export default async function SettingsPage() {
       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
     >
       <header className="flex items-center gap-3 sm:gap-4">
-        <div className="size-10 sm:size-12 rounded-2xl accent-gradient flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
+        <div className="size-10 sm:size-12 rounded-2xl accent-gradient flex items-center justify-center shadow-lg shadow-hue-1/20 shrink-0">
           <SettingsIcon className="size-5 sm:size-6 text-white" />
         </div>
         <div className="min-w-0">

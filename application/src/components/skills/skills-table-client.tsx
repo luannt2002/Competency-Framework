@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LevelBadge } from '@/components/skills/level-badge';
 import { SkillDrawer, type SkillDrawerData, type LevelCode } from '@/components/skills/skill-drawer';
+import { NEUTRAL_FALLBACK } from '@/lib/constants/palette';
 
 export type SkillRow = {
   skillId: string;
@@ -295,7 +296,7 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
                     <Badge
                       variant="outline"
                       style={{
-                        borderColor: `${r.categoryColor ?? '#475569'}40`,
+                        borderColor: `${r.categoryColor ?? NEUTRAL_FALLBACK}40`,
                         color: r.categoryColor ?? undefined,
                       }}
                     >

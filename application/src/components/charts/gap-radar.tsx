@@ -1,5 +1,7 @@
 'use client';
 
+import { CHART } from '@/lib/constants/palette';
+
 /**
  * GapRadar — V8 "current vs required" radar for a target role.
  *
@@ -60,8 +62,8 @@ export function GapRadar({ data }: { data: GapRadarDatum[] }) {
         <Radar
           name="required"
           dataKey="required"
-          stroke="#F87171"
-          fill="#F87171"
+          stroke={CHART.gap}
+          fill={CHART.gap}
           fillOpacity={0.08}
           strokeDasharray="4 4"
           strokeWidth={1.5}
@@ -71,7 +73,7 @@ export function GapRadar({ data }: { data: GapRadarDatum[] }) {
         <Radar
           name="current"
           dataKey="current"
-          stroke="#22D3EE"
+          stroke={CHART.primary}
           fill="url(#gapRadarGrad)"
           fillOpacity={0.55}
           strokeWidth={1.5}
@@ -79,8 +81,8 @@ export function GapRadar({ data }: { data: GapRadarDatum[] }) {
         />
         <defs>
           <linearGradient id="gapRadarGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#22D3EE" stopOpacity={0.6} />
-            <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0.3} />
+            <stop offset="0%" stopColor={CHART.primary} stopOpacity={0.6} />
+            <stop offset="100%" stopColor={CHART.secondary} stopOpacity={0.3} />
           </linearGradient>
         </defs>
       </RadarChart>

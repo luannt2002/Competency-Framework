@@ -23,8 +23,12 @@
 import * as React from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { BRAND } from '@/lib/constants/palette';
 
-const COLOR = '#cc785c'; // matches --primary
+// Brand blue. The literal here used to be #cc785c with a comment claiming
+// it matched --primary; --primary became brand blue and the bar never
+// followed. Sourced from the palette module so it cannot drift again.
+const COLOR = BRAND.blue;
 const HEIGHT_PX = 2;
 const TRICKLE_TARGET = 0.85; // stop creeping at 85% until route resolves
 const FADE_OUT_MS = 250;

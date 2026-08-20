@@ -73,7 +73,7 @@ export default async function AuditPage({
       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
     >
       <header className="flex items-center gap-4">
-        <div className="size-12 rounded-2xl accent-gradient flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <div className="size-12 rounded-2xl accent-gradient flex items-center justify-center shadow-lg shadow-hue-1/20">
           <ShieldCheck className="size-6 text-white" />
         </div>
         <div>
@@ -90,7 +90,7 @@ export default async function AuditPage({
           label="Showing"
           value={String(data.length)}
           sub="rows"
-          color="text-cyan-500"
+          color="text-hue-1"
         />
         <StatChip
           icon={ShieldCheck}

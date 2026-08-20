@@ -80,7 +80,7 @@ export function AppearanceForm({
               aria-label={`Chọn biểu tượng ${e}`}
               aria-pressed={icon === e}
               className={cn(
-                'flex size-10 items-center justify-center rounded-lg border text-xl transition-all hover:bg-secondary',
+                'flex size-10 items-center justify-center rounded-lg border text-xl font-emoji transition-all hover:bg-secondary',
                 icon === e ? 'border-primary bg-primary/10 ring-2 ring-primary/30' : 'border-border',
               )}
             >

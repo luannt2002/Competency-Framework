@@ -31,9 +31,9 @@ export function LabList({ workspaceSlug, labs }: Props) {
 
   if (labs.length === 0) {
     return (
-      <section className="surface p-4 border-dashed border-cyan-500/20 bg-cyan-500/5">
+      <section className="surface p-4 border-dashed border-hue-1/20 bg-hue-1/5">
         <div className="flex items-start gap-3">
-          <Beaker className="size-5 text-cyan-400 mt-0.5" />
+          <Beaker className="size-5 text-hue-1 mt-0.5" />
           <div>
             <p className="text-sm font-medium">No labs for this week yet</p>
             <p className="text-xs text-muted-foreground mt-1">
@@ -50,7 +50,7 @@ export function LabList({ workspaceSlug, labs }: Props) {
     <>
       <section className="surface overflow-hidden">
         <header className="p-4 border-b border-border bg-secondary/20 flex items-center gap-2">
-          <Beaker className="size-4 text-cyan-400" />
+          <Beaker className="size-4 text-hue-1" />
           <h3 className="font-semibold text-sm">Hands-on Labs</h3>
           <span className="text-xs text-muted-foreground">({labs.length})</span>
           <span className="ml-auto text-xs text-amber-400 font-mono">+50 XP each</span>
@@ -191,14 +191,14 @@ function LabDetailDialog({
       <DialogContent>
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <Beaker className="size-5 text-cyan-400" />
+            <Beaker className="size-5 text-hue-1" />
             <DialogTitle>{lab.title}</DialogTitle>
           </div>
           {lab.description && <DialogDescription>{lab.description}</DialogDescription>}
         </DialogHeader>
 
         {lab.bodyMd && (
-          <div className="text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground border-l-2 border-cyan-500/30 pl-3 max-h-40 overflow-y-auto">
+          <div className="text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground border-l-2 border-hue-1/30 pl-3 max-h-40 overflow-y-auto">
             {lab.bodyMd}
           </div>
         )}

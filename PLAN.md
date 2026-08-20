@@ -1,6 +1,10 @@
 # Kế hoạch nâng cấp — làm ngầm, không hỏi lại
 
-> Chốt ngày 2026-08-20. Mốc gần nhất: commit `aa1eeac` (131 file, gates xanh).
+> Chốt ngày 2026-08-20. Mốc gần nhất: commit `d9c76ac`.
+> Trạng thái chi tiết từng luồng: `application/docs/dev/FLOW_STATUS.md`.
+>
+> **Đợt 1 và 2 đã xong.** 252 test xanh · lint 0 · guard ×3 sạch · RBAC 11/11 ·
+> build production từ FAIL → xanh · mọi route 28–110ms.
 > Quy tắc vận hành: **tự chạy hết mẻ, ping báo tiến độ, không xin phép giữa chừng.**
 > Chỉ dừng lại hỏi khi (a) cần quyết định về diện mạo/hướng sản phẩm, hoặc
 > (b) hành động ra ngoài máy (push, deploy, gửi dữ liệu đi).
@@ -16,7 +20,7 @@
 | **Đo perf trên production build** | `next dev` compile on-demand, cùng một route dao động 0.3s → 13s |
 | **Đếm query phải lọc `execute`** | log extended protocol ra 3 dòng `parse`/`bind`/`execute`, và có **HAI** dấu cách trước `execute` |
 | **`ALTER SYSTEM` chạy riêng một lệnh** | `psql -c "a; b"` gộp thành transaction → lỗi |
-| **Không `pnpm db:push`** cho tới khi gộp xong schema | `schema.ts` còn khai `exerciseKindEnum` → push sẽ ép `kind` về enum, phá migration 0006 |
+| ~~Không `pnpm db:push`~~ — **đã gỡ mìn ở 1.3** | `schema.ts` từng khai `exerciseKindEnum` nên push sẽ ép `kind` về enum và phá migration 0006. Giờ schema TS khớp DB, push an toàn trở lại |
 | **Gates phải xanh trước khi commit** | `pnpm typecheck && pnpm lint && pnpm test && pnpm guard` |
 | **Không thêm class vào `globals.css`** | 41 class là đủ; hệ màu vừa mất công quy về một mối |
 
@@ -29,37 +33,43 @@ Hệ dạng bài đã mở (10 loại, `kind` là text, chấm trả `status` + 
 `startLesson`/`submitExercise`, 0 route `/lesson` hay `/exercise`. Bảng
 `exercises` có 72 dòng mà chưa route nào đọc. Đây là chỗ duy nhất đang là bánh vẽ.
 
-- [ ] **1.1 — Trình chạy bài học.** Route dưới node: chọn dạng render theo
+- [x] **1.1 — Trình chạy bài học.** Route dưới node: chọn dạng render theo
       `exercise_types.renderer`, có renderer chung ăn theo schema cho dạng tenant
       tự định nghĩa. Tự luận hiện ô soạn thảo + trạng thái "đang chờ chấm" thay vì
       đúng/sai. Nối `startLesson` → `submitExercise` → hiển thị `GradeResult`.
-- [ ] **1.2 — Vòng đời tự luận khép kín.** Nộp → `pending_review` → người chấm thấy
+- [x] **1.2 — Vòng đời tự luận khép kín.** Nộp → `pending_review` → người chấm thấy
       trong hàng đợi → chấm → thông báo về người học → điểm hiện trong tiến độ.
       Chạy thật một vòng, không chỉ test đơn vị.
-- [ ] **1.3 — Gộp `schema-exercises.ts` vào `schema.ts`**, xoá `exerciseKindEnum`,
+- [x] **1.3 — Gộp `schema-exercises.ts` vào `schema.ts`**, xoá `exerciseKindEnum`,
       gỡ bản khai trùng. Sau bước này `db:push` mới an toàn trở lại.
-- [ ] **1.4 — `NOTIFICATION_KINDS` thêm `attempt.graded`** cho khớp DB.
-- [ ] **1.5 — `src/types/index.ts`**: `ExerciseKind` nới từ union 6 giá trị thành
-      `string` (đang trói `ai-generate.ts`).
+- [x] **1.4 — `NOTIFICATION_KINDS` thêm `attempt.graded`** cho khớp DB.
+- [x] **1.5 — Nới ba cửa còn khoá tập dạng bài**: `types/index.ts` (`ExerciseKind`
+      union đóng → mở), và `framework/payload-schema.ts` — chỗ này quan trọng hơn:
+      `exerciseSeed.kind` còn ghim 6 giá trị cũ nên **importer không seed nổi**
+      essay/rubric/dạng của tenant. Hệ mở mà cửa vào vẫn khoá.
 
 ## Đợt 2 — Hiệu năng, đo trên bản build
 
-`next build` vừa **thất bại** vì `/sign-in` gọi `useSearchParams()` không bọc
-Suspense → **app chưa từng deploy được**. Đã vá, đang build lại.
+`next build` từng **thất bại** vì `/sign-in` gọi `useSearchParams()` không bọc
+Suspense → **app chưa từng deploy được**, chỉ chạy nổi bằng `next dev`. Đã vá,
+build xanh. Đo thật (trung vị 5 lần, cùng DB): prod nhanh hơn dev **3–11×**,
+mọi route **28–110ms**; query/render là hằng số, không tăng theo số node.
 
-- [ ] **2.1 — Build xanh**, ghi lại kích thước bundle từng route.
-- [ ] **2.2 — Đo lại latency + số query** trên bản production, so với dev
+- [x] **2.1 — Build xanh**, ghi lại kích thước bundle từng route.
+- [x] **2.2 — Đo lại latency + số query** trên bản production, so với dev
       (dev: `/` 3 query 0.56s · `/w/<slug>` 21 query 1.87s · DB chiếm 1–13%).
-- [ ] **2.3 — Xử lý route nào lệch hẳn.** `/w/<slug>` 21 query là nhiều nhất;
+- [x] **2.3 — Xử lý route nào lệch hẳn.** `/w/<slug>` 21 query là nhiều nhất;
       xác minh nó là hằng số chứ không tăng theo số node (đã kiểm sơ bộ: hằng số).
 - [ ] **2.4 — Node 18 → 20.** Supabase cảnh báo mỗi lần build; `package.json`
       đã ghi `engines.node >= 20` nhưng máy đang chạy 18.
 
 ## Đợt 3 — Vá nốt các luồng còn lại
 
-Flow B (Learner) đã rà: 19 đủ · 6 thiếu · 3 đứt · 6 sai → vá 13/15. Chưa rà C–G.
+Flow B (Learner) đã rà đủ 34 bước: 19 đủ · 6 thiếu · 3 đứt · 6 sai → **vá 15/15**
+(B5.7 xong ở đợt trình chạy bài; chỉ còn B6.2). Flow A, C, D, E, G **chưa rà bước
+nào**; Flow F mới nối XP/streak, còn hearts/badge/crown.
 
-- [ ] **3.1 — B5.7** deep-link task → node trong `today-focus.tsx` (dữ liệu đã sẵn).
+- [x] **3.1 — B5.7** deep-link task → node trong `today-focus.tsx` (dữ liệu đã sẵn).
 - [ ] **3.2 — B6.2** cột **Source** ở bảng skills (`level_source` đã ghi đúng ở 3 nơi,
       chỉ thiếu hiển thị).
 - [ ] **3.3 — Rà Flow C** (Creator: tạo cây, thêm nội dung, publish, analytics).
@@ -89,7 +99,7 @@ Slug đã siết unique toàn cục (migration 0010). Còn hai lỗ.
       **quyết định sản phẩm, phải hỏi trước khi làm**.
 - [ ] **5.2 — White-label.** Hiện chỉ chọn trong 10 màu + 20 emoji cứng.
       Cần: logo, tên thương hiệu, màu tự do có kiểm contrast server-side.
-- [ ] **5.3 — Tài khoản test khác vai.** Report pentest §7 chưa test được
+- [x] **5.3 — Tài khoản test khác vai.** Report pentest §7 chưa test được
       IDOR/RBAC 7 tier vì thiếu tài khoản. Seed 3 vai + hướng dẫn đăng nhập từng vai.
 - [ ] **5.4 — Nới các enum cứng còn lại** (`evidence_kind`, `export_format`,
       `daily_task_kind`) theo đúng cách đã làm với `exercise_kind`.

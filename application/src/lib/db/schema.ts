@@ -34,14 +34,6 @@ export const lessonStatusEnum = pgEnum('lesson_status', [
   'completed',
   'mastered',
 ]);
-export const exerciseKindEnum = pgEnum('exercise_kind', [
-  'mcq',
-  'mcq_multi',
-  'fill_blank',
-  'order_steps',
-  'type_answer',
-  'code_block_review',
-]);
 export const userLevelStatusEnum = pgEnum('user_level_status', [
   'locked',
   'unlocked',
@@ -271,7 +263,15 @@ export const exercises = pgTable('exercises', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
   lessonId: uuid('lesson_id').notNull().references(() => lessons.id, { onDelete: 'cascade' }),
-  kind: exerciseKindEnum('kind').notNull(),
+  /**
+   * Slug trỏ tới một dòng `exercise_types` — KHÔNG còn là enum.
+   *
+   * Migration 0006 đổi cột này từ `exercise_kind` enum sang text để tenant tự
+   * khai dạng bài bằng dữ liệu, không cần deploy. Ràng buộc còn lại ở DB là
+   * CHECK định dạng slug (`^[a-z][a-z0-9_]{1,47}$`), không phải whitelist giá trị.
+   * Dạng nào hợp lệ do `exercise_types` quyết định lúc chạy.
+   */
+  kind: text('kind').notNull(),
   promptMd: text('prompt_md').notNull(),
   payload: jsonb('payload').notNull(),
   explanationMd: text('explanation_md'),
@@ -306,9 +306,23 @@ export const userExerciseAttempts = pgTable(
     userId: uuid('user_id').notNull(),
     exerciseId: uuid('exercise_id').notNull().references(() => exercises.id, { onDelete: 'cascade' }),
     answer: jsonb('answer'),
+    /** Giữ đồng bộ với `status === 'correct'` để reader cũ chạy nguyên vẹn. */
     isCorrect: boolean('is_correct'),
     timeTakenMs: integer('time_taken_ms'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    /* ---- Cột chấm điểm, thêm bởi migration 0006 ----
+       Chấm không còn trả boolean: tự luận cần trạng thái "chờ chấm", rubric cần
+       điểm thành phần, và cần biết ai chấm lúc nào. Mọi cột đều nullable nên
+       dòng có từ trước 0006 vẫn hợp lệ. */
+    /** 0..1. NULL chỉ ở dòng có trước khi 0006 backfill. */
+    score: numeric('score'),
+    /** 'correct' | 'incorrect' | 'partial' | 'pending_review' — CHECK ở DB. */
+    status: text('status'),
+    feedbackMd: text('feedback_md'),
+    gradedBy: uuid('graded_by'),
+    gradedAt: timestamp('graded_at', { withTimezone: true }),
+    /** Điểm từng tiêu chí khi chấm rubric: { [criterionId]: 0..1 }. */
+    rubric: jsonb('rubric'),
   },
   (t) => ({
     wsUserCreatedIdx: index('uea_ws_user_created_idx').on(t.workspaceId, t.userId, t.createdAt),

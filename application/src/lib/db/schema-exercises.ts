@@ -1,40 +1,28 @@
 /**
- * Drizzle schema — open exercise system.
+ * Drizzle schema — hệ dạng bài mở.
  *
- * SQL DDL lives in drizzle/migrations/0006_open_exercise_types.sql.
+ * DDL ở drizzle/migrations/0006_open_exercise_types.sql.
  *
- * Why this file re-declares two tables that also exist in schema.ts
- * ----------------------------------------------------------------
- * `exercises` and `user_exercise_attempts` are declared in src/lib/db/schema.ts,
- * which is owned by another workstream. Migration 0006 widened both tables
- * (kind enum -> text, six grading columns) and schema.ts has not caught up.
- * Rather than edit a file we do not own, this module declares the *current*
- * physical shape of those tables:
+ * File này từng khai lại `exercises` và `user_exercise_attempts` vì schema.ts
+ * chưa bắt kịp migration 0006 (kind còn là enum, thiếu 6 cột chấm). Hai bản
+ * khai song song đã được GỘP: schema.ts giờ là nguồn duy nhất, và
+ * `openExercises` / `exerciseAttempts` chỉ còn là bí danh trỏ về đó — giữ tên
+ * cũ để 6 call site đang dùng không phải sửa.
  *
- *   - `openExercises`    — `exercises` with `kind` as text (open kind set)
- *   - `exerciseAttempts` — `user_exercise_attempts` incl. grading columns
- *
- * Both point at the same physical tables as their schema.ts counterparts, so
- * reads/writes interleave freely; they are supersets, not rivals. Old call
- * sites keep working unchanged (every added column is nullable, and the enum
- * column accepts its six historical values as plain text).
- *
- * When schema.ts is next touched, fold these in and delete the duplicates.
+ * Bảng thật sự thuộc về file này chỉ còn `exercise_types`.
  */
 import { sql } from 'drizzle-orm';
 import {
   pgTable,
   uuid,
   text,
-  integer,
   boolean,
   timestamp,
   jsonb,
-  numeric,
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { workspaces, lessons } from './schema';
+import { exercises, userExerciseAttempts, workspaces } from './schema';
 
 /* ============================ exercise_types ============================ */
 
@@ -97,23 +85,12 @@ export type NewExerciseType = typeof exerciseTypes.$inferInsert;
  * `exercises` in schema.ts — this declaration just stops TypeScript from
  * pretending the kind set is still the six-value enum.
  */
-export const openExercises = pgTable('exercises', {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
-  workspaceId: uuid('workspace_id')
-    .notNull()
-    .references(() => workspaces.id, { onDelete: 'cascade' }),
-  lessonId: uuid('lesson_id')
-    .notNull()
-    .references(() => lessons.id, { onDelete: 'cascade' }),
-  kind: text('kind').notNull(),
-  promptMd: text('prompt_md').notNull(),
-  payload: jsonb('payload').notNull(),
-  explanationMd: text('explanation_md'),
-  xpAward: integer('xp_award').default(10),
-  displayOrder: integer('display_order').default(0),
-});
-
-export type OpenExercise = typeof openExercises.$inferSelect;
+/**
+ * Bí danh của `exercises` trong schema.ts. Tên `openExercises` nhắc rằng `kind`
+ * là tập MỞ (text + CHECK slug), không phải enum như trước 0006.
+ */
+export const openExercises = exercises;
+export type OpenExercise = typeof exercises.$inferSelect;
 
 /* ============================ attempts (with grading) ============================ */
 
@@ -132,38 +109,10 @@ export type AttemptStatus = (typeof ATTEMPT_STATUSES)[number];
  * `isCorrect` is kept in sync (`status === 'correct'`) so legacy readers —
  * computeLessonScore, hasCorrectAttempt — keep working untouched.
  */
-export const exerciseAttempts = pgTable(
-  'user_exercise_attempts',
-  {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
-    workspaceId: uuid('workspace_id')
-      .notNull()
-      .references(() => workspaces.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id').notNull(),
-    exerciseId: uuid('exercise_id')
-      .notNull()
-      .references(() => openExercises.id, { onDelete: 'cascade' }),
-    answer: jsonb('answer'),
-    isCorrect: boolean('is_correct'),
-    timeTakenMs: integer('time_taken_ms'),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-    /** 0..1. NULL only on rows predating 0006's backfill. */
-    score: numeric('score'),
-    status: text('status'),
-    feedbackMd: text('feedback_md'),
-    gradedBy: uuid('graded_by'),
-    gradedAt: timestamp('graded_at', { withTimezone: true }),
-    /** Per-criterion scores for rubric grading: { [criterionId]: 0..1 }. */
-    rubric: jsonb('rubric'),
-  },
-  (t) => ({
-    wsUserCreatedIdx: index('uea_ws_user_created_idx').on(
-      t.workspaceId,
-      t.userId,
-      t.createdAt,
-    ),
-  }),
-);
-
-export type ExerciseAttempt = typeof exerciseAttempts.$inferSelect;
-export type NewExerciseAttempt = typeof exerciseAttempts.$inferInsert;
+/**
+ * Bí danh của `user_exercise_attempts` trong schema.ts, đã gồm 6 cột chấm điểm
+ * (score / status / feedback_md / graded_by / graded_at / rubric).
+ */
+export const exerciseAttempts = userExerciseAttempts;
+export type ExerciseAttempt = typeof userExerciseAttempts.$inferSelect;
+export type NewExerciseAttempt = typeof userExerciseAttempts.$inferInsert;

@@ -25,6 +25,9 @@ import { CommentThread } from '@/components/social/comment-thread';
 import { getEffectiveLevel } from '@/lib/rbac/server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { getNodeProgress } from '@/lib/learn/node-progress';
+import { findNodeLesson } from '@/lib/learn/node-lesson';
+import { loadLessonProgress } from '@/lib/exercises/attempts';
+import { PracticeSection } from '@/components/learn/practice-section';
 
 export default async function NodeDetailPage({
   params,
@@ -63,6 +66,18 @@ export default async function NodeDetailPage({
     nodeId: node.id,
   });
   const evidenceUrls = (ownProgress?.evidenceUrls ?? []).filter(Boolean);
+
+  // Does this node run a lesson? `meta.lessonSlug` is the only link between the
+  // tree and the authored exercise set — see lib/learn/node-lesson.ts.
+  const nodeLesson = await findNodeLesson({ workspaceId: ws.id, nodeMeta: node.meta });
+  const practiceProgress =
+    nodeLesson && nodeLesson.exerciseCount > 0
+      ? await loadLessonProgress({
+          workspaceId: ws.id,
+          userId: user.id,
+          lessonId: nodeLesson.lessonId,
+        })
+      : null;
 
   return (
     <div className="mx-auto max-w-5xl p-6 md:p-8 space-y-6">
@@ -131,6 +146,16 @@ export default async function NodeDetailPage({
             <NodeToc headings={parseHeadings(node.bodyMd)} />
           </div>
         </section>
+      )}
+
+      {nodeLesson && practiceProgress && (
+        <PracticeSection
+          href={`/w/${slug}/n/${nodeSlug}/practice`}
+          lessonTitle={nodeLesson.title}
+          exerciseCount={nodeLesson.exerciseCount}
+          estMinutes={nodeLesson.estMinutes}
+          progress={practiceProgress}
+        />
       )}
 
       <section className="pt-4">

@@ -44,3 +44,6 @@ next-env.d.ts
 
 # drizzle
 /drizzle/migrations/meta/_journal.json.bak
+
+# benchmark build (see distDir in next.config.ts)
+.next-prod/

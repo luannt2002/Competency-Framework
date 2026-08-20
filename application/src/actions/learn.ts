@@ -38,6 +38,7 @@ import {
   type PendingAttempt,
 } from '@/lib/exercises/grading';
 import type { GradeResult, GradeStatus } from '@/lib/exercises/types';
+import type { FieldSpec } from '@/lib/exercises/field-spec';
 import { XP } from '@/lib/learn/xp-rules';
 import { tickStreak } from '@/lib/gamification/streak';
 import { awardCrowns, type CrownAdvance } from '@/lib/gamification/crowns';
@@ -62,6 +63,13 @@ export type LessonRunData = {
     /** Open kind slug — resolved via `exercise_types`, no longer an enum. */
     id: string;
     kind: string;
+    /**
+     * Resolved grading engine. The runner picks its widget from THIS, not from
+     * `kind`: a tenant kind built on the `mcq` engine gets radio buttons even
+     * though no code has ever heard of its slug. Safe to expose — it is a
+     * registry key, not an answer (the grading queue already ships it).
+     */
+    engine: string;
     /** Human label of the kind, e.g. "Tự luận". */
     typeLabel: string;
     /** `manual`/`hybrid` tell the UI to promise a grade later, not a verdict now. */
@@ -69,6 +77,12 @@ export type LessonRunData = {
     promptMd: string;
     /** Public payload — every secret path stripped server-side. */
     payload: unknown;
+    /**
+     * Tenant-declared answer fields, secret ones removed. Empty for built-in
+     * kinds; for a kind on an engine the runner has no widget for, this is
+     * what it renders instead of giving up.
+     */
+    answerSpec: FieldSpec;
     xpAward: number;
   }>;
 };
@@ -99,7 +113,11 @@ export async function startLesson(input: z.infer<typeof startInput>): Promise<Le
 
   // Init or bump user_lesson_progress
   const existing = await db
-    .select({ id: userLessonProgress.id, attempts: userLessonProgress.attempts })
+    .select({
+      id: userLessonProgress.id,
+      attempts: userLessonProgress.attempts,
+      status: userLessonProgress.status,
+    })
     .from(userLessonProgress)
     .where(
       and(
@@ -111,10 +129,19 @@ export async function startLesson(input: z.infer<typeof startInput>): Promise<Le
     .limit(1);
 
   if (existing[0]) {
+    // Re-opening a FINISHED lesson is a review, not a regression.
+    //
+    // This used to write 'in_progress' unconditionally. Nothing called
+    // startLesson, so it never fired; the moment a runner exists, every visit
+    // to a completed lesson would silently downgrade it — and three separate
+    // readers key off exactly that value: unlock-rules re-locks a week whose
+    // lessons are no longer all 'completed', badge-evaluator stops counting it,
+    // and the daily planner resurrects it as unfinished work.
+    const settled = existing[0].status === 'completed' || existing[0].status === 'mastered';
     await db
       .update(userLessonProgress)
       .set({
-        status: 'in_progress',
+        status: settled ? existing[0].status : 'in_progress',
         attempts: (existing[0].attempts ?? 0) + 1,
         lastAttemptAt: new Date(),
       })
@@ -147,6 +174,7 @@ export async function startLesson(input: z.infer<typeof startInput>): Promise<Le
       return {
         id: e.id,
         kind: e.kind,
+        engine: type.engine,
         typeLabel: type.label,
         gradingMode: type.gradingMode,
         promptMd: e.promptMd,
@@ -154,6 +182,7 @@ export async function startLesson(input: z.infer<typeof startInput>): Promise<Le
         // the engine declares and what the tenant flagged secret, so a kind
         // invented at runtime is stripped as thoroughly as a built-in one.
         payload: sanitizePayload(e.payload, { secretPaths: type.secretPaths }),
+        answerSpec: type.answerSpec,
         xpAward: e.xpAward ?? 10,
       };
     }),

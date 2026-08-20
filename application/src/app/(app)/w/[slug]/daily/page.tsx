@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { Calendar, Clock, Sparkles, Target, Zap, ListChecks, ArrowRight } from 'lucide-react';
 import { requireWorkspaceAccess } from '@/lib/workspace';
 import { getOrGenerateDailyPlan } from '@/actions/daily-planner';
+import { resolveTaskTargets } from '@/lib/learn/task-links';
 import { TodayFocus } from '@/components/daily/today-focus';
 import { DailyQuickAdd } from '@/components/learn/daily-quick-add';
 import { StatChip } from '@/components/learn/stat-chip';
@@ -35,6 +36,15 @@ export default async function DailyPage({
   });
 
   const doneCount = view.tasks.filter((t) => t.status === 'done').length;
+
+  // A plan you cannot click is a checklist. Every task that points at
+  // something reachable gets a destination — lesson-backed nodes go straight
+  // to the runner. See lib/learn/task-links.ts for the rule.
+  const targets = await resolveTaskTargets({
+    workspaceId: ws.id,
+    workspaceSlug: ws.slug,
+    tasks: view.tasks,
+  });
 
   return (
     <div
@@ -145,7 +155,11 @@ export default async function DailyPage({
           </div>
         </section>
       ) : (
-        <TodayFocus workspaceSlug={ws.slug} tasks={view.tasks} />
+        <TodayFocus
+          workspaceSlug={ws.slug}
+          tasks={view.tasks}
+          targets={Object.fromEntries(targets)}
+        />
       )}
     </div>
   );

@@ -107,6 +107,9 @@ export async function loadTypeResolver(
       gradingMode: exerciseTypes.gradingMode,
       secretFields: exerciseTypes.secretFields,
       payloadSchema: exerciseTypes.payloadSchema,
+      // The runner renders a tenant kind from this spec, so it has to travel
+      // with the resolver rather than being fetched again per exercise.
+      answerSchema: exerciseTypes.answerSchema,
       config: exerciseTypes.config,
       isBuiltin: exerciseTypes.isBuiltin,
     })

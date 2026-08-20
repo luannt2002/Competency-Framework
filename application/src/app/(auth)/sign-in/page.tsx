@@ -3,14 +3,21 @@
  */
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/auth/supabase-client';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Mail, Loader2 } from 'lucide-react';
 
-export default function SignInPage() {
+/**
+ * Inner form. Split out because `useSearchParams()` opts the subtree into
+ * client-side rendering, and Next 15 refuses to prerender a page that reads it
+ * without a Suspense boundary — `next build` failed on /sign-in with
+ * "useSearchParams() should be wrapped in a suspense boundary", which is why
+ * this app could only ever be served by `next dev`.
+ */
+function SignInForm() {
   const searchParams = useSearchParams();
   // Honor `?next=/some/path` so deep-links from /share land back where they came from after auth.
   // Sanitize: must start with '/' and not be a protocol-relative URL.
@@ -139,6 +146,39 @@ export default function SignInPage() {
             </p>
           </div>
         )}
+      </div>
+    </main>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<SignInFallback />}>
+      <SignInForm />
+    </Suspense>
+  );
+}
+
+/**
+ * Shown for the instant before the client picks up `?next=` / `?error=`.
+ * Mirrors the real card's box so the page does not jump when it swaps in.
+ */
+function SignInFallback() {
+  return (
+    <main
+      className="min-h-dvh flex items-center justify-center p-6 bg-background"
+      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+    >
+      <div className="w-full max-w-sm">
+        <div className="surface p-8 shadow-sm" aria-busy="true">
+          <div className="size-12 rounded-2xl accent-gradient mb-5 shadow-lg" />
+          <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Sign in to continue your competency journey.
+          </p>
+          <div className="mt-6 h-10 rounded-xl bg-secondary" />
+          <div className="mt-3 h-10 rounded-xl bg-secondary" />
+        </div>
       </div>
     </main>
   );

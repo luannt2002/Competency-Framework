@@ -110,6 +110,8 @@ export const NOTIFICATION_KINDS = [
   'invite.received',
   'workspace.shared',
   'milestone.completed',
+  /** Bài tự luận / rubric đã được chấm — migration 0006 nới CHECK cho giá trị này. */
+  'attempt.graded',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

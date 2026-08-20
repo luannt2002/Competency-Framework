@@ -29,6 +29,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Lets a production build live beside a running dev server instead of
+  // overwriting its `.next`. Needed to benchmark prod honestly:
+  //   NEXT_DIST_DIR=.next-prod pnpm build
+  //   NEXT_DIST_DIR=.next-prod PORT=3001 pnpm start
+  // Unset in normal use, so dev and CI keep the default `.next`.
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
   reactStrictMode: true,
   experimental: {
     serverActions: {

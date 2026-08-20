@@ -6,9 +6,16 @@
  * Each row is a checkbox-style item with the task title, kind icon, est
  * minutes, and an action menu (skip / carry-over to tomorrow). All actions
  * call the server actions then router.refresh() to re-fetch the list.
+ *
+ * Rows are now clickable. `targets` is resolved server-side by
+ * `resolveTaskTargets` — a task pointing at a lesson-backed node links
+ * straight into the exercise runner, which is the whole point of planning it.
+ * Tasks with no resolvable destination stay plain text rather than linking
+ * somewhere that only looks right.
  */
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -25,6 +32,7 @@ import {
   ArrowRightCircle,
   Loader2,
   Calendar,
+  ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -35,10 +43,13 @@ import {
   type DailyTask,
   type DailyTaskKind,
 } from '@/actions/daily-planner';
+import type { TaskTarget } from '@/lib/learn/task-links';
 
 type Props = {
   workspaceSlug: string;
   tasks: DailyTask[];
+  /** taskId -> destination. Absent id = no link (see resolveTaskTargets). */
+  targets?: Record<string, TaskTarget>;
 };
 
 const KIND_META: Record<
@@ -52,7 +63,7 @@ const KIND_META: Record<
   stretch: { icon: Sparkles, label: 'Stretch', accent: 'text-emerald-400' },
 };
 
-export function TodayFocus({ workspaceSlug, tasks }: Props) {
+export function TodayFocus({ workspaceSlug, tasks, targets }: Props) {
   const router = useRouter();
 
   if (tasks.length === 0) {
@@ -68,14 +79,27 @@ export function TodayFocus({ workspaceSlug, tasks }: Props) {
       </header>
       <ul className="divide-y divide-border">
         {tasks.map((task) => (
-          <TaskRow key={task.id} workspaceSlug={workspaceSlug} task={task} />
+          <TaskRow
+            key={task.id}
+            workspaceSlug={workspaceSlug}
+            task={task}
+            target={targets?.[task.id] ?? null}
+          />
         ))}
       </ul>
     </section>
   );
 }
 
-function TaskRow({ workspaceSlug, task }: { workspaceSlug: string; task: DailyTask }) {
+function TaskRow({
+  workspaceSlug,
+  task,
+  target,
+}: {
+  workspaceSlug: string;
+  task: DailyTask;
+  target: TaskTarget | null;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -171,16 +195,39 @@ function TaskRow({ workspaceSlug, task }: { workspaceSlug: string; task: DailyTa
             </span>
           )}
         </div>
-        <p
-          className={cn(
-            'text-sm font-medium mt-0.5',
-            done && 'line-through text-muted-foreground',
-          )}
-        >
-          {task.title}
-        </p>
+        {target ? (
+          <Link
+            href={target.href}
+            className={cn(
+              'group mt-0.5 inline-flex items-center gap-1.5 rounded-sm text-sm font-medium',
+              'hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              done && 'line-through text-muted-foreground',
+            )}
+          >
+            {task.title}
+            <ArrowRight className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+          </Link>
+        ) : (
+          <p
+            className={cn(
+              'text-sm font-medium mt-0.5',
+              done && 'line-through text-muted-foreground',
+            )}
+          >
+            {task.title}
+          </p>
+        )}
         {task.description && (
           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{task.description}</p>
+        )}
+        {target && !done && (
+          <Link
+            href={target.href}
+            className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+          >
+            {target.action}
+            <ArrowRight className="size-3" aria-hidden />
+          </Link>
         )}
       </div>
 

@@ -31,14 +31,25 @@ export const categorySeed = z.object({
 });
 
 export const exerciseSeed = z.object({
-  kind: z.enum([
-    'mcq',
-    'mcq_multi',
-    'fill_blank',
-    'order_steps',
-    'type_answer',
-    'code_block_review',
-  ]),
+  /**
+   * Slug of an `exercise_types` row — no longer an enum.
+   *
+   * `exercises.kind` became free text (migration 0006) so a tenant can define
+   * its own exercise type as data. This schema stayed pinned to the original
+   * six, which meant the importer physically could not seed any of the four
+   * new built-ins (essay / rubric / numeric_range / short_answer), let alone a
+   * tenant's own kind — the open system was unreachable through import.
+   *
+   * The shape guard matches the CHECK constraint on `exercises.kind`; whether
+   * the slug actually resolves is decided at fork time against the workspace's
+   * `exercise_types`, which is the only place that knows.
+   */
+  kind: z
+    .string()
+    .regex(
+      /^[a-z][a-z0-9_]{1,47}$/,
+      'kind phải là slug: chữ thường, số, gạch dưới, 2-48 ký tự',
+    ),
   promptMd: z.string(),
   payload: z.unknown(),
   explanationMd: z.string().optional(),

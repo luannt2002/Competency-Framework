@@ -9,13 +9,31 @@
 export type LevelCode = string; // 'XS' | 'S' | 'M' | 'L' OR custom codes (Intern/Junior/...)
 export type LevelSource = 'self_claimed' | 'learned' | 'both';
 export type LessonStatus = 'not_started' | 'in_progress' | 'completed' | 'mastered';
-export type ExerciseKind =
+/**
+ * Slug của một dòng trong `exercise_types` — KHÔNG còn là tập đóng.
+ *
+ * `exercises.kind` đã thành text tự do (migration 0006): tenant tự khai dạng
+ * bài bằng dữ liệu, không cần deploy. Giữ union 6 giá trị ở đây sẽ khiến mọi
+ * dạng mới (essay, rubric, numeric_range, short_answer, và dạng riêng của
+ * tenant) bị TypeScript từ chối dù DB chấp nhận.
+ *
+ * Danh sách 6 giá trị cũ vẫn giữ lại dưới dạng gợi ý cho IDE, nhưng `string`
+ * ở cuối là thứ mở khoá — dạng nào hợp lệ do `exercise_types` quyết định lúc
+ * chạy, không phải do file này.
+ */
+export type BuiltinExerciseKind =
   | 'mcq'
   | 'mcq_multi'
   | 'fill_blank'
   | 'order_steps'
   | 'type_answer'
-  | 'code_block_review';
+  | 'code_block_review'
+  | 'essay'
+  | 'rubric'
+  | 'numeric_range'
+  | 'short_answer';
+
+export type ExerciseKind = BuiltinExerciseKind | (string & {});
 export type UserLevelStatus = 'locked' | 'unlocked' | 'completed';
 export type WorkspaceVisibility = 'private' | 'public-readonly';
 

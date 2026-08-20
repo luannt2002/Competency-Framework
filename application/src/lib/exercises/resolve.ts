@@ -15,7 +15,7 @@
  */
 import { getGrader } from './registry';
 import { getBuiltinExerciseType } from './builtin-types';
-import { parseFieldSpec, secretFieldsOf } from './field-spec';
+import { parseFieldSpec, secretFieldsOf, type FieldSpec } from './field-spec';
 import type { GradingMode } from '@/lib/db/schema-exercises';
 
 /** Minimal projection of an `exercise_types` row this module needs. */
@@ -26,6 +26,7 @@ export type ExerciseTypeRowLike = {
   gradingMode: string;
   secretFields: string[] | null;
   payloadSchema?: unknown;
+  answerSchema?: unknown;
   config?: unknown;
   isBuiltin?: boolean;
 };
@@ -38,6 +39,12 @@ export type ResolvedExerciseType = {
   /** Union of engine-declared and tenant-declared secret paths. */
   secretPaths: string[];
   config: Record<string, unknown>;
+  /**
+   * Answer fields the tenant declared, with anything flagged secret removed.
+   * This is what lets the lesson runner render a kind nobody wrote code for:
+   * no spec -> the runner falls back to a free-text box.
+   */
+  answerSpec: FieldSpec;
   /** False when no `exercise_types` row backed this kind (built-in fallback). */
   fromDb: boolean;
 };
@@ -68,6 +75,11 @@ export function resolveExerciseType(
     for (const f of secretFieldsOf(parseFieldSpec(row.payloadSchema))) declared.add(f);
   }
 
+  // A secret ANSWER field is a contradiction (the learner types it), but the
+  // flag is tenant-controlled, so honour it by dropping the field rather than
+  // shipping something a tenant asked to keep hidden.
+  const answerSpec = parseFieldSpec(row?.answerSchema);
+
   return {
     kind,
     label: row?.label ?? builtin?.label ?? kind,
@@ -78,6 +90,7 @@ export function resolveExerciseType(
     ),
     secretPaths: [...declared].sort(),
     config: asRecord(row?.config),
+    answerSpec: { fields: answerSpec.fields.filter((f) => !f.secret) },
     fromDb: row !== undefined,
   };
 }

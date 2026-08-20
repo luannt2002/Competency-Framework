@@ -124,6 +124,7 @@ export interface SkillRow {
   categoryName: string;
   categoryColor: string | null;
   levelCode: LevelCode | null;
+  levelSource: 'self_claimed' | 'learned' | 'both' | 'verified' | null;
   targetLevelCode: LevelCode | null;
   noteMd: string | null;
   whyThisLevel: string | null;

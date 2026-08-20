@@ -101,7 +101,7 @@ export default async function DiscoverPage() {
           parentId: roadmapTreeNodes.parentId,
           n: dsql<number>`count(*)::int`,
         })
-        .from(roadmapTreeNodes)
+        .from(roadmapTreeNodes) // guard-tenant-scope: allow — singleRootIds come from the workspace-filtered rootRows query above
         .where(inArray(roadmapTreeNodes.parentId, singleRootIds))
         .groupBy(roadmapTreeNodes.parentId);
       for (const r of childRows) {

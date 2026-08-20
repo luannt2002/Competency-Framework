@@ -16,8 +16,8 @@
 |---|---|---|
 | A — Viewer khám phá | chưa | route có, chưa đối chiếu từng bước |
 | **B — Learner** | **✅ 34 bước** | 19 đủ · 6 thiếu · 3 đứt · 6 sai → **đã vá 15/15** |
-| C — Creator | chưa | route có, chưa đối chiếu từng bước |
-| D — Admin | chưa | route có, chưa đối chiếu từng bước |
+| C — Creator | **✅ 23 bước** (2026-08-20) | 15 đủ · 3 thiếu · 0 đứt · 5 sai; đã vá C4.2 (share lộ private); còn lại `docs/audits/FLOW_C_AUDIT.md` |
+| D — Admin | **✅ 23 bước** (2026-08-20) | 6 đủ · 10 thiếu · 1 đứt · 6 sai; chưa vá — `docs/audits/FLOW_D_AUDIT.md` |
 | E — Fork & cộng đồng | chưa | route có, chưa đối chiếu từng bước |
 | F — Gamification | một phần | XP/streak đã nối lúc vá Flow B; hearts/badge/crown chưa rà |
 | G — Certificate | chưa | route có, chưa đối chiếu từng bước |
@@ -109,14 +109,30 @@ Dạng riêng của tenant (`sre_postmortem`, **không dòng code nào nhắc t�
 
 ## Việc còn lại
 
+### Đợt 2026-08-20 (chiều) — đã làm
+- **B6.2 cột Source** ✅ — page + API + type + cột bảng; DB có `both` →
+  hiển thị "Self + learned".
+- **Guard tenant (4.2)** ✅ — `scripts/guard-tenant-scope.ts` tự suy ra 43 bảng
+  scoped từ schema, vào chuỗi `pnpm guard`. Lần đầu chạy bắt **48 câu query
+  thiếu điều kiện tenant trong 19 file** → 34 chỗ thêm `eq(workspaceId)` thật,
+  14 chỗ line-allow có lý do. Guard sạch.
+- **Node 20 (2.4)** ✅ — `~/.local/node20`, mọi gate + build prod xanh trên 20.
+  Bản prod 3210 chạy Node 20. Dev 3000 vẫn Node 18.
+- **Rà Flow C + D (3.3/3.4)** ✅ — kết quả `docs/audits/FLOW_C_AUDIT.md` và
+  `FLOW_D_AUDIT.md`. Vá luôn **C4.2: `/share/<slug>` trả full content cho
+  workspace private** — giờ 404 với người ngoài (owner/member vẫn xem được),
+  public 200, metadata không lộ.
+- **6.2 kiểm chứng prod** ✅ — qua tunnel công khai: mọi route app 307 →
+  sign-in (dev-bypass tắt ở prod), share private 404 / public 200.
+
 ### Gần — rẻ, làm được ngay
-- **B6.2 cột Source** ở bảng skills. Dữ liệu đã đúng (`level_source` được ghi ở
-  3 nơi: `assessments.ts` → `self_claimed`, `crowns.ts` → `learned`,
-  `evidence.ts` → `verified`), chỉ thiếu hiển thị.
 - **e2e `smoke.spec.ts` "landing page" đỏ sẵn từ trước** — kỳ vọng `h1` tiếng
   Anh, thực tế là tiếng Việt. Không thuộc thay đổi nào của đợt này.
-- **Node 18 → 20**. `package.json` ghi `engines.node >= 20` nhưng máy chạy 18;
-  Supabase cảnh báo mỗi lần build.
+- **Vá các SAI/THIẾU của Flow C** — slug không sửa được, thiếu Mô tả, type
+  thiếu reading/video/tool, resource thiếu tool/lab + auto-fetch title.
+- **Vá các SAI/THIẾU của Flow D** — invite bằng email (hiện bắt UUID), roster
+  hiện tên thay shortId, nối UI vào `verifyEvidence` (logic sẵn, ĐỨT),
+  export theo member.
 
 ### Rà nốt các luồng
 Flow A, C, D, E, G chưa đối chiếu bước nào. Flow F mới nối XP/streak, còn

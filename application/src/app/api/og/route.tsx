@@ -133,7 +133,9 @@ export async function GET(req: Request) {
     const root = await db
       .select()
       .from(roadmapTreeNodes)
-      .where(eq(roadmapTreeNodes.id, roots[0]!.id))
+      .where(
+        and(eq(roadmapTreeNodes.id, roots[0]!.id), eq(roadmapTreeNodes.workspaceId, ws.id)),
+      )
       .limit(1);
     if (root[0]?.description) {
       subtitle = truncate(root[0].description, 160);

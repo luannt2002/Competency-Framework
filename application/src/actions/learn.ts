@@ -108,7 +108,7 @@ export async function startLesson(input: z.infer<typeof startInput>): Promise<Le
   const exerciseRows = await db
     .select()
     .from(exercises)
-    .where(eq(exercises.lessonId, lesson.id))
+    .where(and(eq(exercises.lessonId, lesson.id), eq(exercises.workspaceId, ws.id)))
     .orderBy(asc(exercises.displayOrder));
 
   // Init or bump user_lesson_progress
@@ -145,7 +145,12 @@ export async function startLesson(input: z.infer<typeof startInput>): Promise<Le
         attempts: (existing[0].attempts ?? 0) + 1,
         lastAttemptAt: new Date(),
       })
-      .where(eq(userLessonProgress.id, existing[0].id));
+      .where(
+        and(
+          eq(userLessonProgress.id, existing[0].id),
+          eq(userLessonProgress.workspaceId, ws.id),
+        ),
+      );
   } else {
     await db.insert(userLessonProgress).values({
       workspaceId: ws.id,
@@ -416,7 +421,12 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
         bestScore: String(Math.max(Number(existing[0].bestScore ?? '0'), scorePct)),
         completedAt: new Date(),
       })
-      .where(eq(userLessonProgress.id, existing[0].id));
+      .where(
+        and(
+          eq(userLessonProgress.id, existing[0].id),
+          eq(userLessonProgress.workspaceId, ws.id),
+        ),
+      );
   } else {
     await db.insert(userLessonProgress).values({
       workspaceId: ws.id,

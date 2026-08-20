@@ -81,7 +81,7 @@ export async function countMyUnreadNotifications(): Promise<number> {
   const user = await requireUser();
   const rows = await db
     .select({ c: sql<number>`count(*)::int` })
-    .from(notifications)
+    .from(notifications) // guard-tenant-scope: allow — user inbox is cross-workspace by design, scoped by recipientUserId
     .where(
       and(
         eq(notifications.recipientUserId, user.id),
@@ -97,7 +97,7 @@ export async function markAllRead(): Promise<{ updated: number }> {
   const user = await requireUser();
   const now = new Date();
   const result = await db
-    .update(notifications)
+    .update(notifications) // guard-tenant-scope: allow — user inbox is cross-workspace by design, scoped by recipientUserId
     .set({ readAt: now })
     .where(
       and(
@@ -126,7 +126,7 @@ export async function markRead(notificationId: string): Promise<void> {
   // touch someone else's row. We update with a recipient-scoped WHERE so even
   // a TOCTOU race can't escape the constraint.
   await db
-    .update(notifications)
+    .update(notifications) // guard-tenant-scope: allow — user inbox is cross-workspace by design, scoped by recipientUserId
     .set({ readAt: new Date() })
     .where(
       and(

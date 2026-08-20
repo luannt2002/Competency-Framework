@@ -15,6 +15,7 @@ import { notFound } from 'next/navigation';
 import { eq, count, isNull, and } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
+import { workspaceMembers } from '@/lib/db/schema-rbac';
 import { getRootNodes, getTreeSections } from '@/lib/tree/queries';
 import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
 import { StatChip } from '@/components/learn/stat-chip';
@@ -48,6 +49,10 @@ export async function generateMetadata({
   const ws = wsRow[0];
   if (!ws) {
     return { title: 'Roadmap not found · ' + SITE_NAME };
+  }
+  // Workspace private: không tiết lộ tên/mô tả/OG trong metadata (C4.2).
+  if (ws.visibility !== 'public-readonly') {
+    return { title: 'Roadmap riêng tư · ' + SITE_NAME };
   }
 
   // Count nodes + try to pick description from sole root node (workspaces table has none).
@@ -97,6 +102,23 @@ export async function generateMetadata({
   };
 }
 
+/** Owner hoặc member của workspace private được xem share page; ngoài ra không. */
+async function isViewerAllowed(
+  workspaceId: string,
+  ownerUserId: string | null,
+  userId: string,
+): Promise<boolean> {
+  if (ownerUserId === userId) return true;
+  const rows = await db
+    .select({ userId: workspaceMembers.userId })
+    .from(workspaceMembers)
+    .where(
+      and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 export default async function SharePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const wsRow = await db
@@ -106,6 +128,14 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
     .limit(1);
   const ws = wsRow[0];
   if (!ws) notFound();
+
+  // Gate theo visibility (C4.2): workspace private chỉ owner/member được xem.
+  // Trước đây trang này trả full content cho mọi slug — lộ lộ trình private.
+  const viewer0 = await getCurrentUser();
+  if (ws.visibility !== 'public-readonly') {
+    const allowed = viewer0 && (await isViewerAllowed(ws.id, ws.ownerUserId, viewer0.id));
+    if (!allowed) notFound();
+  }
 
   // Read-only: pass null userId — queries skip progress joins.
   const [rootNodes, totalNodesRow] = await Promise.all([
@@ -119,7 +149,7 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
 
   // Resolve the viewer (may be null on a true public visit) so we can show
   // the follow toggle only when logged in.
-  const viewer = await getCurrentUser();
+  const viewer = viewer0;
   const isOwner = !!viewer && ws.ownerUserId === viewer.id;
   const viewerFollowing =
     viewer && !isOwner

@@ -88,7 +88,12 @@ export async function reopenDoneAncestors(
     await db
       .update(userNodeProgress)
       .set({ status: 'todo', completedAt: null, updatedAt: new Date() })
-      .where(eq(userNodeProgress.id, r.id));
+      .where(
+        and(
+          eq(userNodeProgress.id, r.id),
+          eq(userNodeProgress.workspaceId, workspaceId),
+        ),
+      );
   }
   return rows.length;
 }

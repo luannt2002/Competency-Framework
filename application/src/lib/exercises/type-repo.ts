@@ -81,7 +81,7 @@ export async function listExerciseTypesForWorkspace(
 
   const rows = await db
     .select()
-    .from(exerciseTypes)
+    .from(exerciseTypes) // guard-tenant-scope: allow — `where` = visibleTo(workspaceId): workspace rows + global built-ins
     .where(where)
     .orderBy(asc(exerciseTypes.isBuiltin), asc(exerciseTypes.slug));
 

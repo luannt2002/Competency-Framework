@@ -98,7 +98,12 @@ export async function markLabDone(input: z.infer<typeof completeInput>): Promise
         completedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(userLabProgress.id, existing[0].id));
+      .where(
+        and(
+          eq(userLabProgress.id, existing[0].id),
+          eq(userLabProgress.workspaceId, ws.id),
+        ),
+      );
   } else {
     await db.insert(userLabProgress).values({
       workspaceId: ws.id,

@@ -31,6 +31,7 @@ export type SkillRow = {
   categoryName: string;
   categoryColor: string | null;
   levelCode: string | null;
+  levelSource: 'self_claimed' | 'learned' | 'both' | 'verified' | null;
   targetLevelCode: string | null;
   noteMd: string | null;
   whyThisLevel: string | null;
@@ -48,6 +49,21 @@ type Props = {
 };
 
 const ALL_LEVELS: LevelCode[] = ['XS', 'S', 'M', 'L'];
+
+// B6.2 — nguồn cấp độ: ai/khoá nào xác lập level hiện tại
+const SOURCE_LABELS: Record<SkillRow['levelSource'] & string, string> = {
+  self_claimed: 'Self-assessed',
+  learned: 'Learned',
+  both: 'Self + learned',
+  verified: 'Verified',
+};
+
+function SourceBadge({ source }: { source: SkillRow['levelSource'] }) {
+  if (!source) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="text-xs text-muted-foreground">{SOURCE_LABELS[source] ?? source}</span>
+  );
+}
 
 export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
   // Workspace-custom level labels (competency_levels.label) → code→label map
@@ -266,6 +282,7 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
                 <th className="px-4 py-3 text-left">Category</th>
                 <th className="px-4 py-3 text-left">Level</th>
                 <th className="px-4 py-3 text-left hidden md:table-cell">Target</th>
+                <th className="px-4 py-3 text-left hidden md:table-cell">Source</th>
                 <th className="px-4 py-3 text-left hidden md:table-cell">Crowns</th>
                 <th className="px-4 py-3 text-left hidden md:table-cell">Updated</th>
               </tr>
@@ -309,6 +326,9 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
                   <td className="px-4 py-3 hidden md:table-cell">
                     <LevelBadge code={r.targetLevelCode} label={levelLabels[r.targetLevelCode ?? '']} />
                   </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    <SourceBadge source={r.levelSource} />
+                  </td>
                   <td className="px-4 py-3 hidden md:table-cell text-amber-400 tabular-nums">
                     {r.crowns ?? 0}
                     <span className="text-muted-foreground">/5</span>
@@ -320,7 +340,7 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
                     No skills match these filters.
                   </td>
                 </tr>

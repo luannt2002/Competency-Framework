@@ -169,7 +169,7 @@ export async function createTreeNode(input: z.infer<typeof createInput>): Promis
       );
   const [{ next } = { next: 0 }] = await db
     .select({ next: drizzleMax(roadmapTreeNodes.orderIndex) })
-    .from(roadmapTreeNodes)
+    .from(roadmapTreeNodes) // guard-tenant-scope: allow — siblingCondition includes eq(workspaceId, ws.id)
     .where(siblingCondition);
   const orderIndex = (next ?? -1) + 1;
 
@@ -180,7 +180,12 @@ export async function createTreeNode(input: z.infer<typeof createInput>): Promis
     const parent = await db
       .select({ pathStr: roadmapTreeNodes.pathStr, depth: roadmapTreeNodes.depth })
       .from(roadmapTreeNodes)
-      .where(eq(roadmapTreeNodes.id, parsed.parentId))
+      .where(
+        and(
+          eq(roadmapTreeNodes.id, parsed.parentId),
+          eq(roadmapTreeNodes.workspaceId, ws.id),
+        ),
+      )
       .limit(1);
     if (!parent[0]) throw new Error('PARENT_NOT_FOUND');
     pathStr = parent[0].pathStr ? `${parent[0].pathStr}/${parsed.parentId}` : parsed.parentId;
@@ -346,7 +351,7 @@ export async function deleteTreeNode(workspaceSlug: string, nodeId: string): Pro
   const condition = subtreeConditionOf(ws.id, nodeId);
   const deletedIds = await db
     .select({ id: roadmapTreeNodes.id })
-    .from(roadmapTreeNodes)
+    .from(roadmapTreeNodes) // guard-tenant-scope: allow — condition (subtreeConditionOf) includes workspaceId
     .where(condition);
   await db.delete(roadmapTreeNodes).where(condition);
   if (deletedIds.length > 0) {
@@ -410,7 +415,7 @@ export async function moveTreeNode(input: z.infer<typeof moveInput>): Promise<vo
 
   const siblings = await db
     .select()
-    .from(roadmapTreeNodes)
+    .from(roadmapTreeNodes) // guard-tenant-scope: allow — siblingsCondition includes eq(workspaceId, ws.id)
     .where(siblingsCondition)
     .orderBy(asc(roadmapTreeNodes.orderIndex));
 

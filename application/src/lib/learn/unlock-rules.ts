@@ -40,21 +40,21 @@ export async function recomputeUnlocks(
   const lessonRows = await db
     .select({ moduleId: lessons.moduleId })
     .from(lessons)
-    .where(eq(lessons.id, lessonId))
+    .where(and(eq(lessons.id, lessonId), eq(lessons.workspaceId, workspaceId)))
     .limit(1);
   if (!lessonRows[0]) return empty();
 
   const modRows = await db
     .select({ weekId: modules.weekId })
     .from(modules)
-    .where(eq(modules.id, lessonRows[0].moduleId))
+    .where(and(eq(modules.id, lessonRows[0].moduleId), eq(modules.workspaceId, workspaceId)))
     .limit(1);
   if (!modRows[0]) return empty();
 
   const weekRows = await db
     .select()
     .from(weeks)
-    .where(eq(weeks.id, modRows[0].weekId))
+    .where(and(eq(weeks.id, modRows[0].weekId), eq(weeks.workspaceId, workspaceId)))
     .limit(1);
   const wk = weekRows[0];
   if (!wk) return empty();
@@ -63,11 +63,19 @@ export async function recomputeUnlocks(
   const allModulesOfWeek = await db
     .select({ id: modules.id })
     .from(modules)
-    .where(eq(modules.weekId, wk.id));
+    .where(and(eq(modules.weekId, wk.id), eq(modules.workspaceId, workspaceId)));
   const moduleIds = allModulesOfWeek.map((m) => m.id);
 
   const allLessonsOfWeek = moduleIds.length
-    ? await db.select({ id: lessons.id }).from(lessons).where(inArray(lessons.moduleId, moduleIds))
+    ? await db
+        .select({ id: lessons.id })
+        .from(lessons)
+        .where(
+          and(
+            inArray(lessons.moduleId, moduleIds),
+            eq(lessons.workspaceId, workspaceId),
+          ),
+        )
     : [];
   const totalLessons = allLessonsOfWeek.length;
 
@@ -116,7 +124,12 @@ export async function recomputeUnlocks(
         unlocked: true,
         completedAt: pctReached && !existingWeek[0].completedAt ? new Date() : existingWeek[0].completedAt,
       })
-      .where(eq(userWeekProgress.id, existingWeek[0].id));
+      .where(
+        and(
+          eq(userWeekProgress.id, existingWeek[0].id),
+          eq(userWeekProgress.workspaceId, workspaceId),
+        ),
+      );
   } else {
     await db.insert(userWeekProgress).values({
       workspaceId,
@@ -173,7 +186,7 @@ export async function recomputeUnlocks(
   const allWeeksInTrack = await db
     .select({ id: weeks.id })
     .from(weeks)
-    .where(eq(weeks.trackId, wk.trackId));
+    .where(and(eq(weeks.trackId, wk.trackId), eq(weeks.workspaceId, workspaceId)));
 
   // Count completedAt not null among weeks in track
   const completedCount = await db
@@ -198,7 +211,7 @@ export async function recomputeUnlocks(
   const trackRow = await db
     .select()
     .from(levelTracks)
-    .where(eq(levelTracks.id, wk.trackId))
+    .where(and(eq(levelTracks.id, wk.trackId), eq(levelTracks.workspaceId, workspaceId)))
     .limit(1);
 
   // First-time level completion only (prevents infinite +500 XP re-awards).
@@ -236,7 +249,12 @@ export async function recomputeUnlocks(
       await db
         .update(userLevelProgress)
         .set({ status: 'completed', completedAt: new Date() })
-        .where(eq(userLevelProgress.id, lvlExisting[0].id));
+        .where(
+          and(
+            eq(userLevelProgress.id, lvlExisting[0].id),
+            eq(userLevelProgress.workspaceId, workspaceId),
+          ),
+        );
     }
 
     // Unlock next level (by displayOrder)
@@ -265,7 +283,12 @@ export async function recomputeUnlocks(
         await db
           .update(userLevelProgress)
           .set({ status: 'unlocked', unlockedAt: new Date() })
-          .where(eq(userLevelProgress.id, nextLvlExisting[0].id));
+          .where(
+            and(
+              eq(userLevelProgress.id, nextLvlExisting[0].id),
+              eq(userLevelProgress.workspaceId, workspaceId),
+            ),
+          );
         newlyUnlockedLevelCodes.push(nextTrack.levelCode);
       }
     }

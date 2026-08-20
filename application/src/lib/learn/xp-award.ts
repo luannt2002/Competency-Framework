@@ -78,6 +78,7 @@ export async function awardStreakTick(
       refKind: 'streak',
     });
   }
+  // guard-tenant-scope: allow — every row in `rows` carries workspaceId (built above)
   await db.insert(xpEvents).values(rows);
   return { ...streak, xpAwarded: XP.DAILY_STREAK_TICK + milestone };
 }

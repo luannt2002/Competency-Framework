@@ -361,7 +361,7 @@ async function gatherUserContext(workspaceId: string, userId: string): Promise<U
       const exRows = await db
         .select({ promptMd: exercises.promptMd })
         .from(exercises)
-        .where(eq(exercises.id, a.exerciseId))
+        .where(and(eq(exercises.id, a.exerciseId), eq(exercises.workspaceId, workspaceId)))
         .limit(1);
       const prompt = exRows[0]?.promptMd ?? '';
       yesterdayExercise = {
@@ -443,7 +443,7 @@ export async function markTaskDone(
   await db
     .update(dailyTasks)
     .set({ status: 'done', completedAt: new Date() })
-    .where(eq(dailyTasks.id, task.id));
+    .where(and(eq(dailyTasks.id, task.id), eq(dailyTasks.workspaceId, ws.id)));
 
   // Flow B5: "Khi tick done → +XP ngay lập tức, Streak cập nhật".
   // Keyed on the task row so re-ticking a task never double-pays.
@@ -567,7 +567,7 @@ export async function markTaskSkipped(input: z.infer<typeof taskIdInput>): Promi
   await db
     .update(dailyTasks)
     .set({ status: 'skipped' })
-    .where(eq(dailyTasks.id, task.id));
+    .where(and(eq(dailyTasks.id, task.id), eq(dailyTasks.workspaceId, ws.id)));
 
   await db.insert(activityLog).values({
     workspaceId: ws.id,
@@ -600,7 +600,7 @@ export async function carryOverTask(input: z.infer<typeof taskIdInput>): Promise
   await db
     .update(dailyTasks)
     .set({ status: 'carried_over' })
-    .where(eq(dailyTasks.id, task.id));
+    .where(and(eq(dailyTasks.id, task.id), eq(dailyTasks.workspaceId, ws.id)));
 
   // Insert clone for tomorrow (idempotent via unique index)
   await db

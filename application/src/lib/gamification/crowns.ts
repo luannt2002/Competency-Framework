@@ -83,7 +83,12 @@ export async function awardCrowns(
           levelSource: newSource,
           updatedAt: new Date(),
         })
-        .where(eq(userSkillProgress.id, existing[0].id));
+        .where(
+          and(
+            eq(userSkillProgress.id, existing[0].id),
+            eq(userSkillProgress.workspaceId, workspaceId),
+          ),
+        );
     } else {
       await db.insert(userSkillProgress).values({
         workspaceId,

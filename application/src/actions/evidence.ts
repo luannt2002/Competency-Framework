@@ -132,7 +132,12 @@ export async function submitEvidence(
     await db
       .update(userSkillProgress)
       .set({ levelSource: nextSource, updatedAt: new Date() })
-      .where(eq(userSkillProgress.id, existing[0].id));
+      .where(
+        and(
+          eq(userSkillProgress.id, existing[0].id),
+          eq(userSkillProgress.workspaceId, ws.id),
+        ),
+      );
   } else {
     await db.insert(userSkillProgress).values({
       workspaceId: ws.id,
@@ -294,7 +299,7 @@ export async function verifyEvidence(input: VerifyEvidenceInput): Promise<{ ok: 
       reviewedAt: new Date(),
       note: parsed.note ?? null,
     })
-    .where(eq(evidenceGrades.id, grade.id));
+    .where(and(eq(evidenceGrades.id, grade.id), eq(evidenceGrades.workspaceId, ws.id)));
 
   await db.insert(skillAuditLog).values({
     workspaceId: ws.id,

@@ -29,13 +29,13 @@ export default async function ProfilePage() {
   // Aggregate XP across all workspaces
   const [{ xpTotal } = { xpTotal: 0 }] = await db
     .select({ xpTotal: sum(xpEvents.amount) })
-    .from(xpEvents)
+    .from(xpEvents) // guard-tenant-scope: allow — cross-workspace aggregate for the user's own profile
     .where(eq(xpEvents.userId, user.id));
 
   // Longest streak across workspaces
   const streakRows = await db
     .select()
-    .from(streaks)
+    .from(streaks) // guard-tenant-scope: allow — cross-workspace aggregate for the user's own profile
     .where(eq(streaks.userId, user.id));
   const longestStreak = streakRows.reduce((m, r) => Math.max(m, r.longestStreak ?? 0), 0);
   const currentStreak = streakRows.reduce((m, r) => Math.max(m, r.currentStreak ?? 0), 0);
@@ -43,7 +43,7 @@ export default async function ProfilePage() {
   // Lessons completed
   const [{ lessonsDone } = { lessonsDone: 0 }] = await db
     .select({ lessonsDone: count() })
-    .from(userLessonProgress)
+    .from(userLessonProgress) // guard-tenant-scope: allow — cross-workspace aggregate for the user's own profile
     .where(eq(userLessonProgress.userId, user.id));
 
   // Daily XP buckets last 84 days for heatmap
@@ -54,7 +54,7 @@ export default async function ProfilePage() {
       day: dayExpr,
       total: sum(xpEvents.amount),
     })
-    .from(xpEvents)
+    .from(xpEvents) // guard-tenant-scope: allow — cross-workspace aggregate for the user's own profile
     .where(dsql`${xpEvents.userId} = ${user.id} AND ${xpEvents.createdAt} >= ${sinceIso}`)
     .groupBy(dayExpr);
   const heatmapData: DailyXp[] = dailyRows.map((r) => ({
@@ -71,7 +71,7 @@ export default async function ProfilePage() {
       icon: badges.icon,
       grantedAt: userBadges.grantedAt,
     })
-    .from(userBadges)
+    .from(userBadges) // guard-tenant-scope: allow — cross-workspace aggregate for the user's own profile
     .innerJoin(badges, eq(badges.id, userBadges.badgeId))
     .where(eq(userBadges.userId, user.id))
     .orderBy(desc(userBadges.grantedAt));

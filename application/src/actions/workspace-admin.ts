@@ -166,7 +166,9 @@ export async function updateCompetencyLevel(
       label: parsed.label,
       ...(parsed.description !== undefined ? { description: parsed.description } : {}),
     })
-    .where(eq(competencyLevels.id, parsed.levelId));
+    .where(
+      and(eq(competencyLevels.id, parsed.levelId), eq(competencyLevels.workspaceId, ws.id)),
+    );
 
   await writeAudit({
     workspaceId: ws.id,
@@ -286,7 +288,9 @@ export async function updateCategoryColor(
   await db
     .update(skillCategories)
     .set({ color: parsed.color })
-    .where(eq(skillCategories.id, parsed.categoryId));
+    .where(
+      and(eq(skillCategories.id, parsed.categoryId), eq(skillCategories.workspaceId, ws.id)),
+    );
 
   await writeAudit({
     workspaceId: ws.id,

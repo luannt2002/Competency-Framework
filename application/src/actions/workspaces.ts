@@ -530,6 +530,7 @@ export async function forkWorkspace(formData: FormData): Promise<void> {
     const BATCH = 200;
     for (let i = 0; i < srcNodes.length; i += BATCH) {
       const batch = srcNodes.slice(i, i + BATCH);
+      // guard-tenant-scope: allow — every row's values include workspaceId: newWs.id (mapped below)
       await db.insert(roadmapTreeNodes).values(
         batch.map((node) => {
           const newId = idMap.get(node.id)!;

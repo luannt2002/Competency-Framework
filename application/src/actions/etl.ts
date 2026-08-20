@@ -18,7 +18,7 @@ import { resolveWorkspace } from '@/lib/rbac/resolve';
 import { z } from 'zod';
 import { resolve } from 'node:path';
 import { revalidatePath } from 'next/cache';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { importLogs } from '@/lib/db/schema-etl';
 import { runIngestion, type IngestionResult } from '@/lib/etl/import-runner';
@@ -115,7 +115,9 @@ export async function runWorkspaceIngestion(
         errorText: result.errors.length > 0 ? result.errors[0]?.reason ?? null : null,
         finishedAt: new Date(),
       })
-      .where(eq(importLogs.id, logRow.id));
+      .where(
+        and(eq(importLogs.id, logRow.id), eq(importLogs.workspaceId, ws.id)),
+      );
 
     await writeAudit({
       workspaceId: ws.id,
@@ -145,7 +147,9 @@ export async function runWorkspaceIngestion(
         errorText: message,
         finishedAt: new Date(),
       })
-      .where(eq(importLogs.id, logRow.id));
+      .where(
+        and(eq(importLogs.id, logRow.id), eq(importLogs.workspaceId, ws.id)),
+      );
     await writeAudit({
       workspaceId: ws.id,
       actorUserId: user.id,

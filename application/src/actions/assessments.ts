@@ -65,7 +65,12 @@ export async function updateAssessment(input: UpdateAssessmentInput): Promise<{ 
         levelSource: 'self_claimed',
         updatedAt: new Date(),
       })
-      .where(eq(userSkillProgress.id, existing[0].id));
+      .where(
+        and(
+          eq(userSkillProgress.id, existing[0].id),
+          eq(userSkillProgress.workspaceId, ws.id),
+        ),
+      );
   } else {
     await db.insert(userSkillProgress).values({
       workspaceId: ws.id,

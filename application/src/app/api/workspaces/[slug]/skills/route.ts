@@ -33,6 +33,7 @@ export async function GET(
         categoryName: skillCategories.name,
         categoryColor: skillCategories.color,
         levelCode: userSkillProgress.levelCode,
+        levelSource: userSkillProgress.levelSource,
         targetLevelCode: userSkillProgress.targetLevelCode,
         noteMd: userSkillProgress.noteMd,
         whyThisLevel: userSkillProgress.whyThisLevel,

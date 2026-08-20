@@ -135,7 +135,12 @@ async function upsertLevels(
           color: lvl.color,
           displayOrder: lvl.displayOrder,
         })
-        .where(eq(competencyLevels.id, existing[0].id));
+        .where(
+          and(
+            eq(competencyLevels.id, existing[0].id),
+            eq(competencyLevels.workspaceId, workspaceId),
+          ),
+        );
       tally(result, 'competency_levels', 'updated');
     } else {
       await db.insert(competencyLevels).values({
@@ -185,7 +190,12 @@ async function upsertSkillsSheet(
           icon: cat.icon,
           displayOrder: cat.displayOrder,
         })
-        .where(eq(skillCategories.id, categoryId));
+        .where(
+          and(
+            eq(skillCategories.id, categoryId),
+            eq(skillCategories.workspaceId, workspaceId),
+          ),
+        );
       tally(result, 'skill_categories', 'updated');
     } else {
       const [inserted] = await db
@@ -227,7 +237,9 @@ async function upsertSkillsSheet(
             tags: sk.tags,
             displayOrder: sk.displayOrder,
           })
-          .where(eq(skills.id, existingSk[0].id));
+          .where(
+            and(eq(skills.id, existingSk[0].id), eq(skills.workspaceId, workspaceId)),
+          );
         tally(result, 'skills', 'updated');
       } else {
         await db.insert(skills).values({
@@ -276,7 +288,9 @@ async function upsertPhase(
         description: phase.phaseTitle,
         displayOrder: levelDisplayOrder(phase.levelCode),
       })
-      .where(eq(levelTracks.id, trackId));
+      .where(
+        and(eq(levelTracks.id, trackId), eq(levelTracks.workspaceId, workspaceId)),
+      );
     tally(result, 'level_tracks', 'updated');
   } else {
     const [inserted] = await db
@@ -327,7 +341,7 @@ async function upsertPhase(
           estHours: wk.estHours,
           displayOrder: wk.index,
         })
-        .where(eq(weeks.id, weekId));
+        .where(and(eq(weeks.id, weekId), eq(weeks.workspaceId, workspaceId)));
       tally(result, 'weeks', 'updated');
     } else {
       const [inserted] = await db

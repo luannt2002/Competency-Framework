@@ -60,8 +60,11 @@ mọi route **28–110ms**; query/render là hằng số, không tăng theo số
       (dev: `/` 3 query 0.56s · `/w/<slug>` 21 query 1.87s · DB chiếm 1–13%).
 - [x] **2.3 — Xử lý route nào lệch hẳn.** `/w/<slug>` 21 query là nhiều nhất;
       xác minh nó là hằng số chứ không tăng theo số node (đã kiểm sơ bộ: hằng số).
-- [ ] **2.4 — Node 18 → 20.** Supabase cảnh báo mỗi lần build; `package.json`
-      đã ghi `engines.node >= 20` nhưng máy đang chạy 18.
+- [x] **2.4 — Node 18 → 20.** ✅ 2026-08-20: cài Node 20.19.5 user-local ở
+      `~/.local/node20` (không đụng hệ thống). Typecheck/lint/252 test/build
+      production đều xanh trên Node 20. Bản prod 3210 đang chạy Node 20.
+      Còn: dev server 3000 vẫn Node 18 (tiện thì restart bằng
+      `PATH=~/.local/node20/bin:$PATH pnpm dev`).
 
 ## Đợt 3 — Vá nốt các luồng còn lại
 
@@ -70,10 +73,19 @@ Flow B (Learner) đã rà đủ 34 bước: 19 đủ · 6 thiếu · 3 đứt ·
 nào**; Flow F mới nối XP/streak, còn hearts/badge/crown.
 
 - [x] **3.1 — B5.7** deep-link task → node trong `today-focus.tsx` (dữ liệu đã sẵn).
-- [ ] **3.2 — B6.2** cột **Source** ở bảng skills (`level_source` đã ghi đúng ở 3 nơi,
-      chỉ thiếu hiển thị).
-- [ ] **3.3 — Rà Flow C** (Creator: tạo cây, thêm nội dung, publish, analytics).
-- [ ] **3.4 — Rà Flow D** (Admin: setup team, invite, theo dõi, assign).
+- [x] **3.2 — B6.2** ✅ cột **Source** đã hiển thị (page + API + type + bảng).
+      Kiểm chứng trên DB thật: `level_source=both` → "Self + learned".
+- [x] **3.3 — Rà Flow C** ✅ 2026-08-20: 15 ĐỦ · 3 THIẾU · 0 ĐỨT · 5 SAI —
+      chi tiết `docs/audits/FLOW_C_AUDIT.md`. Đã vá luôn bug nặng nhất
+      (C4.2: `/share/<slug>` lộ lộ trình private → giờ 404 với người ngoài,
+      public vẫn 200, metadata không lộ). Còn 4 SAI + 3 THIẾU chưa vá
+      (slug không sửa được, thiếu trường Mô tả, type thiếu reading/video/tool,
+      resource thiếu tool/lab, visibility 2 thay vì 3, analytics C5).
+- [x] **3.4 — Rà Flow D** ✅ 2026-08-20: 6 ĐỦ · 10 THIẾU · 1 ĐỨT · 6 SAI —
+      chi tiết `docs/audits/FLOW_D_AUDIT.md`. Chưa vá (đáng chú ý: invite
+      bắt paste UUID thay vì email; roster hiện shortId thay vì tên;
+      `verifyEvidence` đầy đủ logic mà không UI nào gọi; export là của
+      người xuất chứ không phải từng member).
 - [ ] **3.5 — Rà Flow E/F/G** (fork, gamification, chứng chỉ).
 
 ## Đợt 4 — Cô lập tenant, phần còn thiếu
@@ -84,9 +96,13 @@ Slug đã siết unique toàn cục (migration 0010). Còn hai lỗ.
       `postgres` (superuser) nên **RLS sẽ bị bỏ qua** — bật không thôi là diễn.
       Phải kèm: tạo role không-superuser, cấp quyền, chuyển `DATABASE_URL`,
       set GUC theo từng transaction. Rủi ro cao → làm sau cùng, có đường lùi.
-- [ ] **4.2 — Guard bắt query thiếu `workspaceId`.** Quét AST các truy vấn chạm
-      bảng workspace-scoped mà thiếu điều kiện tenant. Rẻ hơn RLS, chặn được
-      phần lớn rủi ro.
+- [x] **4.2 — Guard bắt query thiếu `workspaceId`.** ✅ 2026-08-20:
+      `scripts/guard-tenant-scope.ts`, tự suy ra bảng scoped từ schema
+      (hiện 43 bảng), đã vào chuỗi `pnpm guard`. Lần chạy đầu bắt 48 câu
+      query trong 19 file → xử xong: **34 chỗ thêm điều kiện tenant thật**
+      (defense-in-depth, không đổi hành vi), 14 chỗ line-allow có lý do
+      (profile/inbox xuyên workspace theo userId, điều kiện trong biến,
+      insert có workspaceId trong values).
 - [ ] **4.3 — `lesson_skill_map`** là bảng nghiệp vụ duy nhất không có
       `workspace_id`. Xác minh nó luôn được join qua bảng đã scoped.
 
@@ -107,8 +123,10 @@ Slug đã siết unique toàn cục (migration 0010). Còn hai lỗ.
 ## Đợt 6 — Hardening còn nợ từ report
 
 - [ ] **6.1** strip HTML comment khi build · obfuscate email trong HTML.
-- [ ] **6.2** Bỏ `DEV_AUTH_BYPASS` khi chạy bản production — hiện mọi khách vào
-      đều là `super_admin` vì bypass là server-side, vô điều kiện.
+- [x] **6.2** ✅ kiểm chứng bằng phép thử thật 2026-08-20: bản prod (3210) qua
+      tunnel công khai, mọi route app trả **307 → sign-in** (bypass tắt),
+      `/share/<private>` trả 404, `/share/<public>` 200. Dev-bypass chỉ còn
+      hiệu lực trên `next dev` (3000).
 - [ ] **6.3** Đo lại toàn bộ theo 6 trục của report và ghi số mới vào
       `luannt-tets.md`.
 

@@ -14,10 +14,16 @@
  */
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, Circle, Loader2, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { HEATMAP_RGB } from '@/lib/constants/palette';
+import {
+  AT_RISK_DAYS,
+  daysSinceISO,
+  formatLastActive,
+  roleLabel,
+} from '@/lib/admin/roster-format';
 import {
   Sheet,
   SheetContent,
@@ -25,6 +31,9 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+
+// Re-exported for backwards compatibility (tests / pages import these from here).
+export { AT_RISK_DAYS, daysSinceISO, formatLastActive };
 
 export type RosterPhaseColumn = {
   id: string;
@@ -49,45 +58,22 @@ export type RosterMemberData = {
   atRisk: boolean;
 };
 
-export const AT_RISK_DAYS = 7;
-
-/** Số ngày từ ISO timestamp đến `now` (làm tròn xuống, dựa trên UTC date). */
-export function daysSinceISO(iso: string, now = new Date()): number {
-  const DAY_MS = 86_400_000;
-  const d = new Date(iso);
-  const a = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-  const b = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  return Math.round((b - a) / DAY_MS);
-}
-
-/**
- * D3.3 — định dạng tương đối tiếng Việt cho cột "Hoạt động":
- * hôm nay / hôm qua / "X ngày trước" / "—" (không có dữ liệu).
- */
-export function formatLastActive(iso: string | null, now = new Date()): string {
-  if (!iso) return '—';
-  const days = daysSinceISO(iso, now);
-  if (days <= 0) return 'hôm nay';
-  if (days === 1) return 'hôm qua';
-  return `${days} ngày trước`;
-}
-
-function roleLabel(role: string): string {
-  switch (role) {
-    case 'workspace_owner':
-      return 'Owner';
-    case 'workspace_editor':
-      return 'Editor';
-    case 'workspace_contributor':
-      return 'Contributor';
-    case 'learner':
-      return 'Learner';
-    case 'viewer':
-      return 'Viewer';
-    default:
-      return role;
-  }
-}
+/** Node-level row from GET /api/workspaces/[slug]/roster/[userId]/nodes (D4.2). */
+export type RosterNodeStatus = {
+  id: string;
+  title: string;
+  nodeType: string;
+  depth: number;
+  done: boolean;
+};
+export type RosterMemberNodesPhase = {
+  id: string;
+  title: string;
+  nodeType: string;
+  done: number;
+  total: number;
+  nodes: RosterNodeStatus[];
+};
 
 /** Compose an inline style for a heatmap cell. `pct` 0-100. */
 function cellStyle(pct: number): React.CSSProperties {
@@ -103,23 +89,61 @@ function cellStyle(pct: number): React.CSSProperties {
 export function RosterTable({
   phases,
   members,
+  workspaceSlug,
 }: {
   phases: RosterPhaseColumn[];
   members: RosterMemberData[];
+  /** Needed for the D4.2 node-level drill-down fetch in the drawer. */
+  workspaceSlug: string;
 }) {
   const [filter, setFilter] = useState('');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-
-  const filtered = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return members;
-    return members.filter((m) => m.userId.toLowerCase().includes(q));
-  }, [filter, members]);
+  // D4.2 — node breakdown cache per userId, fetched lazily when a drawer opens.
+  const [nodeBreakdown, setNodeBreakdown] = useState<{
+    byUser: Map<string, RosterMemberNodesPhase[]>;
+    loadingUser: string | null;
+    errorUser: string | null;
+  }>({ byUser: new Map(), loadingUser: null, errorUser: null });
 
   const selected = useMemo(
     () => members.find((m) => m.key === selectedKey) ?? null,
     [members, selectedKey],
   );
+
+  useEffect(() => {
+    if (!selected) return;
+    const userId = selected.userId;
+    if (nodeBreakdown.byUser.has(userId) || nodeBreakdown.loadingUser === userId) return;
+    let cancelled = false;
+    setNodeBreakdown((s) => ({ ...s, loadingUser: userId, errorUser: null }));
+    fetch(`/api/workspaces/${workspaceSlug}/roster/${userId}/nodes`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: { phases: RosterMemberNodesPhase[] } = await res.json();
+        if (cancelled) return;
+        setNodeBreakdown((s) => ({
+          ...s,
+          byUser: new Map(s.byUser).set(userId, data.phases),
+          loadingUser: null,
+        }));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setNodeBreakdown((s) => ({ ...s, loadingUser: null, errorUser: userId }));
+        console.error('node breakdown fetch failed', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, nodeBreakdown.byUser, nodeBreakdown.loadingUser, workspaceSlug]);
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return members;
+    return members.filter(
+      (m) => m.userId.toLowerCase().includes(q) || m.displayName.toLowerCase().includes(q),
+    );
+  }, [filter, members]);
 
   return (
     <div className="space-y-4">
@@ -282,6 +306,10 @@ export function RosterTable({
                 <ul className="space-y-2.5">
                   {selected.perPhase.map((c, idx) => {
                     const phase = phases[idx]!;
+                    // D4.2 — node-level rows for this phase (when loaded).
+                    const nodePhase = nodeBreakdown.byUser
+                      .get(selected.userId)
+                      ?.find((np) => np.id === c.phaseId);
                     return (
                       <li
                         key={c.phaseId}
@@ -307,10 +335,50 @@ export function RosterTable({
                         <div className="text-[10px] text-muted-foreground">
                           {c.pct}% complete
                         </div>
+                        {nodePhase && nodePhase.nodes.length > 0 && (
+                          <ul className="mt-2 space-y-1 border-t border-border pt-2">
+                            {nodePhase.nodes.map((n) => (
+                              <li
+                                key={n.id}
+                                className="flex items-center gap-2 text-xs"
+                                style={{ paddingLeft: `${Math.min(n.depth, 5) * 12}px` }}
+                              >
+                                {n.done ? (
+                                  <Check className="size-3.5 shrink-0 text-emerald-500" />
+                                ) : (
+                                  <Circle className="size-3.5 shrink-0 text-muted-foreground/50" />
+                                )}
+                                <span className="text-[9px] uppercase tracking-wider text-muted-foreground shrink-0">
+                                  {n.nodeType}
+                                </span>
+                                <span
+                                  className={
+                                    n.done
+                                      ? 'text-foreground/60 line-through decoration-foreground/30'
+                                      : 'text-foreground'
+                                  }
+                                >
+                                  {n.title}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </li>
                     );
                   })}
                 </ul>
+
+                {nodeBreakdown.loadingUser === selected.userId && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="size-3 animate-spin" /> Loading node breakdown…
+                  </p>
+                )}
+                {nodeBreakdown.errorUser === selected.userId && (
+                  <p className="text-xs text-destructive">
+                    Could not load node breakdown. Close and reopen the drawer to retry.
+                  </p>
+                )}
 
                 <p className="text-[10px] text-muted-foreground pt-2">
                   Full user_id:{' '}

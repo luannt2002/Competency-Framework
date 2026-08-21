@@ -14,6 +14,8 @@ import { db } from '@/lib/db/client';
 import { skills, skillCategories, userSkillProgress, competencyLevels } from '@/lib/db/schema';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { writeAudit } from '@/lib/rbac/server';
+import { loadRosterOverview } from '@/lib/admin/roster-data';
+import { lastActiveDateISO, roleLabel } from '@/lib/admin/roster-format';
 
 
 type ExportRow = {
@@ -193,6 +195,159 @@ export async function exportHtmlReport(workspaceSlug: string): Promise<{ filenam
   });
   return {
     filename: `${slugify(wsName)}-skills-${new Date().toISOString().slice(0, 10)}.html`,
+    base64: Buffer.from(html).toString('base64'),
+  };
+}
+
+/* ===== D3.6 — Roster Excel: progress per member (EDITOR+) ===== */
+export async function exportRosterXlsx(
+  workspaceSlug: string,
+): Promise<{ filename: string; base64: string }> {
+  const { ws, user, ctx } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.EDITOR);
+  const { workspaceName, phases, members } = await loadRosterOverview(ws.id);
+  const ExcelJS = (await import('exceljs')).default;
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Competency Framework';
+  wb.created = new Date();
+
+  const sheet = wb.addWorksheet('Roster');
+  sheet.columns = [
+    { header: 'Member', key: 'member', width: 28 },
+    { header: 'Role', key: 'role', width: 12 },
+    { header: 'Overall %', key: 'overall', width: 11 },
+    // One done/total column + one % column per phase (dynamic headers).
+    ...phases.flatMap((p) => [
+      { header: `${p.title} (done/total)`, key: `d_${p.id}`, width: 18 },
+      { header: `${p.title} %`, key: `p_${p.id}`, width: 12 },
+    ]),
+    { header: 'Last active', key: 'lastActive', width: 13 },
+    { header: 'At risk', key: 'atRisk', width: 9 },
+  ];
+  sheet.addRows(
+    members.map((m) => {
+      const row: Record<string, string | number> = {
+        member: m.displayName,
+        role: roleLabel(m.role),
+        overall: m.overallPct,
+        lastActive: lastActiveDateISO(m.lastActiveISO),
+        atRisk: m.atRisk ? 'yes' : '',
+      };
+      for (const c of m.perPhase) {
+        row[`d_${c.phaseId}`] = c.total === 0 ? '—' : `${c.done}/${c.total}`;
+        row[`p_${c.phaseId}`] = c.total === 0 ? '—' : c.pct;
+      }
+      return row;
+    }),
+  );
+  sheet.getRow(1).font = { bold: true };
+  sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2029' } };
+  sheet.getRow(1).font = { bold: true, color: { argb: 'FFE6E8EC' } };
+
+  const buf = await wb.xlsx.writeBuffer();
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'export.roster.xlsx',
+    resourceType: 'export',
+    resourceId: null,
+    after: { format: 'xlsx', rowCount: members.length },
+  });
+  return {
+    filename: `${slugify(workspaceName)}-roster-${new Date().toISOString().slice(0, 10)}.xlsx`,
+    base64: Buffer.from(buf).toString('base64'),
+  };
+}
+
+/* ===== D3.7 — Roster PDF overview report (printable HTML, EDITOR+) ===== */
+export async function exportRosterReport(
+  workspaceSlug: string,
+): Promise<{ filename: string; base64: string }> {
+  const { ws, user, ctx } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.EDITOR);
+  const { workspaceName, phases, members } = await loadRosterOverview(ws.id);
+
+  const memberRowsHtml = members
+    .map(
+      (m) => `<tr>
+        <td>${escapeHtml(m.displayName)}${m.isOwner ? ' (owner)' : ''}</td>
+        <td>${escapeHtml(roleLabel(m.role))}</td>
+        <td style="font-weight:bold">${m.overallPct}%</td>
+        <td>${escapeHtml(lastActiveDateISO(m.lastActiveISO))}</td>
+        <td style="color:${m.atRisk ? '#F59E0B' : '#888'};font-weight:${m.atRisk ? 'bold' : 'normal'}">${m.atRisk ? 'AT RISK' : '—'}</td>
+      </tr>`,
+    )
+    .join('\n');
+
+  // Phase heatmap summary: member × phase completion grid with coral tint.
+  const heatCells = (pct: number, total: number) => {
+    if (total === 0) return '<td style="color:#888">—</td>';
+    const alpha = (0.08 + (pct / 100) * 0.87).toFixed(3);
+    return `<td style="background:rgba(236,110,76,${alpha});text-align:center">${pct}%</td>`;
+  };
+  const heatRowsHtml = members
+    .map(
+      (m) => `<tr>
+        <td>${escapeHtml(m.displayName)}</td>
+        ${m.perPhase.map((c) => heatCells(c.pct, c.total)).join('')}
+      </tr>`,
+    )
+    .join('\n');
+  const phaseHeaders = phases
+    .map((p) => `<th style="text-align:center">${escapeHtml(p.title)}</th>`)
+    .join('');
+
+  const avgOverall =
+    members.length > 0
+      ? Math.round(members.reduce((a, m) => a + m.overallPct, 0) / members.length)
+      : 0;
+  const atRiskCount = members.filter((m) => m.atRisk).length;
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>${escapeHtml(workspaceName)} — Roster Overview</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; background:#0A0C10; color:#E6E8EC; padding:32px; }
+  h1 { background: linear-gradient(135deg,#22D3EE,#8B5CF6); -webkit-background-clip:text; color:transparent; }
+  h2 { margin-top:32px; font-size:16px; text-transform:uppercase; letter-spacing:0.06em; color:#9BA1AA; }
+  table { border-collapse:collapse; width:100%; margin-top:12px; }
+  th, td { padding:8px 12px; text-align:left; border-bottom:1px solid #242A33; font-size:13px; }
+  th { background:#161A22; text-transform:uppercase; font-size:11px; letter-spacing:0.06em; }
+  .kpi { display:inline-block; margin-right:24px; font-size:14px; color:#9BA1AA; }
+  .kpi b { color:#E6E8EC; font-size:18px; }
+  @media print { body { background:white; color:black; } th { background:#eee; } td { border-color:#ccc; } .kpi,.kpi b { color:#333; } h2 { color:#555; } }
+</style></head>
+<body>
+  <h1>${escapeHtml(workspaceName)} — Roster Overview</h1>
+  <p style="color:#9BA1AA">Exported ${new Date().toLocaleString()}.</p>
+  <p>
+    <span class="kpi">Members <b>${members.length}</b></span>
+    <span class="kpi">Avg completion <b>${avgOverall}%</b></span>
+    <span class="kpi">At risk <b>${atRiskCount}</b></span>
+  </p>
+  <p style="color:#9BA1AA;font-size:12px">Tip: Use browser File → Print → Save as PDF for a PDF copy.</p>
+
+  <h2>Member summary</h2>
+  <table>
+    <thead><tr><th>Member</th><th>Role</th><th>Overall</th><th>Last active</th><th>At risk</th></tr></thead>
+    <tbody>${memberRowsHtml}</tbody>
+  </table>
+
+  <h2>Phase heatmap</h2>
+  <table>
+    <thead><tr><th>Member</th>${phaseHeaders}</tr></thead>
+    <tbody>${heatRowsHtml}</tbody>
+  </table>
+</body></html>`;
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'export.roster.html',
+    resourceType: 'export',
+    resourceId: null,
+    after: { format: 'html', rowCount: members.length },
+  });
+  return {
+    filename: `${slugify(workspaceName)}-roster-report-${new Date().toISOString().slice(0, 10)}.html`,
     base64: Buffer.from(html).toString('base64'),
   };
 }

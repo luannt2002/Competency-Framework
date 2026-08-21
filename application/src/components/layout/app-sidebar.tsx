@@ -25,6 +25,7 @@ import {
   Plus,
   Check,
   ClipboardList,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -62,6 +63,7 @@ export function AppSidebar({
     { href: `${base}/members`, label: 'Members', icon: Users },
     { href: `${base}/audit`, label: 'Audit log', icon: ShieldCheck },
     { href: `${base}/roster`, label: 'Roster', icon: ClipboardList },
+    { href: `${base}/analytics`, label: 'Analytics', icon: BarChart3 },
     { href: `${base}/settings`, label: 'Settings (workspace)', icon: SlidersHorizontal },
   ];
 

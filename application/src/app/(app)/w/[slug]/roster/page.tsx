@@ -42,6 +42,7 @@ import { requireMinLevel, RBACError } from '@/lib/rbac/server';
 import { StatChip } from '@/components/learn/stat-chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { RosterTable, type RosterMemberData, type RosterPhaseColumn } from '@/components/admin/roster-table';
+import { RosterExportButton } from '@/components/admin/roster-export-button';
 import { getUsersDisplay, shortId } from '@/lib/auth/user-display';
 
 /** Số ngày (UTC, làm tròn xuống) từ `d` đến `now`. */
@@ -318,6 +319,7 @@ export default async function RosterPage({
           <p className="text-sm text-muted-foreground mt-1">
             {ws.name} · per-member progress across top-level phases.
           </p>
+          <RosterExportButton workspaceSlug={ws.slug} />
         </div>
       </header>
 
@@ -356,7 +358,7 @@ export default async function RosterPage({
           }
         />
       ) : (
-        <RosterTable phases={phaseColumns} members={memberData} />
+        <RosterTable phases={phaseColumns} members={memberData} workspaceSlug={ws.slug} />
       )}
     </div>
   );

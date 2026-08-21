@@ -12,11 +12,10 @@
  *   - member.role_update
  *   - member.remove
  *
- * For MVP we accept a user-id directly (UUID paste). A future iteration can
- * resolve email → user-id via Supabase admin API once we wire that up; the
- * `inviteWorkspaceMember` action accepts the raw identifier and best-effort
- * detects whether it looks like a UUID. Emails fall through with a clear
- * error so the UI can prompt the user to paste a UUID instead.
+ * Invite accepts email OR user-id (UUID). Email is resolved to a user via the
+ * Supabase Admin API (`findUserIdByEmail`); the invitee must have signed in at
+ * least once (auth-on-first-login invites need an invite-token system — see
+ * PLAN 7.7 follow-up).
  */
 'use server';
 import { resolveOwnerWorkspace } from '@/lib/rbac/resolve';
@@ -27,6 +26,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { workspaceMembers } from '@/lib/db/schema';
 import { writeAudit } from '@/lib/rbac/server';
+import { findUserIdByEmail } from '@/lib/auth/user-display';
 
 /** Internal: resolve workspace + enforce OWNER-min level (admin surface). */
 
@@ -37,10 +37,26 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 const inviteInput = z.object({
   workspaceSlug: z.string(),
-  /** For MVP this is a user-id (UUID). Future: email → user-id resolution. */
+  /** Email HOẶC user-id (UUID). Email được resolve qua Supabase Admin API. */
   identifier: z.string().min(1).max(200),
   role: assignableRole,
 });
+
+/** Email → user_id; UUID dùng thẳng. Báo lỗi thân thiện khi không tìm thấy. */
+async function resolveIdentifier(raw: string): Promise<string> {
+  const id = raw.trim();
+  if (UUID_RE.test(id)) return id;
+  if (id.includes('@')) {
+    const userId = await findUserIdByEmail(id);
+    if (!userId) {
+      throw new Error(
+        'USER_NOT_FOUND:Chưa tìm thấy tài khoản với email này. Người đó cần đăng nhập (bằng đúng email) ít nhất một lần trước khi được mời.',
+      );
+    }
+    return userId;
+  }
+  throw new Error('INVALID_IDENTIFIER:Nhập email hoặc user UUID.');
+}
 
 export async function inviteWorkspaceMember(
   workspaceSlug: string,
@@ -50,11 +66,7 @@ export async function inviteWorkspaceMember(
   const parsed = inviteInput.parse({ workspaceSlug, identifier, role });
   const { ws, user, ctx } = await resolveOwnerWorkspace(parsed.workspaceSlug);
 
-  const id = parsed.identifier.trim();
-  if (!UUID_RE.test(id)) {
-    // MVP: only UUIDs accepted. Surface a friendly error.
-    throw new Error('INVALID_USER_ID:Paste the member user UUID. Email lookup not wired yet.');
-  }
+  const id = await resolveIdentifier(parsed.identifier);
 
   // Already a member?
   const existing = await db
@@ -179,9 +191,17 @@ export async function bulkInviteMembers(
 
   for (let i = 0; i < parsed.rows.length; i++) {
     const row = parsed.rows[i]!;
-    const id = row.userId.trim();
-    if (!UUID_RE.test(id)) {
-      result.errors.push({ index: i, userId: id, reason: 'INVALID_UUID' });
+    const raw = row.userId.trim();
+    let id: string;
+    try {
+      id = await resolveIdentifier(raw);
+    } catch (e) {
+      // D2.2 — CSV có thể chứa email; resolve thất bại ghi reason rõ ràng.
+      result.errors.push({
+        index: i,
+        userId: raw,
+        reason: e instanceof Error ? e.message : 'INVALID_IDENTIFIER',
+      });
       continue;
     }
     if (seen.has(id)) {

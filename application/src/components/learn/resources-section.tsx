@@ -11,7 +11,7 @@
  * are gated by `readOnly` AND by the resolved effective level.
  */
 import { and, asc, eq } from 'drizzle-orm';
-import { BookOpen, FileText, Link2, Video } from 'lucide-react';
+import { BookOpen, FileText, FlaskConical, Link2, Video, Wrench } from 'lucide-react';
 import { db } from '@/lib/db/client';
 import { nodeResources } from '@/lib/db/schema';
 import { getCurrentUser } from '@/lib/auth/supabase-server';
@@ -22,7 +22,7 @@ import { ResourceRemoveButton } from './resource-remove-button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { NoResourcesIllustration } from '@/components/ui/empty-state-illustrations';
 
-type ResourceKind = 'link' | 'video' | 'doc' | 'book';
+type ResourceKind = 'link' | 'video' | 'doc' | 'book' | 'tool' | 'lab';
 
 type Props = {
   workspaceId: string;
@@ -40,9 +40,11 @@ const KIND_META: Record<
   video: { label: 'Video', Icon: Video, colorClass: 'text-rose-500' },
   doc: { label: 'Tài liệu', Icon: FileText, colorClass: 'text-amber-500' },
   book: { label: 'Sách', Icon: BookOpen, colorClass: 'text-hue-2' },
+  tool: { label: 'Công cụ', Icon: Wrench, colorClass: 'text-emerald-500' },
+  lab: { label: 'Lab / Thực hành', Icon: FlaskConical, colorClass: 'text-primary' },
 };
 
-const KIND_ORDER: ResourceKind[] = ['link', 'video', 'doc', 'book'];
+const KIND_ORDER: ResourceKind[] = ['link', 'video', 'doc', 'book', 'tool', 'lab'];
 
 export async function ResourcesSection({
   workspaceId,
@@ -78,6 +80,8 @@ export async function ResourcesSection({
     video: [],
     doc: [],
     book: [],
+    tool: [],
+    lab: [],
   };
   for (const r of rows) {
     const k = r.kind as ResourceKind;

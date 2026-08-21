@@ -33,6 +33,8 @@ import {
 } from '@/lib/evidence/confidence';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { writeAudit } from '@/lib/rbac/server';
+import { XP } from '@/lib/learn/xp-rules';
+import { insertXpOnce } from '@/lib/learn/xp-award';
 
 /* ============================ HELPERS ============================ */
 
@@ -323,6 +325,20 @@ export async function verifyEvidence(input: VerifyEvidenceInput): Promise<{ ok: 
       approved: parsed.approved,
     },
   });
+
+  // F5 — approving evidence pays the skill owner a one-off +30 XP.
+  // Dedupe key: (workspace, owner, refKind='skill', refId=skillId, reason='skill_verified')
+  // so re-verifying (or approving another grade on the same skill) never double-awards.
+  if (parsed.approved) {
+    await insertXpOnce({
+      workspaceId: ws.id,
+      userId: grade.userId,
+      amount: XP.SKILL_VERIFIED,
+      reason: 'skill_verified',
+      refKind: 'skill',
+      refId: grade.skillId,
+    });
+  }
 
   await writeAudit({
     workspaceId: ws.id,

@@ -10,11 +10,9 @@
  * fabricated business value — it is what the DB will provision on first insert.
  */
 import { NextResponse } from 'next/server';
-import { and, eq } from 'drizzle-orm';
-import { db } from '@/lib/db/client';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { requireWorkspaceAccess } from '@/lib/workspace';
-import { hearts } from '@/lib/db/schema';
+import { applyHeartRefills } from '@/lib/gamification/hearts';
 import type { Hearts } from '@/types';
 import { mapErrorToResponse } from '@/lib/api/error-response';
 
@@ -38,28 +36,18 @@ export async function GET(
     const user = await requireUser();
     const ws = await requireWorkspaceAccess(slug);
 
-    const rows = await db
-      .select({
-        current: hearts.current,
-        max: hearts.max,
-        nextRefillAt: hearts.nextRefillAt,
-      })
-      .from(hearts)
-      .where(and(eq(hearts.workspaceId, ws.id), eq(hearts.userId, user.id)))
-      .limit(1);
-
-    const row = rows[0];
+    // Lazy refill first: apply any hearts owed since next_refill_at passed,
+    // then read back the refreshed row (single atomic UPDATE + RETURNING).
+    const row = await applyHeartRefills(ws.id, user.id);
     if (!row) {
       return NextResponse.json(EMPTY_HEARTS satisfies Hearts);
     }
 
-    // The drizzle columns are nullable at the type level due to defaults; we
-    // still return the underlying value (not a fabricated fallback). Falling
-    // back to 0/0/null only happens if the DB itself stored NULL, which is the
-    // explicit-empty case.
+    // applyHeartRefills returns the post-refill values (not a fabricated
+    // fallback); the explicit-empty case (no row) was handled above.
     const payload: Hearts = {
-      current: row.current ?? 0,
-      max: row.max ?? 0,
+      current: row.current,
+      max: row.max,
       nextRefillAt: row.nextRefillAt,
     };
     return NextResponse.json(payload);

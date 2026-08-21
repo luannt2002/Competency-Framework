@@ -50,7 +50,7 @@ export type NodeResourceRow = {
   id: string;
   workspaceId: string;
   nodeId: string;
-  kind: 'link' | 'video' | 'doc' | 'book';
+  kind: 'link' | 'video' | 'doc' | 'book' | 'tool' | 'lab';
   title: string;
   url: string;
   description: string | null;
@@ -82,7 +82,7 @@ export async function listResources(
     id: r.id,
     workspaceId: r.workspaceId,
     nodeId: r.nodeId,
-    kind: r.kind as 'link' | 'video' | 'doc' | 'book',
+    kind: r.kind as 'link' | 'video' | 'doc' | 'book' | 'tool' | 'lab',
     title: r.title,
     url: r.url,
     description: r.description,

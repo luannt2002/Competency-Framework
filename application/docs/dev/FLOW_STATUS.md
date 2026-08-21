@@ -14,13 +14,13 @@
 
 | Luồng | Đã rà | Trạng thái |
 |---|---|---|
-| A — Viewer khám phá | chưa | route có, chưa đối chiếu từng bước |
+| A — Viewer khám phá | **✅ 12 bước** (2026-08-20) | 7 đủ · 1 thiếu · 3 sai — `docs/audits/FLOW_A_AUDIT.md` |
 | **B — Learner** | **✅ 34 bước** | 19 đủ · 6 thiếu · 3 đứt · 6 sai → **đã vá 15/15** |
 | C — Creator | **✅ 23 bước** (2026-08-20) | 15 đủ · 3 thiếu · 0 đứt · 5 sai; đã vá C4.2 (share lộ private); còn lại `docs/audits/FLOW_C_AUDIT.md` |
 | D — Admin | **✅ 23 bước** (2026-08-20) | 6 đủ · 10 thiếu · 1 đứt · 6 sai; chưa vá — `docs/audits/FLOW_D_AUDIT.md` |
-| E — Fork & cộng đồng | chưa | route có, chưa đối chiếu từng bước |
-| F — Gamification | một phần | XP/streak đã nối lúc vá Flow B; hearts/badge/crown chưa rà |
-| G — Certificate | chưa | route có, chưa đối chiếu từng bước |
+| E — Fork & cộng đồng | **✅ 16 bước** (2026-08-20) | 11 đủ · 1 đứt · 4 sai — đã vá E2.4b (fork copy resources) + E3.3 (UI move node) — `FLOW_E_AUDIT.md` |
+| F — Gamification | **✅ 19 bước** (2026-08-20) | 10 đủ · 5 thiếu · 4 sai — đã vá F5 (+30XP verify), F10 (refill thật), F14 (badge 3/100), F18 (crown màu) — `FLOW_F_AUDIT.md` |
+| G — Certificate | **✅ 12 bước** (2026-08-20) | 5 đủ · 5 thiếu · 2 sai — đã vá G3 (tên thật), G9 (landscape) — `FLOW_G_AUDIT.md` |
 
 **Hạ tầng đã xong, dùng chung cho mọi luồng:** hệ dạng bài mở · trình chạy bài
 học · RBAC 7 tier có kiểm chứng · hệ màu thống nhất · build production.
@@ -189,3 +189,21 @@ NEXT_DIST_DIR=.next-prod PORT=3210 pnpm start
 `grep -cE 'ms +execute'`. Bật log bằng `ALTER SYSTEM SET
 log_min_duration_statement=0;` chạy **riêng một lệnh** (`psql -c "a; b"` gộp
 thành transaction, mà `ALTER SYSTEM` không chạy trong transaction).
+
+---
+
+## Đợt 7 — vá theo kết quả rà 7/7 luồng (2026-08-20/21)
+
+Đã vá 12 mục (toàn bộ P1 + P2 trong PLAN Đợt 7): fork copy resources · nút
+move node · nút Verify + 30 XP · crown màu theo nguồn · cert A4 landscape ·
+heart refill thật (atomic) · badge streak 3/100 · node type reading/video/tool ·
+resource kind tool/lab (migration 0011) · tên thật từ Supabase Auth ở
+roster/cert (user-display.ts, cache 5') · invite bằng email HOẶC UUID.
+
+Chất lượng: typecheck · lint · **269/269 test** (21 file, +17 test mới) ·
+4 guard sạch — tất cả trên Node 20. Build prod mới đã deploy lên 3210.
+
+Ranh giới còn lại (P3 trong PLAN): invite-token cho người chưa có tài khoản ·
+% hoàn thành + tiến độ demo trên share · discover filter/sort · đặt tên khi
+fork · Last Active/At Risk · QR + /cert/<id> · export theo member · analytics
+creator · share full tree.

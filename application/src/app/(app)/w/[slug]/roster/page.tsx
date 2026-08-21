@@ -40,6 +40,7 @@ import { requireMinLevel, RBACError } from '@/lib/rbac/server';
 import { StatChip } from '@/components/learn/stat-chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { RosterTable, type RosterMemberData, type RosterPhaseColumn } from '@/components/admin/roster-table';
+import { getUsersDisplay, shortId } from '@/lib/auth/user-display';
 
 export default async function RosterPage({
   params,
@@ -210,12 +211,19 @@ export default async function RosterPage({
     return {
       key: m.key,
       userId: m.userId,
+      displayName: shortId(m.userId),
       role: m.role,
       isOwner: m.isOwner,
       perPhase,
       overallPct,
     };
   });
+
+  // D3.2 — tên/email thật thay shortId(UUID), lấy từ Supabase Auth (cache 5').
+  const displayByUser = await getUsersDisplay(members.map((m) => m.userId));
+  for (const md of memberData) {
+    md.displayName = displayByUser.get(md.userId)?.displayName ?? shortId(md.userId);
+  }
 
   // Aggregate header stats.
   const totalMembers = memberData.length;

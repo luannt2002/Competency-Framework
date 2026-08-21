@@ -7,6 +7,8 @@ import { db } from '@/lib/db/client';
 import { skills, skillCategories, userSkillProgress, competencyLevels } from '@/lib/db/schema';
 import { requireWorkspaceAccess } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
+import { getEffectiveLevel } from '@/lib/rbac/server';
+import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { Grid3x3, CheckCircle2, Crown, Layers } from 'lucide-react';
 import {
   SkillsTableClient,
@@ -88,6 +90,10 @@ export default async function SkillsPage({ params }: { params: Promise<{ slug: s
   const assessed = skillRows.filter((r) => r.levelCode).length;
   const totalCrowns = skillRows.reduce((acc, r) => acc + (r.crowns ?? 0), 0);
 
+  // D4.7 — EDITOR+ viewers get Verify/Reject controls on evidence in the drawer.
+  const viewer = await getEffectiveLevel(ws.id, user.id);
+  const canVerify = viewer.level >= RBAC_LEVELS.EDITOR;
+
   return (
     <div
       className="mx-auto max-w-7xl p-6 md:p-10 space-y-8"
@@ -139,7 +145,7 @@ export default async function SkillsPage({ params }: { params: Promise<{ slug: s
         />
       </section>
 
-      <SkillsTableClient workspaceSlug={ws.slug} rows={skillRows} rubric={rubricRows} />
+      <SkillsTableClient workspaceSlug={ws.slug} rows={skillRows} rubric={rubricRows} canVerify={canVerify} />
     </div>
   );
 }

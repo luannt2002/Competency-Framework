@@ -37,16 +37,13 @@ export type RosterMemberData = {
   /** Stable row key; either `owner:<uuid>` or workspace_members.id. */
   key: string;
   userId: string;
+  /** Tên/email thật từ Supabase Auth (D3.2) — fallback shortId. */
+  displayName: string;
   role: string;
   isOwner: boolean;
   perPhase: { phaseId: string; done: number; total: number; pct: number }[];
   overallPct: number;
 };
-
-function shortId(id: string): string {
-  if (id.length <= 10) return id;
-  return `${id.slice(0, 4)}…${id.slice(-4)}`;
-}
 
 function roleLabel(role: string): string {
   switch (role) {
@@ -169,7 +166,7 @@ export function RosterTable({
                       style={{ fontFamily: 'var(--font-jetbrains), monospace' }}
                     >
                       <div className="flex items-center gap-2">
-                        <span>{shortId(m.userId)}</span>
+                        <span title={m.userId}>{m.displayName}</span>
                         {m.isOwner && (
                           <span className="rounded-md bg-amber-500/15 text-amber-500 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">
                             owner
@@ -218,11 +215,8 @@ export function RosterTable({
             <>
               <SheetHeader>
                 <SheetTitle>
-                  <span
-                    className="font-mono"
-                    style={{ fontFamily: 'var(--font-jetbrains), monospace' }}
-                  >
-                    {shortId(selected.userId)}
+                  <span title={selected.userId}>
+                    {selected.displayName}
                   </span>
                   {selected.isOwner && (
                     <span className="ml-2 rounded-md bg-amber-500/15 text-amber-500 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider align-middle">

@@ -26,6 +26,8 @@ import {
   Save,
   Play,
   Link2,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +47,7 @@ import {
   deleteTreeNode,
   setNodeStatus,
   setNodeEvidence,
+  moveTreeNode,
 } from '@/actions/tree-nodes';
 import { NODE_TYPE_OPTIONS } from '@/lib/tree/node-meta';
 import { fireConfetti } from './confetti';
@@ -155,6 +158,20 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
     });
   };
 
+  // Reorder within siblings (up/down). Boundary moves are a no-op on the
+  // server; the UI just refreshes so the tree order reflects reality.
+  const onMove = (direction: 'up' | 'down') => {
+    startTransition(async () => {
+      try {
+        await moveTreeNode({ workspaceSlug, nodeId: node.id, direction });
+        toast.success(direction === 'up' ? 'Đã chuyển lên' : 'Đã chuyển xuống');
+        router.refresh();
+      } catch (e) {
+        toast.error('Lỗi di chuyển', { description: e instanceof Error ? e.message : String(e) });
+      }
+    });
+  };
+
   const isDoing = node.ownStatus === 'doing';
 
   const onToggleDoing = () => {
@@ -217,6 +234,14 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
         <Button onClick={() => setAddOpen(true)} variant="outline" size="sm">
           <Plus className="size-3" />
           Thêm con
+        </Button>
+        <Button onClick={() => onMove('up')} disabled={pending} variant="outline" size="sm" aria-label="Chuyển lên">
+          <ArrowUp className="size-3" />
+          Lên
+        </Button>
+        <Button onClick={() => onMove('down')} disabled={pending} variant="outline" size="sm" aria-label="Chuyển xuống">
+          <ArrowDown className="size-3" />
+          Xuống
         </Button>
         <Button onClick={() => setEditOpen(true)} variant="outline" size="sm">
           <Pencil className="size-3" />

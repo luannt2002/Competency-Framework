@@ -2056,6 +2056,8 @@
     { "slug": "committed",        "name": "Committed",        "description": "Hoàn thành 10 lessons.",     "icon": "Award",       "rule": { "kind": "lesson_completed", "value": 10 } },
     { "slug": "week-warrior",     "name": "Week Warrior",     "description": "Hoàn thành 1 tuần.",         "icon": "Trophy",      "rule": { "kind": "week_completed", "value": 1 } },
     { "slug": "level-up-xs",      "name": "Foundational",     "description": "Hoàn thành Level XS.",       "icon": "Sparkles",    "rule": { "kind": "level_completed", "value": "XS" } },
+    { "slug": "streak-3",         "name": "First Streak",     "description": "3 ngày streak liên tiếp.",   "icon": "CalendarCheck", "rule": { "kind": "streak", "value": 3 } },
+    { "slug": "streak-100",       "name": "Century Learner",  "description": "100 ngày streak liên tiếp.",  "icon": "Medal",         "rule": { "kind": "streak", "value": 100 } },
     { "slug": "streak-7",         "name": "On Fire",          "description": "7 ngày streak liên tiếp.",  "icon": "Flame",       "rule": { "kind": "streak", "value": 7 } },
     { "slug": "streak-30",        "name": "Unstoppable",      "description": "30 ngày streak liên tiếp.", "icon": "Zap",         "rule": { "kind": "streak", "value": 30 } },
     { "slug": "crown-collector",  "name": "Crown Collector",  "description": "10 crowns trên các skills.","icon": "Crown",       "rule": { "kind": "crowns_total", "value": 10 } },

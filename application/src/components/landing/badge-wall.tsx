@@ -10,11 +10,13 @@ import Link from 'next/link';
 import {
   Award,
   AlertTriangle,
+  CalendarCheck,
   Cloud,
   Crown,
   Flame,
   Footprints,
   Grid3x3,
+  Medal,
   Sparkles,
   Star,
   Trophy,
@@ -33,11 +35,13 @@ import { getPublicBadges } from './landing-data';
  */
 const BADGE_ICONS: Record<string, LucideIcon> = {
   Award,
+  CalendarCheck,
   Cloud,
   Crown,
   Flame,
   Footprints,
   Grid3x3,
+  Medal,
   Sparkles,
   Star,
   Trophy,

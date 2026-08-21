@@ -21,7 +21,7 @@ import { workspaces } from './schema';
 import { roadmapTreeNodes } from './schema-tree';
 
 /** Allowed resource kinds. CHECK constraint in SQL enforces this set. */
-export const RESOURCE_KINDS = ['link', 'video', 'doc', 'book'] as const;
+export const RESOURCE_KINDS = ['link', 'video', 'doc', 'book', 'tool', 'lab'] as const;
 export type ResourceKind = (typeof RESOURCE_KINDS)[number];
 
 export const nodeResources = pgTable(

@@ -7,7 +7,8 @@ import { and, eq, gte, sum } from 'drizzle-orm';
 import { AppSidebar, BottomTabBar } from '@/components/layout/app-sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { db } from '@/lib/db/client';
-import { xpEvents, streaks as streaksT, hearts as heartsT } from '@/lib/db/schema';
+import { xpEvents, streaks as streaksT } from '@/lib/db/schema';
+import { applyHeartRefills } from '@/lib/gamification/hearts';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { requireWorkspaceAccess, listMyWorkspaces } from '@/lib/workspace';
 import { workspaceAccentStyle } from '@/lib/theme/workspace-theme';
@@ -43,17 +44,15 @@ export default async function WorkspaceLayout({
       .from(streaksT)
       .where(and(eq(streaksT.workspaceId, ws.id), eq(streaksT.userId, user.id)))
       .limit(1),
-    db
-      .select()
-      .from(heartsT)
-      .where(and(eq(heartsT.workspaceId, ws.id), eq(heartsT.userId, user.id)))
-      .limit(1),
+    // Lazy heart refill: apply any hearts owed since next_refill_at elapsed,
+    // then use the refreshed count (single atomic UPDATE + RETURNING).
+    applyHeartRefills(ws.id, user.id),
     listMyWorkspaces(),
   ]);
 
   const dailyXp = Number(xpTodayRow[0]?.s ?? 0);
   const streak = streakRow[0]?.currentStreak ?? 0;
-  const hearts = heartRow[0]?.current ?? 5;
+  const hearts = heartRow?.current ?? 5;
   // Owner gate for the sidebar admin section. The workspace owner is the
   // single source of truth via workspaces.owner_user_id (not workspace_members).
   const isOwner = ws.ownerUserId === user.id;

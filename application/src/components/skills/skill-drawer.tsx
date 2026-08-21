@@ -26,8 +26,9 @@ import {
   Loader2,
   Plus,
   ShieldCheck,
-  Sparkles,
+  ShieldX,
   Target,
+  Check,
 } from 'lucide-react';
 import {
   Sheet,
@@ -48,10 +49,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { LevelBadge } from './level-badge';
 import { EvidenceForm } from '@/components/evidence/evidence-form';
+import { CrownCount } from '@/components/skills/crown-count';
 import { updateAssessment } from '@/actions/assessments';
 import {
   computeConfidence,
   listEvidenceForSkill,
+  verifyEvidence,
   type EvidenceRow,
 } from '@/actions/evidence';
 import type { ConfidenceResult, ConfidenceSource } from '@/lib/evidence/confidence';
@@ -73,6 +76,7 @@ export type SkillDrawerData = {
   whyThisLevel?: string | null;
   evidenceUrls?: string[];
   crowns?: number;
+  levelSource?: 'self_claimed' | 'learned' | 'both' | 'verified' | null;
   rubric: Array<{
     code: string;
     label: string;
@@ -88,11 +92,13 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   workspaceSlug: string;
   data: SkillDrawerData | null;
+  /** D4.7 — viewer may verify evidence (effective level >= EDITOR). */
+  canVerify?: boolean;
 };
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
-export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) {
+export function SkillDrawer({ open, onOpenChange, workspaceSlug, data, canVerify = false }: Props) {
   const router = useRouter();
   const [level, setLevel] = useState<LevelCode | null>(data?.currentLevel ?? null);
   const [target, setTarget] = useState<LevelCode | null>(data?.targetLevel ?? null);
@@ -111,6 +117,10 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
   const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
   const [, startEvidenceRefresh] = useTransition();
+
+  // D4.7 — reviewer verify/reject state
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [, startVerifyTransition] = useTransition();
 
   // Reset form when skill changes
   useEffect(() => {
@@ -147,6 +157,28 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
       setEvidenceLoading(false);
     }
   }, [data, workspaceSlug]);
+
+  // D4.7 — wire a reviewer's verify/reject decision to the server action.
+  const handleVerify = useCallback(
+    (gradeId: string, approved: boolean) => {
+      setVerifyingId(gradeId);
+      startVerifyTransition(async () => {
+        try {
+          await verifyEvidence({ workspaceSlug, gradeId, approved });
+          toast.success(approved ? 'Evidence verified' : 'Evidence rejected');
+          await refreshEvidence();
+          router.refresh();
+        } catch (e) {
+          toast.error('Could not verify evidence', {
+            description: e instanceof Error ? e.message : undefined,
+          });
+        } finally {
+          setVerifyingId(null);
+        }
+      });
+    },
+    [workspaceSlug, refreshEvidence, router],
+  );
 
   // Lazy-load evidence the first time the section is opened.
   useEffect(() => {
@@ -225,10 +257,7 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
               {data.categoryName}
             </Badge>
             {(data.crowns ?? 0) > 0 && (
-              <Badge variant="warning">
-                <Sparkles className="size-3" />
-                {data.crowns}/5 crowns
-              </Badge>
+              <CrownCount crowns={data.crowns} source={data.levelSource ?? null} className="text-xs" />
             )}
             <SaveIndicator state={saveState} error={error} />
           </div>
@@ -445,6 +474,38 @@ export function SkillDrawer({ open, onOpenChange, workspaceSlug, data }: Props) 
                           {row.reviewerUserId && (
                             <span className="text-muted-foreground">
                               · reviewer ✓
+                            </span>
+                          )}
+                          {canVerify && (
+                            <span className="ml-1 inline-flex items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-emerald-600 dark:text-emerald-400"
+                                disabled={verifyingId === row.id}
+                                onClick={() => handleVerify(row.id, true)}
+                                title="Approve this evidence (awards +30 XP once)"
+                              >
+                                {verifyingId === row.id ? (
+                                  <Loader2 className="size-3 animate-spin" />
+                                ) : (
+                                  <Check className="size-3" />
+                                )}
+                                Verify
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-destructive"
+                                disabled={verifyingId === row.id}
+                                onClick={() => handleVerify(row.id, false)}
+                                title="Reject this evidence"
+                              >
+                                <ShieldX className="size-3" />
+                                Reject
+                              </Button>
                             </span>
                           )}
                           <span className="ml-auto text-muted-foreground tabular-nums">

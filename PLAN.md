@@ -1,4 +1,5 @@
-# Kế hoạch nâng cấp — làm ngầm, không hỏi lại
+ogic quan trọng?"17. "Từng review code đồng nghiệp và phát hiện bug nghiêm trọng chưa? Bạn feedback thế nào để không gây khó chịu?"## 📌 Câu hỏi tình huống (behavioral + technical kết hợp)18. "Nếu được giao 1 API cũ chạy chậm dần theo thời gian, không ai biết vì sao — bạn tiếp cận vấn đề theo thứ tự nào?"19. "Bạn ước lượng efort cho 1 task như th ếnào? Có lần nào ước lượng sai nhiều không, vì sao?"---**Gợi ù cch ùdộng b ộnày:** với ứng viên thực sự có kinh nghiệm, câu trả lời sẽ có **chi tiết cụ thể** (tên tool, con số, tình huống thật) thay vì trả lời theo sách vở. Nếu ứng viên trả lời câu 9, 11, 4 mà mơ hồ, chung chung → khả năng cao là chưa thực chiến nhiều dù CV ghi 3-4 năm kinh nghiệm.Bạn cần mình soạn thêm **đáp án mẫu / rubric chấm điểm** cho từng câu để phỏng vấn cho khách quan hơn không?
+đọc thên thửu duddocj thêm thử đi bhes đọc# Kế hoạch nâng cấp — làm ngầm, không hỏi lại
 
 > Chốt ngày 2026-08-20. Mốc gần nhất: commit `d9c76ac`.
 > Trạng thái chi tiết từng luồng: `application/docs/dev/FLOW_STATUS.md`.
@@ -132,18 +133,47 @@ Slug đã siết unique toàn cục (migration 0010). Còn hai lỗ.
 
 ---
 
+## Đợt 7 — Vá theo kết quả rà 7/7 luồng (2026-08-20)
+
+Bảng điểm rà: A 7/1/0/3 · B vá xong 15/15 · C 15/3/0/5 · D 6/10/1/6 ·
+E 11/0/1/4 · F 10/5/0/4 · G 5/5/0/2 (đủ/thiếu/đứt/sai). Chi tiết `docs/audits/`.
+
+### P1 — lỗi thật, rẻ, nặng hậu quả (làm ngay)
+
+- [x] **7.1 E2.4b** ✅ fork copy `node_resources` (batch 200, idMap remap, activity log đếm resource).
+- [x] **7.2 D4.7 + F5** ✅ nút Verify/Reject trong skill-drawer (EDITOR+), +30 XP `skill_verified` qua insertXpOnce (dedupe theo skill).
+- [x] **7.3 G9** ✅ certificate A4 landscape 297×210mm.
+- [x] **7.4 F10** ✅ refill thật: `src/lib/gamification/hearts.ts` — UPDATE atomic + gọi ở hearts API, topbar layout, submitExercise. 7 test mới.
+- [x] **7.5 C2.2 + C3.2** ✅ node type reading/video/tool; resource kind tool/lab + migration 0011 (CHECK) + UI dialog + section.
+
+### P2 — dùng được với người thật
+
+- [x] **7.6 tên người dùng** ✅ không cần bảng mới: `src/lib/auth/user-display.ts` — Supabase Admin API getUserById, cache 5'. Roster + certificate + drawer hiện tên/email thay UUID.
+- [x] **7.7 D2.1/D2.2** ✅ invite nhận email HOẶC UUID — findUserIdByEmail (Admin listUsers, cache). CSV bulk cũng resolve email. Giới hạn: người được mời phải đã đăng nhập ít nhất 1 lần (invite-token cho người chưa có tài khoản → mục P3 mới).
+- [x] **7.8 F14** ✅ badge streak-3 'First Streak' + streak-100 'Century Learner' — seed + migration 0011 backfill (3 workspace × 2).
+- [x] **7.9 F18** ✅ CrownCount: vàng (verified) / xanh primary (learned/both) / xám (self_claimed) — bảng + drawer.
+- [x] **7.10 E3.3** ✅ nút Lên/Xuống trên node-toolbar gọi moveTreeNode.
+
+### P3 — spec đầy đủ (làm sau, mỗi cái một mẻ)
+
+- [ ] **7.11 A4** badge "Y% hoàn thành" trên share · **A6** tiến độ demo creator.
+- [ ] **7.12 E1.1/E1.2** discover filter/sort + mô tả + số fork.
+- [ ] **7.13 E2.3** cho user đặt tên khi fork.
+- [ ] **7.14 D3.3/D3.4** roster Last Active + cờ At Risk.
+- [ ] **7.15 G8/G10** QR + link `/cert/<id>` để employer verify.
+- [ ] **7.16 F8/F9/F11** hearts decay/skip/replay-earn (cân nhắc lại game design).
+- [ ] **7.17 D3.6/D3.7** export theo member; **D4.x** drill-down member.
+- [ ] **7.18 C5** analytics creator; **F16** custom badge CRUD; **A3** share full tree.
+
 ## Thứ tự ưu tiên
 
 ```
-1.1 → 1.2 → 1.3        bịt bánh vẽ, mở khoá db:push
-2.1 → 2.2              trả lời dứt điểm "còn lag không"
-3.1 → 3.2              hai việc nhỏ, rẻ
-4.2                    guard tenant (rẻ, chặn được nhiều)
-3.3 → 3.4 → 3.5        rà nốt các luồng
-5.2 → 5.3 → 5.4        white-label + test RBAC + nới enum
-2.4 → 6.1 → 6.2        hardening
-4.1                    RLS — rủi ro cao, làm cuối
-5.1                    tầng tổ chức — HỎI TRƯỚC, lệch mindset sản phẩm
+7.1 → 7.10            P1/P2 đợt vá 7 luồng (làm theo mẻ song song không đè file)
+4.1                   RLS (đã có guard tenant chặn sóng to)
+7.11 → 7.18           P3 từng mẻ
+5.2 → 5.3 → 5.4       white-label + nới enum
+6.1                   hardening còn lại
+5.1                   tầng tổ chức — HỎI TRƯỚC
 ```
 
 ## Việc phải hỏi, không tự quyết

@@ -41,6 +41,7 @@ import type { GradeResult, GradeStatus } from '@/lib/exercises/types';
 import type { FieldSpec } from '@/lib/exercises/field-spec';
 import { XP } from '@/lib/learn/xp-rules';
 import { tickStreak } from '@/lib/gamification/streak';
+import { applyHeartRefills } from '@/lib/gamification/hearts';
 import { awardCrowns, type CrownAdvance } from '@/lib/gamification/crowns';
 import { evaluateBadges, type GrantedBadge } from '@/lib/gamification/badge-evaluator';
 import { recomputeUnlocks } from '@/lib/learn/unlock-rules';
@@ -304,6 +305,10 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
   // Only a settled WRONG answer costs a heart. An essay awaiting review has not
   // been judged yet, and a partial answer was not wrong — charging either would
   // punish the learner for the grader's latency.
+  //
+  // Lazy refill first: apply any hearts owed since next_refill_at elapsed, so
+  // the reported count (and the decrement below) starts from the true value.
+  await applyHeartRefills(ws.id, user.id);
   let heartsLeft = 5;
   if (isWrong) {
     const HEART_REFILL_MS = 4 * 60 * 60 * 1000;

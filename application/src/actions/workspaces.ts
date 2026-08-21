@@ -47,6 +47,7 @@ import {
   activityLog,
 } from '@/lib/db/schema';
 import { roadmapTreeNodes } from '@/lib/db/schema-tree';
+import { nodeResources } from '@/lib/db/schema-resources';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { frameworkPayloadSchema, type FrameworkPayload } from '@/lib/framework/payload-schema';
 import { toSlug } from '@/lib/utils';
@@ -562,6 +563,31 @@ export async function forkWorkspace(formData: FormData): Promise<void> {
     }
   }
 
+  // Copy node resources (workspace-scoped) — remap nodeId via idMap so each
+  // resource points at the forked node. Batched like the node inserts above.
+  const srcResources = await db
+    .select()
+    .from(nodeResources)
+    .where(eq(nodeResources.workspaceId, srcWs.id));
+  if (srcResources.length > 0) {
+    const BATCH = 200;
+    for (let i = 0; i < srcResources.length; i += BATCH) {
+      const batch = srcResources.slice(i, i + BATCH);
+      // guard-tenant-scope: allow — every row's values include workspaceId: newWs.id
+      await db.insert(nodeResources).values(
+        batch.map((r) => ({
+          workspaceId: newWs.id,
+          nodeId: idMap.get(r.nodeId)!,
+          kind: r.kind,
+          title: r.title,
+          url: r.url,
+          description: r.description,
+          addedByUserId: null,
+        })),
+      );
+    }
+  }
+
   // Init gamification state
   await db.insert(hearts).values({ workspaceId: newWs.id, userId: user.id, current: 5, max: 5 });
   await db.insert(streaks).values({
@@ -575,7 +601,7 @@ export async function forkWorkspace(formData: FormData): Promise<void> {
     workspaceId: newWs.id,
     userId: user.id,
     kind: 'workspace_forked',
-    payload: { sourceWorkspaceId: srcWs.id, sourceSlug: srcWs.slug, nodeCount: srcNodes.length },
+    payload: { sourceWorkspaceId: srcWs.id, sourceSlug: srcWs.slug, nodeCount: srcNodes.length, resourceCount: srcResources.length },
   });
 
   await writeAudit({

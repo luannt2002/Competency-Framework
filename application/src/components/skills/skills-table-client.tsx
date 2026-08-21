@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LevelBadge } from '@/components/skills/level-badge';
 import { SkillDrawer, type SkillDrawerData, type LevelCode } from '@/components/skills/skill-drawer';
+import { CrownCount } from '@/components/skills/crown-count';
 import { NEUTRAL_FALLBACK } from '@/lib/constants/palette';
 
 export type SkillRow = {
@@ -46,6 +47,8 @@ type Props = {
   workspaceSlug: string;
   rows: SkillRow[];
   rubric: Rubric;
+  /** D4.7 — viewer may verify evidence (effective level >= EDITOR). */
+  canVerify?: boolean;
 };
 
 const ALL_LEVELS: LevelCode[] = ['XS', 'S', 'M', 'L'];
@@ -65,7 +68,7 @@ function SourceBadge({ source }: { source: SkillRow['levelSource'] }) {
   );
 }
 
-export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
+export function SkillsTableClient({ workspaceSlug, rows, rubric, canVerify = false }: Props) {
   // Workspace-custom level labels (competency_levels.label) → code→label map
   const levelLabels: Record<string, string> = Object.fromEntries(
     rubric.map((r) => [r.code, r.label]),
@@ -129,6 +132,7 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
         whyThisLevel: selected.whyThisLevel,
         evidenceUrls: selected.evidenceUrls ?? [],
         crowns: selected.crowns ?? 0,
+        levelSource: selected.levelSource,
         rubric,
       }
     : null;
@@ -329,9 +333,8 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
                   <td className="px-4 py-3 hidden md:table-cell">
                     <SourceBadge source={r.levelSource} />
                   </td>
-                  <td className="px-4 py-3 hidden md:table-cell text-amber-400 tabular-nums">
-                    {r.crowns ?? 0}
-                    <span className="text-muted-foreground">/5</span>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    <CrownCount crowns={r.crowns} source={r.levelSource} />
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-muted-foreground text-xs">
                     {r.updatedAt ? new Date(r.updatedAt).toLocaleDateString() : '—'}
@@ -355,6 +358,7 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric }: Props) {
         onOpenChange={(open) => !open && setSelectedId(null)}
         workspaceSlug={workspaceSlug}
         data={drawerData}
+        canVerify={canVerify}
       />
     </>
   );

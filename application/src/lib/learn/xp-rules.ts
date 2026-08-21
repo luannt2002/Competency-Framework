@@ -14,6 +14,8 @@ export const XP = {
   STREAK_7: 50,
   STREAK_30: 300,
   BADGE_EARNED: 25,
+  /** F5 — a reviewer approving evidence that verifies a skill. One-off per skill+user. */
+  SKILL_VERIFIED: 30,
 } as const;
 
 /**
@@ -69,4 +71,5 @@ export type XpReason =
   | 'daily_task_complete'
   | 'daily_streak'
   | 'streak_milestone'
-  | 'badge_earned';
+  | 'badge_earned'
+  | 'skill_verified';

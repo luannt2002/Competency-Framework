@@ -3,9 +3,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { frameworkPayloadSchema } from '@/lib/framework/payload-schema';
 
+const path = resolve(__dirname, '../../drizzle/seeds/devops.json');
+const raw = JSON.parse(readFileSync(path, 'utf-8'));
+
 describe('devops.json seed', () => {
-  const path = resolve(__dirname, '../../drizzle/seeds/devops.json');
-  const raw = JSON.parse(readFileSync(path, 'utf-8'));
 
   it('parses against the payload schema', () => {
     const parsed = frameworkPayloadSchema.safeParse(raw);
@@ -61,6 +62,30 @@ describe('devops.json seed', () => {
           }
         }
       }
+    }
+  });
+});
+
+describe('devops.json badges', () => {
+  it('has unique badge slugs', () => {
+    const slugs = raw.badges.map((b: { slug: string }) => b.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  it('ships the full streak ladder: 3, 7, 30, 100 days', () => {
+    const streakRules = raw.badges
+      .filter((b: { rule: { kind: string } }) => b.rule.kind === 'streak')
+      .map((b: { rule: { value: number } }) => b.rule.value)
+      .sort((a: number, b: number) => a - b);
+    expect(streakRules).toEqual([3, 7, 30, 100]);
+  });
+
+  it('each badge has name, Vietnamese description, icon and slug', () => {
+    for (const b of raw.badges) {
+      expect(b.slug).toBeTruthy();
+      expect(b.name).toBeTruthy();
+      expect(b.description).toBeTruthy();
+      expect(b.icon).toBeTruthy();
     }
   });
 });

@@ -28,13 +28,9 @@ import { requireUser } from '@/lib/auth/supabase-server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { requireMinLevel, RBACError } from '@/lib/rbac/server';
 import { PrintButton } from '@/components/admin/print-button';
+import { getUserDisplay } from '@/lib/auth/user-display';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function shortId(id: string): string {
-  if (id.length <= 12) return id;
-  return `${id.slice(0, 6)}…${id.slice(-6)}`;
-}
 
 function formatVnDate(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
@@ -136,6 +132,9 @@ export default async function CertificatePage({
   const eligible = pct >= 80;
   const issuedAt = new Date();
 
+  // G3 — tên thật từ Supabase Auth thay UUID, fallback shortId.
+  const subjectDisplay = await getUserDisplay(subjectUserId);
+
   return (
     <div
       className="min-h-dvh bg-muted/30 print-host"
@@ -145,7 +144,7 @@ export default async function CertificatePage({
           the printout is a clean single A4 sheet. */}
       <style>{`
         @media print {
-          @page { size: A4; margin: 0; }
+          @page { size: A4 landscape; margin: 0; }
           html, body { background: #fffaf3 !important; }
           /* Hide anything outside the certificate sheet */
           body * { visibility: hidden !important; }
@@ -167,7 +166,7 @@ export default async function CertificatePage({
           <Award className="size-5 text-amber-500" />
           <h1 className="text-base font-semibold">Chứng nhận hoàn thành</h1>
           <span className="text-xs text-muted-foreground">
-            {ws.name} · {shortId(subjectUserId)}
+            {ws.name} · {subjectDisplay.displayName}
           </span>
         </div>
         {eligible && (
@@ -198,7 +197,7 @@ export default async function CertificatePage({
                 className="font-mono"
                 style={{ fontFamily: 'var(--font-jetbrains), monospace' }}
               >
-                {subjectUserId}
+                {subjectDisplay.displayName}
               </span>{' '}
               · {subjectRole}
             </p>
@@ -207,6 +206,7 @@ export default async function CertificatePage({
           <CertificateSheet
             workspaceName={ws.name}
             subjectUserId={subjectUserId}
+            subjectName={subjectDisplay.displayName}
             pct={pct}
             done={doneCount}
             total={total}
@@ -218,10 +218,11 @@ export default async function CertificatePage({
   );
 }
 
-/** A4 certificate sheet (210mm × 297mm). Pure presentational. */
+/** A4 landscape certificate sheet (297mm × 210mm). Pure presentational. */
 function CertificateSheet({
   workspaceName,
-  subjectUserId,
+  subjectUserId: _subjectUserId,
+  subjectName,
   pct,
   done,
   total,
@@ -229,6 +230,7 @@ function CertificateSheet({
 }: {
   workspaceName: string;
   subjectUserId: string;
+  subjectName: string;
   pct: number;
   done: number;
   total: number;
@@ -239,8 +241,8 @@ function CertificateSheet({
     <div
       className="cert-sheet relative overflow-hidden shadow-2xl"
       style={{
-        width: '210mm',
-        height: '297mm',
+        width: '297mm',
+        height: '210mm',
         background:
           'linear-gradient(160deg, #fffaf3 0%, #fff3e3 60%, #ffe7cf 100%)',
         color: '#3a2a1c',
@@ -277,7 +279,7 @@ function CertificateSheet({
         {/* Ribbon-style title */}
         <div
           className="relative inline-flex items-center justify-center"
-          style={{ marginTop: '14mm' }}
+          style={{ marginTop: '8mm' }}
         >
           <div
             style={{
@@ -298,7 +300,7 @@ function CertificateSheet({
 
         <p
           style={{
-            marginTop: '14mm',
+            marginTop: '10mm',
             fontSize: '14px',
             letterSpacing: '0.16em',
             textTransform: 'uppercase',
@@ -308,7 +310,7 @@ function CertificateSheet({
           Trao tặng cho
         </p>
 
-        {/* Subject name (user_id for MVP — no profile system yet) */}
+        {/* Subject name — từ Supabase Auth (G3), fallback shortId */}
         <h2
           style={{
             marginTop: '6mm',
@@ -321,7 +323,7 @@ function CertificateSheet({
             wordBreak: 'break-all',
           }}
         >
-          {subjectUserId}
+          {subjectName}
         </h2>
 
         <div
@@ -364,7 +366,7 @@ function CertificateSheet({
         {/* Footer */}
         <div
           className="absolute left-0 right-0 px-16 flex items-end justify-between"
-          style={{ bottom: '24mm' }}
+          style={{ bottom: '18mm' }}
         >
           <div style={{ textAlign: 'center' }}>
             <div

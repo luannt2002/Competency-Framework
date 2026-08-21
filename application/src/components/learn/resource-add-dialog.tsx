@@ -26,11 +26,16 @@ import {
 } from '@/components/ui/dialog';
 import { addNodeResource } from '@/actions/node-resources';
 
-const KIND_OPTIONS: Array<{ value: 'link' | 'video' | 'doc' | 'book'; label: string }> = [
+const KIND_OPTIONS: Array<{
+  value: 'link' | 'video' | 'doc' | 'book' | 'tool' | 'lab';
+  label: string;
+}> = [
   { value: 'link', label: 'Link' },
   { value: 'video', label: 'Video' },
   { value: 'doc', label: 'Tài liệu / Doc' },
   { value: 'book', label: 'Sách' },
+  { value: 'tool', label: 'Công cụ' },
+  { value: 'lab', label: 'Lab / Thực hành' },
 ];
 
 export function ResourceAddDialog({
@@ -42,7 +47,9 @@ export function ResourceAddDialog({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<'link' | 'video' | 'doc' | 'book'>('link');
+  const [kind, setKind] = useState<
+    'link' | 'video' | 'doc' | 'book' | 'tool' | 'lab'
+  >('link');
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
   const [description, setDescription] = useState('');
@@ -102,7 +109,9 @@ export function ResourceAddDialog({
               <select
                 value={kind}
                 onChange={(e) =>
-                  setKind(e.target.value as 'link' | 'video' | 'doc' | 'book')
+                  setKind(
+                    e.target.value as 'link' | 'video' | 'doc' | 'book' | 'tool' | 'lab'
+                  )
                 }
                 className="w-full h-10 rounded-xl border border-border bg-secondary/40 px-3 text-sm"
               >

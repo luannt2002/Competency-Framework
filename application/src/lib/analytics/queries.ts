@@ -89,7 +89,7 @@ export async function getOverviewStats(workspaceId: string): Promise<OverviewSta
         .where(
           and(
             eq(activityLog.workspaceId, workspaceId),
-            dsql`${activityLog.createdAt} >= ${weekAgo}`,
+            dsql`${activityLog.createdAt} >= ${weekAgo.toISOString()}`,
           ),
         ),
       db
@@ -160,7 +160,7 @@ export async function getNodeStuckStats(
       nodeId: userNodeProgress.nodeId,
       started: count(),
       done: dsql<number>`count(*) filter (where ${userNodeProgress.status} = 'done')`,
-      stuck: dsql<number>`count(*) filter (where ${userNodeProgress.status} <> 'done' and ${userNodeProgress.updatedAt} < ${cutoff})`,
+      stuck: dsql<number>`count(*) filter (where ${userNodeProgress.status} <> 'done' and ${userNodeProgress.updatedAt} < ${cutoff.toISOString()})`,
     })
     .from(userNodeProgress)
     .where(eq(userNodeProgress.workspaceId, workspaceId))

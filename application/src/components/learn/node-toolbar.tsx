@@ -158,12 +158,17 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
     });
   };
 
-  // Reorder within siblings (up/down). Boundary moves are a no-op on the
-  // server; the UI just refreshes so the tree order reflects reality.
+  // Đổi thứ tự trong nhóm anh em. Ở biên (đã đứng đầu / đứng cuối) server trả
+  // `moved: false` — phải nói đúng như vậy, trước đây UI toast "Đã chuyển lên"
+  // cho cả trường hợp không có gì di chuyển.
   const onMove = (direction: 'up' | 'down') => {
     startTransition(async () => {
       try {
-        await moveTreeNode({ workspaceSlug, nodeId: node.id, direction });
+        const res = await moveTreeNode({ workspaceSlug, nodeId: node.id, direction });
+        if (!res.moved) {
+          toast.info(direction === 'up' ? 'Đã ở đầu danh sách' : 'Đã ở cuối danh sách');
+          return;
+        }
         toast.success(direction === 'up' ? 'Đã chuyển lên' : 'Đã chuyển xuống');
         router.refresh();
       } catch (e) {

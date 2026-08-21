@@ -15,16 +15,12 @@
  * via a tiny client component (`PrintButton`).
  */
 import { redirect } from 'next/navigation';
-import { and, count, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import QRCode from 'qrcode';
 import { Award, Printer } from 'lucide-react';
 import { db } from '@/lib/db/client';
-import {
-  workspaces,
-  workspaceMembers,
-  roadmapTreeNodes,
-  userNodeProgress,
-} from '@/lib/db/schema';
+import { userWorkspaceCompletion } from '@/lib/tree/completion-db';
+import { workspaces, workspaceMembers } from '@/lib/db/schema';
 import { issueCertificate } from '@/lib/db/certificates';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
@@ -103,34 +99,11 @@ export default async function CertificatePage({
     subjectRole = m.role;
   }
 
-  // Fetch the descendant-node id set so the done count uses the same
-  // denominator as the roster page (top-level phases / roots excluded).
-  const allNodes = await db
-    .select({ id: roadmapTreeNodes.id, pathStr: roadmapTreeNodes.pathStr })
-    .from(roadmapTreeNodes)
-    .where(eq(roadmapTreeNodes.workspaceId, ws.id));
-  const descendantIds = allNodes
-    .filter((n) => n.pathStr && n.pathStr.length > 0)
-    .map((n) => n.id);
-
-  let doneCount = 0;
-  if (descendantIds.length > 0) {
-    const dr = await db
-      .select({ n: count() })
-      .from(userNodeProgress)
-      .where(
-        and(
-          eq(userNodeProgress.workspaceId, ws.id),
-          eq(userNodeProgress.userId, subjectUserId),
-          eq(userNodeProgress.status, 'done'),
-          inArray(userNodeProgress.nodeId, descendantIds),
-        ),
-      );
-    doneCount = Number(dr[0]?.n ?? 0);
-  }
-  const total = descendantIds.length;
-
-  const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+  // Mẫu số dùng CHUNG với trang share và dashboard — xem lib/tree/completion-db.ts.
+  // Trước đây trang này loại node gốc ra khỏi mẫu số (164) trong khi share đếm
+  // đủ (166), nên cùng một người cùng lúc: chứng nhận ghi 85%, trang share mà
+  // chính chứng nhận dẫn sang lại ghi 84%.
+  const { done: doneCount, total, pct } = await userWorkspaceCompletion(ws.id, subjectUserId);
   const eligible = pct >= 80;
 
   // G10 — an eligible view upserts the certificate row: the FIRST view fixes
@@ -138,6 +111,7 @@ export default async function CertificatePage({
   // issuedAt (not "now") is what the sheet and /cert verification show.
   let certCode: string | null = null;
   let issuedAt = new Date();
+  let revokedAt: Date | null = null;
   if (eligible) {
     const cert = await issueCertificate({
       workspaceId: ws.id,
@@ -148,12 +122,22 @@ export default async function CertificatePage({
     });
     certCode = cert.uniqueCode;
     issuedAt = cert.issuedAt;
+    revokedAt = cert.revokedAt;
   }
+  // Đã thu hồi thì `/cert/<code>` trả 404 — nhưng trang này vẫn render đủ tờ
+  // chứng nhận kèm QR và mã, không dấu hiệu gì (rà G12). Một tờ in ra từ đây
+  // sẽ dẫn tới một liên kết xác minh đã chết.
+  const isRevoked = revokedAt !== null;
 
-  // G8 — QR pointing at the public verification URL, rendered server-side
-  // as a compact SVG and embedded in the printed sheet.
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const verifyUrl = certCode ? `${appUrl}/cert/${certCode}` : null;
+  // G8 — QR trỏ tới URL xác minh công khai, sinh SVG ở server rồi nhúng vào tờ in.
+  //
+  // KHÔNG có fallback `http://localhost:3000` nữa. QR in lên giấy thì không sửa
+  // lại được: thiếu `NEXT_PUBLIC_APP_URL` ở production nghĩa là MỌI tờ chứng
+  // nhận đã in đều trỏ về localhost vĩnh viễn. Thiếu env thì thà không in QR.
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.NODE_ENV === 'production' ? null : 'http://localhost:3000');
+  const verifyUrl = certCode && appUrl && !isRevoked ? `${appUrl}/cert/${certCode}` : null;
   let qrSvg: string | null = null;
   if (verifyUrl) {
     qrSvg = await QRCode.toString(verifyUrl, {
@@ -177,7 +161,19 @@ export default async function CertificatePage({
       <style>{`
         @media print {
           @page { size: A4 landscape; margin: 0; }
-          html, body { background: #fffaf3 !important; }
+          /* Ép đúng MỘT trang. visibility:hidden chỉ giấu phần vẽ, hộp layout
+             của vỏ app vẫn còn nguyên chiều cao — đo được scrollHeight 956px so
+             với 794px của một trang A4 ngang, nên bản in tràn sang trang 2
+             trắng trơn (rà G9). */
+          html, body {
+            background: #fffaf3 !important;
+            width: 297mm !important;
+            height: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+          }
+          .print-host { min-height: 0 !important; padding: 0 !important; }
           /* Hide anything outside the certificate sheet */
           body * { visibility: hidden !important; }
           .cert-sheet, .cert-sheet * { visibility: visible !important; }
@@ -202,7 +198,7 @@ export default async function CertificatePage({
             {ws.name} · {subjectDisplay.displayName}
           </span>
         </div>
-        {eligible && certCode && verifyUrl && (
+        {eligible && certCode && verifyUrl && !isRevoked && (
           <div className="flex items-center gap-3">
             <span
               className="hidden md:inline text-xs text-muted-foreground"
@@ -212,11 +208,36 @@ export default async function CertificatePage({
             </span>
             <PrintButton>
               <Printer className="size-4" />
-              Print / Save as PDF
+              In / Lưu PDF
             </PrintButton>
           </div>
         )}
       </div>
+
+      {isRevoked && (
+        <div
+          role="alert"
+          className="no-print mx-auto mt-6 max-w-2xl rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm"
+        >
+          <p className="font-semibold text-destructive">Chứng nhận này đã bị thu hồi</p>
+          <p className="mt-1 text-muted-foreground">
+            Liên kết xác minh công khai không còn hiệu lực, nên bản in sẽ không xác
+            thực được. Nút in đã bị tắt.
+          </p>
+        </div>
+      )}
+      {eligible && certCode && !appUrl && (
+        <div
+          role="alert"
+          className="no-print mx-auto mt-6 max-w-2xl rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm"
+        >
+          <p className="font-semibold">Chưa cấu hình địa chỉ công khai</p>
+          <p className="mt-1 text-muted-foreground">
+            Thiếu <code>NEXT_PUBLIC_APP_URL</code> nên không sinh được mã QR xác
+            minh. Tờ in vẫn hợp lệ, chỉ thiếu QR — cấu hình rồi in lại.
+          </p>
+        </div>
+      )}
 
       <div className="mx-auto py-10 flex justify-center">
         {!eligible ? (
@@ -230,7 +251,7 @@ export default async function CertificatePage({
               đạt tối thiểu <strong>80%</strong> để cấp chứng nhận.
             </p>
             <p className="text-xs text-muted-foreground">
-              ({doneCount} / {total} nodes done)
+              ({doneCount} / {total} nội dung đã xong)
             </p>
             <p className="text-[10px] text-muted-foreground">
               User:{' '}

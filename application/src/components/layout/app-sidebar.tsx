@@ -28,23 +28,31 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ADMIN_NAV_MIN_LEVELS, type AdminNavKey } from '@/lib/rbac/admin-nav';
+import { checkMinLevel } from '@/lib/rbac/levels';
 
-type Item = { href: string; label: string; icon: typeof LayoutDashboard };
+type Item = { href: string; label: string; icon: typeof LayoutDashboard; admin?: AdminNavKey };
 type WorkspaceLite = { slug: string; name: string; icon?: string | null };
+
+const IS_DEV = process.env.NODE_ENV !== 'production';
 
 export function AppSidebar({
   workspaceSlug,
   workspaceName,
   workspaceIcon = null,
-  isOwner = false,
+  rbacLevel = 0,
   workspaces = [],
 }: {
   workspaceSlug: string;
   workspaceName: string;
   /** Owner-picked emoji shown in the switcher (falls back to first letter). */
   workspaceIcon?: string | null;
-  /** Show the workspace-admin section when the viewer owns this workspace. */
-  isOwner?: boolean;
+  /**
+   * Effective RBAC level of the viewer in this workspace (see
+   * getEffectiveLevel). Gates the admin section per item — hidden items are
+   * kept out of the DOM entirely (server-side render, no CSS hiding).
+   */
+  rbacLevel?: number;
   /** All workspaces the viewer owns — fed into the switcher dropdown. */
   workspaces?: WorkspaceLite[];
 }) {
@@ -58,14 +66,22 @@ export function AppSidebar({
     { href: `${base}/skills`, label: 'Kỹ năng', icon: Grid3x3 },
   ];
 
-  // Workspace-admin items — only rendered for the workspace owner.
-  const adminItems: Item[] = [
-    { href: `${base}/members`, label: 'Members', icon: Users },
-    { href: `${base}/audit`, label: 'Audit log', icon: ShieldCheck },
-    { href: `${base}/roster`, label: 'Roster', icon: ClipboardList },
-    { href: `${base}/analytics`, label: 'Analytics', icon: BarChart3 },
-    { href: `${base}/settings`, label: 'Settings (workspace)', icon: SlidersHorizontal },
+  // Workspace-admin items — each rendered only when the viewer's effective
+  // RBAC level meets the item's minimum (EDITOR for most, OWNER for Settings).
+  // Invisible items never enter the DOM (filtered before render, no CSS hiding).
+  type AdminItem = Omit<Item, 'admin'> & { admin: keyof typeof ADMIN_NAV_MIN_LEVELS };
+  const allAdminItems: AdminItem[] = [
+    { href: `${base}/members`, label: 'Members', icon: Users, admin: 'members' },
+    { href: `${base}/audit`, label: 'Audit log', icon: ShieldCheck, admin: 'audit' },
+    { href: `${base}/roster`, label: 'Roster', icon: ClipboardList, admin: 'roster' },
+    { href: `${base}/analytics`, label: 'Analytics', icon: BarChart3, admin: 'analytics' },
+    { href: `${base}/settings`, label: 'Settings (workspace)', icon: SlidersHorizontal, admin: 'settings' },
   ];
+  const adminItems: Item[] = allAdminItems
+    .filter((it) => checkMinLevel(rbacLevel, ADMIN_NAV_MIN_LEVELS[it.admin]))
+    .map(({ admin: _admin, ...rest }) => rest);
+
+  const showAdminSection = adminItems.length > 0;
 
   return (
     <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-border bg-background/60 backdrop-blur">
@@ -99,7 +115,7 @@ export function AppSidebar({
           );
         })}
 
-        {isOwner && (
+        {showAdminSection && (
           <div className="pt-4">
             <div className="px-3 pb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/80 font-semibold">
               Admin
@@ -145,6 +161,16 @@ export function AppSidebar({
           <Settings2 className="size-4" />
           Settings
         </Link>
+        {/* Dev-only persona switcher — the link itself never ships to prod. */}
+        {IS_DEV && (
+          <Link
+            href="/dev/switch"
+            className="flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/70 hover:text-foreground hover:bg-foreground/5"
+          >
+            <User className="size-4" />
+            Dev: đổi user
+          </Link>
+        )}
       </div>
     </aside>
   );

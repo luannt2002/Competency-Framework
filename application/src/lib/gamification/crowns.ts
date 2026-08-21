@@ -16,6 +16,7 @@ import {
   lessonSkillMap,
   userSkillProgress,
 } from '@/lib/db/schema';
+import { nextLevelSource } from '@/lib/skills/level-source';
 
 export type CrownAdvance = {
   skillId: string;
@@ -68,12 +69,11 @@ export async function awardCrowns(
     const delta = newCrowns - oldCrowns;
     if (delta === 0) continue;
 
-    // Compute level_source: if user had self_claimed and now learning, mark 'both'.
-    // If no prior level, leave null (user must still self-assess) but bump crowns.
-    const newSource =
-      existing[0]?.levelSource === 'self_claimed'
-        ? ('both' as const)
-        : ('learned' as const);
+    // Quy tắc nguồn cấp độ dùng chung — xem lib/skills/level-source.ts.
+    // Bản cũ chỉ xét đúng nhánh `self_claimed`, nên mọi giá trị khác (kể cả
+    // `verified`) đều bị ghi đè thành `learned`: hoàn thành thêm một bài học là
+    // xoá mất dấu đã-duyệt của kỹ năng đó.
+    const newSource = nextLevelSource(existing[0]?.levelSource ?? null, 'learn');
 
     if (existing[0]) {
       await db
@@ -95,7 +95,7 @@ export async function awardCrowns(
         userId,
         skillId: link.skillId,
         crowns: newCrowns,
-        levelSource: 'learned',
+        levelSource: newSource,
       });
     }
 

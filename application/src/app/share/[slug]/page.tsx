@@ -17,13 +17,14 @@ import { db } from '@/lib/db/client';
 import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
 import { userNodeProgress } from '@/lib/db/schema-tree';
 import { averageCompletionPct, completionPct } from '@/lib/tree/completion';
-import { workspaceMembers } from '@/lib/db/schema-rbac';
-import { getRootNodes, getTreeSections } from '@/lib/tree/queries';
-import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
+import { getFullTree } from '@/lib/tree/full-tree';
+import { ShareTree } from '@/components/share/share-tree';
+import { RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
 import { StatChip } from '@/components/learn/stat-chip';
 import { ShareLinkButton } from '@/components/learn/share-link-button';
 import { NumberedSection } from '@/components/ui/numbered-section';
 import { FollowButton } from '@/components/social/follow-button';
+import { resolveShareableWorkspace } from '@/lib/share/guard';
 import { getCurrentUser } from '@/lib/auth/supabase-server';
 import { isFollowingWorkspace } from '@/actions/follows';
 import { ArrowLeft, Layers, Sparkles } from 'lucide-react';
@@ -104,44 +105,16 @@ export async function generateMetadata({
   };
 }
 
-/** Owner hoặc member của workspace private được xem share page; ngoài ra không. */
-async function isViewerAllowed(
-  workspaceId: string,
-  ownerUserId: string | null,
-  userId: string,
-): Promise<boolean> {
-  if (ownerUserId === userId) return true;
-  const rows = await db
-    .select({ userId: workspaceMembers.userId })
-    .from(workspaceMembers)
-    .where(
-      and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)),
-    )
-    .limit(1);
-  return rows.length > 0;
-}
-
 export default async function SharePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const wsRow = await db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = wsRow[0];
+  // Gate visibility đi qua cửa chung — xem src/lib/share/guard.ts. Không tìm
+  // thấy và không đủ quyền cùng trả 404 để người ngoài không dò được slug.
+  const viewer0 = await getCurrentUser();
+  const ws = await resolveShareableWorkspace(slug, viewer0?.id ?? null);
   if (!ws) notFound();
 
-  // Gate theo visibility (C4.2): workspace private chỉ owner/member được xem.
-  // Trước đây trang này trả full content cho mọi slug — lộ lộ trình private.
-  const viewer0 = await getCurrentUser();
-  if (ws.visibility !== 'public-readonly') {
-    const allowed = viewer0 && (await isViewerAllowed(ws.id, ws.ownerUserId, viewer0.id));
-    if (!allowed) notFound();
-  }
-
-  // Read-only: pass null userId — queries skip progress joins.
-  const [rootNodes, totalNodesRow, progressByUser] = await Promise.all([
-    getRootNodes(ws.id, null),
+  // Read-only: no user-progress data fetched for the tree (share is structural).
+  const [totalNodesRow, progressByUser] = await Promise.all([
     db
       .select({ n: count() })
       .from(roadmapTreeNodes)
@@ -158,6 +131,10 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
       .groupBy(userNodeProgress.userId),
   ]);
   const totalNodes = totalNodesRow[0]?.n ?? 0;
+
+  let heroTitle = ws.name;
+  let heroSubtitle =
+    'Lộ trình học tập — chế độ chia sẻ chỉ xem. Toàn bộ cấu trúc hiển thị trên một trang.';
 
   // A4: avg completion % across learners with progress.
   const avgCompletionPct = averageCompletionPct(
@@ -183,22 +160,19 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
       : false;
   const showFollow = !!viewer && !isOwner;
 
-  // Same as dashboard: if exactly 1 root, use its title as hero + drill 1 level.
-  let sections: Awaited<ReturnType<typeof getTreeSections>> = [];
-  let heroTitle = ws.name;
-  let heroSubtitle =
-    'Lộ trình học tập — chế độ chia sẻ chỉ xem. Click vào pill để khám phá chi tiết.';
-  if (rootNodes.length === 1) {
-    const root = rootNodes[0]!;
-    heroTitle = root.title;
-    heroSubtitle = root.description ?? heroSubtitle;
-    sections = await getTreeSections(ws.id, null, root.id);
-  } else if (rootNodes.length > 1) {
-    sections = await getTreeSections(ws.id, null, null);
+  // Same as dashboard: if exactly 1 root, the root becomes the hero and its
+  // children are the top-level sections (drilled 1 level for display only —
+  // A3 keeps every DEEPER level visible below via ShareTree, all on one page).
+  const fullTree = await getFullTree(ws.id);
+  const heroRoot = fullTree.length === 1 ? fullTree[0]! : null;
+  const treeRoots = heroRoot ? heroRoot.children : fullTree;
+  if (heroRoot) {
+    heroTitle = heroRoot.title;
+    heroSubtitle = heroRoot.description ?? heroSubtitle;
   }
 
-  const totalSections = sections.length;
-  const totalSubs = sections.reduce((acc, s) => acc + s.subs.length, 0);
+  const totalSections = treeRoots.length;
+  const totalSubs = treeRoots.reduce((acc, s) => acc + s.children.length, 0);
 
   return (
     <div
@@ -261,14 +235,11 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
         subtitle={`${totalSections} giai đoạn`}
       />
 
-      <VerticalRoadmap
-        sections={sections}
-        workspaceSlug={slug}
-        linkBase={`/share/${slug}/n`}
-        readOnly
-      />
+      {/* A3 — full-depth tree: every level visible on this one page (expand /
+          collapse per group; no progress, no other controls). */}
+      <ShareTree roots={treeRoots} linkBase={`/share/${slug}/n`} />
 
-      <RoadmapLegend />
+      <RoadmapLegend showStatus={false} />
 
       {/* CTA bottom */}
       <div className="mt-14 rounded-2xl border border-dashed border-border bg-secondary/30 p-8 text-center space-y-4">

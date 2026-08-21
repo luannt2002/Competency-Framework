@@ -75,6 +75,35 @@ export async function getUserDisplay(id: string): Promise<UserDisplay> {
   }
 }
 
+/**
+ * Obfuscate một email cho bề mặt công khai (không đăng nhập): giữ 2 ký tự đầu
+ * local-part + "[at]" + domain. "luann.tran@gmail.com" -> "lu… [at] gmail.com".
+ */
+export function obfuscateEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return shortId(email);
+  const head = local.slice(0, 2);
+  return `${head}… [at] ${domain}`;
+}
+
+/**
+ * Biến hiển thị an toàn cho trang CÔNG KHAI (/cert, /share, /discover):
+ * nếu displayName thực chất là local-part của email (user chưa đặt tên),
+ * thay bằng dạng obfuscate để không lộ tên đăng nhập/username email ra ngoài.
+ */
+export function toPublicDisplay(d: UserDisplay): UserDisplay {
+  const emailLocal = d.email?.split('@')[0];
+  if (d.email && emailLocal && d.displayName === emailLocal) {
+    return { ...d, displayName: obfuscateEmail(d.email), email: null };
+  }
+  return { ...d, email: null };
+}
+
+/** getUserDisplay + toPublicDisplay gộp một bước cho các trang public. */
+export async function getPublicUserDisplay(id: string): Promise<UserDisplay> {
+  return toPublicDisplay(await getUserDisplay(id));
+}
+
 /** Lấy tên hiển thị của NHIỀU user (roster/members) — cache dùng chung. */
 export async function getUsersDisplay(ids: string[]): Promise<Map<string, UserDisplay>> {
   const out = new Map<string, UserDisplay>();

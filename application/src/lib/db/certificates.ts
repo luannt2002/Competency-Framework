@@ -31,6 +31,8 @@ export type IssuedCertificate = {
   id: string;
   uniqueCode: string;
   issuedAt: Date;
+  /** Khác null = đã thu hồi: không được in, không được cấp lại. */
+  revokedAt: Date | null;
 };
 
 /**
@@ -71,7 +73,12 @@ export async function issueCertificate(input: {
           eq(certificates.workspaceId, input.workspaceId),
         ),
       );
-    return { id: row.id, uniqueCode: row.uniqueCode, issuedAt: row.issuedAt };
+    return {
+      id: row.id,
+      uniqueCode: row.uniqueCode,
+      issuedAt: row.issuedAt,
+      revokedAt: row.revokedAt,
+    };
   }
 
   // First issue. Loop retry phòng hụt hit độ hiếm của unique_code collision.
@@ -92,6 +99,7 @@ export async function issueCertificate(input: {
           id: certificates.id,
           uniqueCode: certificates.uniqueCode,
           issuedAt: certificates.issuedAt,
+          revokedAt: certificates.revokedAt,
         });
       if (inserted[0]) return inserted[0];
     } catch (err) {

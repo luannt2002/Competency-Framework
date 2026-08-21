@@ -18,7 +18,7 @@ import { Award, BadgeCheck, Map } from 'lucide-react';
 import { db } from '@/lib/db/client';
 import { workspaces } from '@/lib/db/schema';
 import { certificates } from '@/lib/db/schema-certificates';
-import { getUserDisplay } from '@/lib/auth/user-display';
+import { getPublicUserDisplay } from '@/lib/auth/user-display';
 
 const SITE_NAME = 'Competency Framework';
 
@@ -70,7 +70,7 @@ export default async function PublicCertificatePage({
       .from(workspaces)
       .where(eq(workspaces.id, cert.workspaceId))
       .limit(1),
-    getUserDisplay(cert.subjectUserId),
+    getPublicUserDisplay(cert.subjectUserId),
   ]);
   const ws = wsRow[0];
   if (!ws) notFound();

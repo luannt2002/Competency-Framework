@@ -13,7 +13,9 @@ import { MarkdownRenderer } from '@/components/learn/markdown-renderer';
 import { NodeToc } from '@/components/learn/node-toc';
 import { parseHeadings } from '@/lib/learn/parse-headings';
 import { db } from '@/lib/db/client';
-import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
+import { resolveShareableWorkspace } from '@/lib/share/guard';
+import { getCurrentUser } from '@/lib/auth/supabase-server';
+import { roadmapTreeNodes } from '@/lib/db/schema';
 import { getNodeBySlug, getTreeSections, getSiblings } from '@/lib/tree/queries';
 import { NodeBreadcrumb, NodeHeader } from '@/components/learn/node-header';
 import { getNodeTypeOverrides } from '@/lib/theme/node-type-queries';
@@ -39,12 +41,10 @@ export async function generateMetadata({
   params: Promise<{ slug: string; nodeSlug: string }>;
 }): Promise<Metadata> {
   const { slug, nodeSlug } = await params;
-  const wsRow = await db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = wsRow[0];
+  // Cùng cửa với trang: metadata của workspace private không được lộ tên node,
+  // mô tả hay ảnh OG — trước đây <title> đọc ra cả tên node lẫn tên workspace.
+  const viewer = await getCurrentUser();
+  const ws = await resolveShareableWorkspace(slug, viewer?.id ?? null);
   if (!ws) return { title: 'Roadmap not found · ' + SITE_NAME };
 
   const nodeRow = await db
@@ -96,12 +96,11 @@ export default async function ShareNodePage({
   params: Promise<{ slug: string; nodeSlug: string }>;
 }) {
   const { slug, nodeSlug } = await params;
-  const wsRow = await db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = wsRow[0];
+  // P0 (rà A13/C4.5/E): trang này từng KHÔNG kiểm visibility — workspace private
+  // trả 200 kèm đủ nội dung cho cả khách ẩn danh lẫn người lạ đã đăng nhập,
+  // trong khi trang chỉ mục /share/<slug> đã 404. Gate chung ở lib/share/guard.
+  const viewer = await getCurrentUser();
+  const ws = await resolveShareableWorkspace(slug, viewer?.id ?? null);
   if (!ws) notFound();
 
   // Read-only: pass null userId — queries skip progress joins.

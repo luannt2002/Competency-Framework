@@ -46,7 +46,9 @@ export const taskKindEnum = pgEnum('roadmap_task_kind', [
   'assessment',
 ]);
 export const taskStatusEnum = pgEnum('user_task_status', ['todo', 'doing', 'done', 'skipped']);
-export const exportFormatEnum = pgEnum('export_format', ['pdf', 'xlsx', 'json']);
+// `export_format` was widened from a pgEnum to plain text (migration 0013)
+// so tenant-defined formats can flow through. Allowed values ('pdf' | 'xlsx'
+// | 'json') are still validated at the app layer.
 export const exportStatusEnum = pgEnum('export_status', [
   'queued',
   'running',
@@ -398,11 +400,48 @@ export const hearts = pgTable(
   {
     workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
     userId: uuid('user_id').notNull(),
-    current: integer('current').default(5),
+    // numeric(3,1) chứ không phải integer: F9 trừ NỬA tim khi bỏ qua task.
+    // Driver trả numeric về dạng CHUỖI — mọi chỗ đọc phải đi qua
+    // `heartsToNumber()` trong lib/gamification/hearts.ts, đừng so sánh trực tiếp.
+    current: numeric('current', { precision: 3, scale: 1 }).default('5'),
     max: integer('max').default(5),
     nextRefillAt: timestamp('next_refill_at', { withTimezone: true }),
+    /** Đã trừ tim vì nghỉ học tới hết ngày nào (F8). Decay tính lười lúc đọc. */
+    decayedThrough: date('decayed_through'),
   },
   (t) => ({ pk: primaryKey({ columns: [t.workspaceId, t.userId] }) }),
+);
+
+/**
+ * Sổ chống cấp trùng tim.
+ *
+ * F11 cho +1 tim khi ôn lại bài đã xong. Không có sổ này thì mở đi mở lại một
+ * bài cũ là tim đầy vô hạn — unique index (workspace, user, reason, ref, ngày)
+ * khoá lại đúng một lần mỗi ngày cho mỗi lý do.
+ */
+export const heartGrants = pgTable(
+  'heart_grants',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    reason: text('reason').notNull(),
+    refId: text('ref_id').notNull().default(''),
+    grantedOn: date('granted_on').notNull(),
+    amount: numeric('amount', { precision: 3, scale: 1 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    onceUq: uniqueIndex('heart_grants_once_uq').on(
+      t.workspaceId,
+      t.userId,
+      t.reason,
+      t.refId,
+      t.grantedOn,
+    ),
+  }),
 );
 
 export const badges = pgTable(
@@ -512,7 +551,7 @@ export const exportJobs = pgTable('export_jobs', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
   userId: uuid('user_id').notNull(),
-  format: exportFormatEnum('format'),
+  format: text('format'),
   status: exportStatusEnum('status').default('queued'),
   fileUrl: text('file_url'),
   error: text('error'),

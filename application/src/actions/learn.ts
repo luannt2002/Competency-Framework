@@ -39,9 +39,16 @@ import {
 } from '@/lib/exercises/grading';
 import type { GradeResult, GradeStatus } from '@/lib/exercises/types';
 import type { FieldSpec } from '@/lib/exercises/field-spec';
-import { XP } from '@/lib/learn/xp-rules';
-import { tickStreak } from '@/lib/gamification/streak';
-import { applyHeartRefills } from '@/lib/gamification/hearts';
+import { XP, nodeCompletionXp } from '@/lib/learn/xp-rules';
+import { awardStreakTick } from '@/lib/learn/xp-award';
+import { findNodeForLesson } from '@/lib/learn/node-lesson';
+import { upsertNodeStatus } from '@/lib/learn/node-progress';
+import {
+  readHearts,
+  heartsToNumber,
+  grantHeartOnce,
+  REPLAY_HEART_REWARD,
+} from '@/lib/gamification/hearts';
 import { awardCrowns, type CrownAdvance } from '@/lib/gamification/crowns';
 import { evaluateBadges, type GrantedBadge } from '@/lib/gamification/badge-evaluator';
 import { recomputeUnlocks } from '@/lib/learn/unlock-rules';
@@ -93,10 +100,19 @@ const startInput = z.object({
   lessonId: z.string().uuid(),
 });
 
-export async function startLesson(input: z.infer<typeof startInput>): Promise<LessonRunData> {
+/**
+ * ĐỌC THUẦN: nạp bài học + bộ câu hỏi đã lọc đáp án. KHÔNG ghi gì.
+ *
+ * Tách ra khỏi `startLesson` vì trang `/practice` gọi nó ngay trong render GET.
+ * Đo được (rà B4.13): `attempts` tăng 71 → 73 sau đúng HAI lần `curl`, trong
+ * khi số lượt làm bài thật chỉ có 24 — cột đó đang đếm lượt XEM TRANG. Render
+ * của Server Component phải đọc được nhiều lần mà không đổi trạng thái.
+ */
+export async function loadLessonRun(
+  input: z.infer<typeof startInput>,
+): Promise<LessonRunData> {
   const { workspaceSlug, lessonId } = startInput.parse(input);
-  // Learners need to write their own progress row → LEARNER level.
-  const { ws, user } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
+  const { ws } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
 
   const lessonRows = await db
     .select()
@@ -111,57 +127,6 @@ export async function startLesson(input: z.infer<typeof startInput>): Promise<Le
     .from(exercises)
     .where(and(eq(exercises.lessonId, lesson.id), eq(exercises.workspaceId, ws.id)))
     .orderBy(asc(exercises.displayOrder));
-
-  // Init or bump user_lesson_progress
-  const existing = await db
-    .select({
-      id: userLessonProgress.id,
-      attempts: userLessonProgress.attempts,
-      status: userLessonProgress.status,
-    })
-    .from(userLessonProgress)
-    .where(
-      and(
-        eq(userLessonProgress.workspaceId, ws.id),
-        eq(userLessonProgress.userId, user.id),
-        eq(userLessonProgress.lessonId, lesson.id),
-      ),
-    )
-    .limit(1);
-
-  if (existing[0]) {
-    // Re-opening a FINISHED lesson is a review, not a regression.
-    //
-    // This used to write 'in_progress' unconditionally. Nothing called
-    // startLesson, so it never fired; the moment a runner exists, every visit
-    // to a completed lesson would silently downgrade it — and three separate
-    // readers key off exactly that value: unlock-rules re-locks a week whose
-    // lessons are no longer all 'completed', badge-evaluator stops counting it,
-    // and the daily planner resurrects it as unfinished work.
-    const settled = existing[0].status === 'completed' || existing[0].status === 'mastered';
-    await db
-      .update(userLessonProgress)
-      .set({
-        status: settled ? existing[0].status : 'in_progress',
-        attempts: (existing[0].attempts ?? 0) + 1,
-        lastAttemptAt: new Date(),
-      })
-      .where(
-        and(
-          eq(userLessonProgress.id, existing[0].id),
-          eq(userLessonProgress.workspaceId, ws.id),
-        ),
-      );
-  } else {
-    await db.insert(userLessonProgress).values({
-      workspaceId: ws.id,
-      userId: user.id,
-      lessonId: lesson.id,
-      status: 'in_progress',
-      attempts: 1,
-      lastAttemptAt: new Date(),
-    });
-  }
 
   // One catalogue read per lesson; kinds seen on rows are passed in so a kind
   // whose type row was retired still resolves via the code registry.
@@ -193,6 +158,72 @@ export async function startLesson(input: z.infer<typeof startInput>): Promise<Le
       };
     }),
   };
+}
+
+/**
+ * GHI: đánh dấu người học đã thật sự BẮT ĐẦU làm bài.
+ *
+ * Tách hẳn khỏi `loadLessonRun`. Chỉ được gọi từ hành vi thật của người dùng
+ * (runner gọi một lần khi mount ở client), không bao giờ từ render của Server
+ * Component — nếu không thì prefetch, crawler hay chỉ một lần F5 cũng làm
+ * `attempts` nhảy số.
+ */
+export async function startLesson(input: z.infer<typeof startInput>): Promise<void> {
+  const { workspaceSlug, lessonId } = startInput.parse(input);
+  const { ws, user } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
+
+  const lessonRows = await db
+    .select({ id: lessons.id })
+    .from(lessons)
+    .where(and(eq(lessons.id, lessonId), eq(lessons.workspaceId, ws.id)))
+    .limit(1);
+  const lesson = lessonRows[0];
+  if (!lesson) throw new Error('LESSON_NOT_FOUND');
+
+  const existing = await db
+    .select({
+      id: userLessonProgress.id,
+      attempts: userLessonProgress.attempts,
+      status: userLessonProgress.status,
+    })
+    .from(userLessonProgress)
+    .where(
+      and(
+        eq(userLessonProgress.workspaceId, ws.id),
+        eq(userLessonProgress.userId, user.id),
+        eq(userLessonProgress.lessonId, lesson.id),
+      ),
+    )
+    .limit(1);
+
+  if (existing[0]) {
+    // Mở lại một bài ĐÃ XONG là ôn tập, không phải tụt hạng. Ba nơi đọc đúng
+    // giá trị này: unlock-rules khoá lại tuần, badge-evaluator ngừng đếm,
+    // planner hồi sinh bài đã xong.
+    const settled = existing[0].status === 'completed' || existing[0].status === 'mastered';
+    await db
+      .update(userLessonProgress)
+      .set({
+        status: settled ? existing[0].status : 'in_progress',
+        attempts: (existing[0].attempts ?? 0) + 1,
+        lastAttemptAt: new Date(),
+      })
+      .where(
+        and(
+          eq(userLessonProgress.id, existing[0].id),
+          eq(userLessonProgress.workspaceId, ws.id),
+        ),
+      );
+  } else {
+    await db.insert(userLessonProgress).values({
+      workspaceId: ws.id,
+      userId: user.id,
+      lessonId: lesson.id,
+      status: 'in_progress',
+      attempts: 1,
+      lastAttemptAt: new Date(),
+    });
+  }
 }
 
 const submitInput = z.object({
@@ -308,8 +339,15 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
   //
   // Lazy refill first: apply any hearts owed since next_refill_at elapsed, so
   // the reported count (and the decrement below) starts from the true value.
-  await applyHeartRefills(ws.id, user.id);
-  let heartsLeft = 5;
+  // F7 — hết tim thì KHÔNG nộp bài được nữa.
+  // Trước đợt này tim chỉ để trang trí: hết 5 tim vẫn học bình thường
+  // (grep `heartsLeft === 0` / `NO_HEARTS` ra 0 kết quả). `readHearts` áp cả
+  // hồi phục theo giờ lẫn hao vì nghỉ học rồi mới trả số, nên số ở đây là số
+  // thật chứ không phải số cũ trong bảng.
+  const snapshot = await readHearts(ws.id, user.id);
+  if (snapshot && snapshot.current <= 0) throw new Error('NO_HEARTS');
+
+  let heartsLeft = snapshot?.current ?? 5;
   if (isWrong) {
     const HEART_REFILL_MS = 4 * 60 * 60 * 1000;
     const upserted = await db
@@ -317,7 +355,7 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
       .values({
         workspaceId: ws.id,
         userId: user.id,
-        current: 4,
+        current: '4',
         max: 5,
         nextRefillAt: new Date(Date.now() + HEART_REFILL_MS),
       })
@@ -329,14 +367,7 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
         },
       })
       .returning({ current: hearts.current });
-    heartsLeft = upserted[0]?.current ?? 5;
-  } else {
-    const heartRows = await db
-      .select({ current: hearts.current })
-      .from(hearts)
-      .where(and(eq(hearts.workspaceId, ws.id), eq(hearts.userId, user.id)))
-      .limit(1);
-    heartsLeft = heartRows[0]?.current ?? 5;
+    heartsLeft = heartsToNumber(upserted[0]?.current);
   }
 
   await writeAudit({
@@ -388,6 +419,8 @@ export type CompleteResult = {
   weekCompleted: boolean;
   levelCompleted: boolean;
   newlyUnlockedLevelCodes: string[];
+  /** F11 — tim kiếm được nhờ ôn lại bài đã xong (0 nếu đây là lần hoàn thành đầu). */
+  heartsEarned: number;
 };
 
 
@@ -445,6 +478,20 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
     });
   }
 
+  // F11 — ôn lại một bài ĐÃ XONG được +1 tim, tối đa một lần mỗi bài mỗi ngày.
+  // Đây là đường KIẾM LẠI tim duy nhất ngoài hồi phục theo giờ; không có nó thì
+  // F8 (nghỉ học vơi tim) chỉ là hình phạt một chiều.
+  let heartsEarned = 0;
+  if (!firstCompletion) {
+    const granted = await grantHeartOnce({
+      workspaceId: ws.id,
+      userId: user.id,
+      reason: 'lesson_replay',
+      refId: parsed.lessonId,
+    });
+    if (granted) heartsEarned = REPLAY_HEART_REWARD;
+  }
+
   // Lesson bonus — only on the first completion, plus a one-time mastery upgrade.
   let bonus = 0;
   if (firstCompletion) {
@@ -470,16 +517,12 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
     if (awarded) bonus += XP.LESSON_MASTERED_BONUS;
   }
 
-  // Tick streak
-  const streak = await tickStreak(ws.id, user.id);
-  if (streak.ticked) {
-    await db.insert(xpEvents).values({
-      workspaceId: ws.id,
-      userId: user.id,
-      amount: XP.DAILY_STREAK_TICK,
-      reason: 'daily_streak',
-    });
-  }
+  // Tick streak qua awardStreakTick — KHÔNG tự insert +5 nữa.
+  // Lỗi cũ (rà F3): chỗ này gọi thẳng `tickStreak` rồi tự ghi đúng +5, nên
+  // BỎ MẤT bonus mốc (+50 ngày thứ 7, +300 ngày thứ 30). Ai chạm mốc bằng hành
+  // vi "hoàn thành bài học" thì mất bonus; chạm bằng node-done hay daily-task
+  // thì có — mất XP thật, im lặng, không ai thấy.
+  const streak = await awardStreakTick(ws.id, user.id);
 
   await db.insert(activityLog).values({
     workspaceId: ws.id,
@@ -487,6 +530,40 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
     kind: 'lesson_completed',
     payload: { lessonId: parsed.lessonId, scorePct, mastered },
   });
+
+  // ===== Nối ngược về CÂY: xong bài học phải làm node tương ứng chuyển done =====
+  // Đây là chỗ vòng lặp học từng ĐỨT (rà B4.15): người học làm hết bài, bảng
+  // `user_lesson_progress` ghi `completed`, nhưng KHÔNG ai ghi
+  // `user_node_progress` — nên cây vẫn ○, dashboard vẫn 0%, và mọi thứ đọc
+  // tiến độ (planner, chứng nhận, unlock) đều không thấy gì. Lesson và node là
+  // hai bảng, chỉ nối với nhau qua `meta->>'lessonSlug'`.
+  let nodeXp = 0;
+  let completedNodeSlug: string | null = null;
+  const linkedNode = await findNodeForLesson({ workspaceId: ws.id, lessonId: parsed.lessonId });
+  if (linkedNode) {
+    await upsertNodeStatus({
+      workspaceId: ws.id,
+      userId: user.id,
+      nodeId: linkedNode.id,
+      status: 'done',
+    });
+    completedNodeSlug = linkedNode.slug;
+    // Chỉ XP node ở đây. Streak đã tick phía trên và badge quét ở dưới — gọi
+    // `awardNodeCompletion` sẽ tick streak và quét badge lần thứ hai.
+    const nodeAmount = nodeCompletionXp({
+      depth: linkedNode.depth,
+      hasChildren: linkedNode.hasChildren,
+    });
+    const awardedNode = await insertXpOnce({
+      workspaceId: ws.id,
+      userId: user.id,
+      amount: nodeAmount,
+      reason: 'node_complete',
+      refKind: 'tree_node',
+      refId: linkedNode.id,
+    });
+    if (awardedNode) nodeXp = nodeAmount;
+  }
 
   // ===== Side effects: crowns + unlock + bonuses + badges =====
   // Crowns only advance on real transitions (first completion / first mastery)
@@ -542,10 +619,12 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
   revalidatePath(`/w/${ws.slug}`);
   revalidatePath(`/w/${ws.slug}/learn`);
   revalidatePath(`/w/${ws.slug}/skills`);
+  if (completedNodeSlug) revalidatePath(`/w/${ws.slug}/n/${completedNodeSlug}`);
 
   return {
-    xpAwarded: bonus + (streak.ticked ? XP.DAILY_STREAK_TICK : 0) + extraBonus +
-      badgesEarned.length * XP.BADGE_EARNED,
+    // streak.xpAwarded đã gồm cả tick ngày lẫn bonus mốc — đừng cộng tay lại.
+    xpAwarded:
+      bonus + streak.xpAwarded + nodeXp + extraBonus + badgesEarned.length * XP.BADGE_EARNED,
     bonusReason: mastered ? 'lesson_mastered' : 'lesson_complete',
     streakTicked: streak.ticked,
     newStreak: streak.newStreak,
@@ -554,6 +633,7 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
     weekCompleted: unlock.weekCompleted,
     levelCompleted: unlock.levelCompleted,
     newlyUnlockedLevelCodes: unlock.newlyUnlockedLevelCodes,
+    heartsEarned,
   };
 }
 

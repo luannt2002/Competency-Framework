@@ -223,6 +223,9 @@ export function BulkInviteCsv({ workspaceSlug }: { workspaceSlug: string }) {
                 <span className="text-emerald-500 font-semibold">
                   + {result.added} added
                 </span>
+                <span className="text-primary font-semibold">
+                  {result.invited} invited (pending)
+                </span>
                 <span className="text-amber-500 font-semibold">
                   {result.skipped} skipped
                 </span>

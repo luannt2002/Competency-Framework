@@ -28,6 +28,17 @@ const securityHeaders = [
   },
 ];
 
+/**
+ * Audit 6.1 — "strip HTML comments in production HTML": investigated, nothing
+ * to strip. The only `<!-- -->` blocks in rendered pages (/, /discover, /login
+ * checked via curl) are React hydration markers:
+ *   <!--$--> / <!--/$--> / <!--$?-->  — Suspense boundary markers
+ *   <!-- -->                          — adjacent-text separators React inserts
+ * These are required by the React reconciler and must NOT be removed (App
+ * Router has no supported HTML post-processing hook anyway). JSX comments in
+ * source are compile-time only — they never reach the DOM. No dev notes leak
+ * into production HTML; no transform added.
+ */
 const nextConfig: NextConfig = {
   // Lets a production build live beside a running dev server instead of
   // overwriting its `.next`. Needed to benchmark prod honestly:

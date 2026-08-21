@@ -30,12 +30,9 @@ import {
 import { workspaces, skills } from './schema';
 
 /* ============================ ENUMS ============================ */
-export const evidenceKindEnum = pgEnum('evidence_kind', [
-  'lab',
-  'project',
-  'peer_review',
-  'manager_review',
-]);
+// `evidence_kind` was widened from a pgEnum to plain text (migration 0013)
+// so tenants can define their own evidence kinds. Allowed values are still
+// validated at the app layer (see `z.enum` in src/actions/evidence.ts).
 
 export const skillAuditActionEnum = pgEnum('skill_audit_action', [
   'level_changed',
@@ -61,7 +58,7 @@ export const evidenceGrades = pgTable(
     skillId: uuid('skill_id')
       .notNull()
       .references(() => skills.id, { onDelete: 'cascade' }),
-    kind: evidenceKindEnum('kind').notNull(),
+    kind: text('kind').notNull(),
     score: integer('score').notNull(),
     evidenceUrl: text('evidence_url'),
     reviewerUserId: uuid('reviewer_user_id'),

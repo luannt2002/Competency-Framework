@@ -391,10 +391,14 @@ const moveInput = z.object({
   direction: z.enum(['up', 'down']),
 });
 
-export async function moveTreeNode(input: z.infer<typeof moveInput>): Promise<void> {
+export type MoveTreeNodeResult = { moved: boolean; reason?: 'boundary' };
+
+export async function moveTreeNode(
+  input: z.infer<typeof moveInput>,
+): Promise<MoveTreeNodeResult> {
   const parsed = moveInput.parse(input);
   // Reorder is a structural edit — same level as update.
-  const { ws, user } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
+  const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.EDITOR);
 
   const me = await db
     .select()
@@ -423,17 +427,25 @@ export async function moveTreeNode(input: z.infer<typeof moveInput>): Promise<vo
   if (idx < 0) throw new Error('NODE_NOT_FOUND');
 
   const swapIdx = parsed.direction === 'up' ? idx - 1 : idx + 1;
-  if (swapIdx < 0 || swapIdx >= siblings.length) return; // boundary, no-op
+  // Đã ở đầu/cuối danh sách anh em: nói thẳng ra là không chuyển được, để UI
+  // khỏi báo thành công cho một việc không xảy ra.
+  if (swapIdx < 0 || swapIdx >= siblings.length) return { moved: false, reason: 'boundary' };
 
   const a = siblings[idx]!;
   const b = siblings[swapIdx]!;
   // Swap orderIndex in ONE statement — two separate UPDATEs could leave both
   // siblings with the same orderIndex if a crash/concurrent request interleaves.
+  // `::int` KHÔNG được bỏ: tham số bind của drizzle vào Postgres ở dạng chưa
+  // định kiểu, và trong một CASE thì Postgres suy ra `text` → UPDATE chết với
+  // `column "order_index" is of type integer but expression is of type text`.
+  // Rà 2026-08-21 đo được: nút Lên/Xuống hỏng 100%, order_index không đổi,
+  // còn ở biên (node đầu/cuối) thì hàm return sớm nên UI toast "Đã chuyển lên"
+  // trong khi không có gì chuyển cả.
   await db.execute(
     dsql`UPDATE roadmap_tree_nodes
          SET order_index = CASE id
-           WHEN ${a.id}::uuid THEN ${b.orderIndex}
-           WHEN ${b.id}::uuid THEN ${a.orderIndex}
+           WHEN ${a.id}::uuid THEN ${b.orderIndex}::int
+           WHEN ${b.id}::uuid THEN ${a.orderIndex}::int
          END
          WHERE workspace_id = ${ws.id} AND id IN (${a.id}::uuid, ${b.id}::uuid)`,
   );
@@ -444,7 +456,17 @@ export async function moveTreeNode(input: z.infer<typeof moveInput>): Promise<vo
     kind: 'tree_node_moved',
     payload: { nodeId: parsed.nodeId, direction: parsed.direction },
   });
+  await writeAudit({
+    workspaceId: ws.id,
+    actorUserId: user.id,
+    actorRole: ctx.role,
+    action: 'tree_node.move',
+    resourceType: 'tree_node',
+    resourceId: parsed.nodeId,
+    after: { direction: parsed.direction, from: a.orderIndex, to: b.orderIndex },
+  });
   revalidatePath(`/w/${ws.slug}`);
+  return { moved: true };
 }
 
 /* ============================ Toggle progress (HIERARCHICAL GATE) ============================

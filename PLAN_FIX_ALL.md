@@ -149,7 +149,17 @@ bề mặt tiếp theo.
 
 Kiểm chứng: `next build` + `next start`, curl ẩn danh — số ở bảng trên là đo thật.
 
-#### C1 — P0 còn lại (hỏng nghiệp vụ / mất dữ liệu)
+#### ✅ C1 — XONG 2026-08-22: đã vá cả 10 P0
+
+Mỗi mục đều kiểm chứng bằng dữ liệu thật, không chỉ typecheck. Ba lỗi tầng SQL
+(xoá node, đổi thứ tự, liên kết lesson↔node) được khoá bằng tầng test mới
+`tests/integration/**` chạm Postgres thật — mock thì cả ba đều "xanh".
+
+Chứng minh chạy được: `attempts` giữ nguyên 73 sau 3 lần render `/practice`
+(trước: 71→73 sau 2 lần curl) · xoá node lá xoá đúng 1 dòng, xoá node cha xoá cả
+cây con và chính nó · hoán đổi `order_index` chạy thật.
+
+**Danh sách gốc (đã vá hết):**
 
 | # | Lỗi | Bằng chứng đã chạy |
 |---|---|---|
@@ -179,7 +189,14 @@ Kiểm chứng: `next build` + `next start`, curl ẩn danh — số ở bảng 
 - **F3 mất XP im lặng** — `completeLesson` tự insert +5 thay vì gọi `awardStreakTick` ⇒ mốc 7/30 ngày mất bonus 50/300.
 - **F7 không có gate 0 tim** — hết tim vẫn học bình thường; 3 mặt trả 3 số khác nhau.
 
-#### C3 — Hearts F8/F9/F11 (đã chốt: **làm đủ như spec**)
+#### ✅ C3 — XONG: hearts đủ spec F7/F8/F9/F11 (migration 0019)
+
+`current` → `numeric(3,1)` (F9 nửa tim) · `decayed_through` (F8 tính lười,
+idempotent — chạy lại trong ngày không trừ chồng) · `heart_grants` unique index
+(F11 chống cấp trùng) · F7 hết tim chặn nộp bài. Kèm 13 unit test cho phép tính
+hao và 8 integration test chạm DB.
+
+Ghi chú cũ (giữ lại vì đúng):
 
 Lưu ý từ agent rà F, ghi lại để không mất: hiện `hearts.current` là `integer` nên
 F9 (−0.5) cần đổi kiểu; và tim đang là "chiếc xô luôn đầy" nên F11 (+1) không có
@@ -284,3 +301,35 @@ Có đường lùi: giữ `DATABASE_URL` cũ để rollback.
    phẩm đã ghi rõ**, không phải nợ kỹ thuật.
 5. CI chặn được cả build lẫn e2e, có viewport mobile.
 6. Số đo 6 trục mới ghi vào `luannt-tets.md`, kèm lệnh đã chạy.
+
+
+---
+
+## 7. Trạng thái sau đợt 2026-08-22
+
+**Đã xong:** đợt A (rà 7/7 luồng) · đợt B (dựng lại từ số 0) · đợt C0 (bảo mật) ·
+C1 (10 P0) · C3 (hearts) · đợt F (CI + e2e mobile).
+
+**Gates cuối:** typecheck ✓ · lint 0 ✓ · **test 399/399** (37 file, thêm tầng
+integration) ✓ · guard ×4 ✓ · build production ✓ · **e2e 12/12** desktop+mobile ✓ ·
+DB trắng dựng lại khớp schema 100%.
+
+**Còn lại, theo thứ tự nên làm:**
+
+1. **C2 — nhóm P1**: RBAC không tới UI (learner thấy nút Sửa/Xoá rồi mới bị
+   chặn) · `/grading` và `/w/[slug]/badges` không có lối vào · sidebar EDITOR dẫn
+   vào NEXT_REDIRECT (và unit test đang khoá chặt cái sai) · bulk CSV chặn email
+   ở client · hai định nghĩa "hôm nay" lệch 7 tiếng · số đếm cây sai (48 vs 159) ·
+   fork mất lessons/exercises + thiếu transaction.
+2. **Đợt D — UI/UX + FE**, 4 mẻ đã mô tả ở §3. Số đo còn nguyên giá trị:
+   17 dependency 0 import · 13 thẻ `<select>` thô · 27 page mà chỉ 4 `loading.tsx` /
+   2 `error.tsx` / 0 `global-error.tsx` · 9 class CSS chết · **33 font stack inline
+   kết thúc bằng `sans-serif` trần** (thiếu `var(--font-emoji)` → emoji tofu, đúng
+   lỗi `globals.css` đã vá mà inline style thì chưa) · trang sign-in 100% tiếng Anh
+   giữa app tiếng Việt, ngay tại điểm chuyển đổi.
+3. **Đợt E — RLS**: `0016_rls_policies.sql` vẫn CÁCH LY có chủ đích. Điều kiện đã
+   sẵn sàng một nửa (role `competency_app` không superuser, bảng thuộc `postgres`
+   nên policy sẽ có tác dụng thật), nhưng `withWorkspace()` hiện là hàm rỗng —
+   chưa chạy `SET LOCAL app.workspace_id`. Áp 0016 trước khi làm việc đó = mọi
+   query trả rỗng = app chết. Test `migration-journal` đang canh đúng chỗ này.
+4. **Đợt G** — white-label + đo lại 6 trục.

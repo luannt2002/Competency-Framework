@@ -17,7 +17,8 @@
 import { ImageResponse } from 'next/og';
 import { and, eq, count, isNull, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
+import { resolvePublicWorkspaceForCache } from '@/lib/share/guard';
+import { roadmapTreeNodes } from '@/lib/db/schema';
 
 export const runtime = 'nodejs';
 
@@ -45,13 +46,12 @@ export async function GET(req: Request) {
     return new Response('Missing slug', { status: 400 });
   }
 
-  // Read-only lookup — no auth.
-  const wsRow = await db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = wsRow[0];
+  // CHỈ workspace public. Ảnh này cache ở edge một giờ và crawler đọc chung,
+  // nên không được phụ thuộc người xem. Trước đây endpoint tra thẳng theo slug
+  // không kiểm visibility → `/api/og?slug=<private>` trả PNG đầy đủ tên lộ
+  // trình cho khách ẩn danh (đo được: 200, image/png).
+  // Không tồn tại và không public cùng trả 404 để không dò được slug.
+  const ws = await resolvePublicWorkspaceForCache(slug);
   if (!ws) {
     return new Response('Workspace not found', { status: 404 });
   }

@@ -5,15 +5,120 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1778494365838,
+      "when": 1784532523300,
       "tag": "0000_v8_v9_etl_additions",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1778503901869,
+      "when": 1784532524300,
       "tag": "0001_tree_nodes",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784532525300,
+      "tag": "0002_rbac_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784532526300,
+      "tag": "0003_node_journal",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784532527300,
+      "tag": "0004_node_resources",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784532528300,
+      "tag": "0005_social",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787195803813,
+      "tag": "0006_open_exercise_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787195804813,
+      "tag": "0010_workspace_slug_global_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787215552272,
+      "tag": "0011_resource_kinds_tool_lab",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787215738410,
+      "tag": "0011_streak_badges",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787277272823,
+      "tag": "0012_certificates",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787279646513,
+      "tag": "0013_widen_rigid_enums",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787279814940,
+      "tag": "0014_badges_is_active",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787280098405,
+      "tag": "0015_workspace_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787329606307,
+      "tag": "0017_node_type_appearance",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1787329704396,
+      "tag": "0018_align_push_drift",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1787331664196,
+      "tag": "0019_hearts_decay_and_grants",
       "breakpoints": true
     }
   ]

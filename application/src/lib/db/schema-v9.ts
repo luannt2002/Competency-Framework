@@ -27,13 +27,10 @@ import { workspaces } from './schema';
 
 /* ============================ ENUMS ============================ */
 
-export const dailyTaskKindEnum = pgEnum('daily_task_kind', [
-  'lesson',
-  'lab',
-  'weak_skill_review',
-  'streak_keeper',
-  'stretch',
-]);
+// `daily_task_kind` was widened from a pgEnum to plain text (migration 0013)
+// so tenant-defined task kinds can flow through. Allowed values are still
+// validated at the app layer (`PlannedTaskKind` union + zod in
+// src/lib/learn/daily-planner.ts and src/actions/daily-planner.ts).
 
 export const dailyTaskStatusEnum = pgEnum('daily_task_status', [
   'todo',
@@ -61,7 +58,7 @@ export const dailyTasks = pgTable(
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     userId: uuid('user_id').notNull(),
     planDate: date('plan_date').notNull(),
-    kind: dailyTaskKindEnum('kind').notNull(),
+    kind: text('kind').notNull(),
     refKind: text('ref_kind').notNull(),
     refId: uuid('ref_id').notNull(),
     title: text('title').notNull(),

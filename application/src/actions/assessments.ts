@@ -11,6 +11,7 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { skills, userSkillProgress, activityLog } from '@/lib/db/schema';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { nextLevelSource } from '@/lib/skills/level-source';
 import { writeAudit } from '@/lib/rbac/server';
 
 
@@ -42,7 +43,11 @@ export async function updateAssessment(input: UpdateAssessmentInput): Promise<{ 
 
   // Upsert progress
   const existing = await db
-    .select({ id: userSkillProgress.id, levelCode: userSkillProgress.levelCode })
+    .select({
+      id: userSkillProgress.id,
+      levelCode: userSkillProgress.levelCode,
+      levelSource: userSkillProgress.levelSource,
+    })
     .from(userSkillProgress)
     .where(
       and(
@@ -53,6 +58,11 @@ export async function updateAssessment(input: UpdateAssessmentInput): Promise<{ 
     )
     .limit(1);
 
+  // KHÔNG ghi đè `self_claimed` vô điều kiện nữa: drawer tự lưu sau 700ms, nên
+  // trước đây chỉ cần gõ một chữ vào ô ghi chú là `verified`/`both` bị xoá
+  // (rà B6.4). Quy tắc nằm ở lib/skills/level-source.ts, có test 4 nhánh.
+  const nextSource = nextLevelSource(existing[0]?.levelSource ?? null, 'self_assess');
+
   if (existing[0]) {
     await db
       .update(userSkillProgress)
@@ -62,7 +72,7 @@ export async function updateAssessment(input: UpdateAssessmentInput): Promise<{ 
         whyThisLevel: parsed.whyThisLevel,
         evidenceUrls: parsed.evidenceUrls ?? [],
         targetLevelCode: parsed.targetLevelCode ?? null,
-        levelSource: 'self_claimed',
+        levelSource: nextSource,
         updatedAt: new Date(),
       })
       .where(
@@ -81,7 +91,7 @@ export async function updateAssessment(input: UpdateAssessmentInput): Promise<{ 
       whyThisLevel: parsed.whyThisLevel,
       evidenceUrls: parsed.evidenceUrls ?? [],
       targetLevelCode: parsed.targetLevelCode ?? null,
-      levelSource: 'self_claimed',
+      levelSource: nextSource,
     });
   }
 

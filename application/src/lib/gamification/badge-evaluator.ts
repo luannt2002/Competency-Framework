@@ -2,7 +2,7 @@
  * Badge evaluator — called after major mutations (completeLesson, updateAssessment).
  * Returns badges newly granted in this evaluation pass.
  */
-import { and, eq, count, sum, inArray, isNotNull } from 'drizzle-orm';
+import { and, eq, count, sum, inArray, isNotNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import {
   badges,
@@ -44,7 +44,8 @@ export async function evaluateBadges(
   const allBadges = await db
     .select()
     .from(badges)
-    .where(eq(badges.workspaceId, workspaceId));
+    // F16 — deactivated badges stop being granted; earned rows are untouched.
+    .where(and(eq(badges.workspaceId, workspaceId), sql`badges.is_active`));
 
   const owned = await db
     .select({ badgeId: userBadges.badgeId })

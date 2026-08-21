@@ -11,7 +11,10 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: false,
-    include: ['tests/unit/**/*.test.ts'],
+    // `tests/integration/**` chạm Postgres thật (cần DATABASE_URL đã migrate).
+    // Hai lỗi P0 của cây nằm ở tầng SQL chứ không ở logic JS — mock thì cả hai
+    // đều "xanh", nên phải có một tầng test chạm DB.
+    include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
     exclude: ['tests/e2e/**', 'node_modules/**'],
   },
   resolve: {

@@ -11,10 +11,11 @@
  */
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { desc, eq } from 'drizzle-orm';
-import { Users, Award } from 'lucide-react';
+import { and, desc, eq } from 'drizzle-orm';
+import { Users, Award, MailQuestion } from 'lucide-react';
 import { db } from '@/lib/db/client';
 import { workspaces, workspaceMembers } from '@/lib/db/schema';
+import { workspaceInvites } from '@/lib/db/schema-invites';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { requireMinLevel, RBACError } from '@/lib/rbac/server';
@@ -22,6 +23,7 @@ import { StatChip } from '@/components/learn/stat-chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InviteMemberDialog } from '@/components/admin/invite-member-dialog';
 import { MemberRowActions } from '@/components/admin/member-row-actions';
+import { InviteRowActions } from '@/components/admin/invite-row-actions';
 import { BulkInviteCsv } from '@/components/admin/bulk-invite-csv';
 import { CopyButton } from '@/components/ui/copy-button';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -88,6 +90,21 @@ export default async function MembersPage({
     .where(eq(workspaceMembers.workspaceId, ws.id))
     .orderBy(desc(workspaceMembers.invitedAt));
 
+  // Pending invites (D2.5) — người được mời bằng email nhưng chưa từng đăng
+  // nhập; tự vào workspace ở lần đăng nhập đầu tiên (auto-join).
+  const pendingInvites = await db
+    .select({
+      id: workspaceInvites.id,
+      email: workspaceInvites.email,
+      role: workspaceInvites.role,
+      createdAt: workspaceInvites.createdAt,
+    })
+    .from(workspaceInvites)
+    .where(
+      and(eq(workspaceInvites.workspaceId, ws.id), eq(workspaceInvites.status, 'pending')),
+    )
+    .orderBy(desc(workspaceInvites.createdAt));
+
   return (
     <div
       className="mx-auto max-w-5xl p-6 md:p-10 space-y-8"
@@ -122,6 +139,13 @@ export default async function MembersPage({
           value={shortId(ws.ownerUserId ?? '—')}
           sub={ws.ownerUserId === user.id ? 'you' : 'workspace owner'}
           color="text-amber-500"
+        />
+        <StatChip
+          icon={MailQuestion}
+          label="Pending invites"
+          value={String(pendingInvites.length)}
+          sub="chờ chấp nhận"
+          color="text-primary"
         />
       </section>
 
@@ -234,6 +258,67 @@ export default async function MembersPage({
         </div>
         </>
       )}
+
+      {/* Pending invites (D2.5) — email chưa có user; honest copy: không có
+          email tự động, admin tự chuyển thông tin mời cho người đó. */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <MailQuestion className="size-4 text-primary" />
+          <h2 className="text-lg font-semibold tracking-tight">Pending invites</h2>
+          <span className="text-xs text-muted-foreground">
+            Người này sẽ tự động vào workspace khi đăng nhập bằng email này
+          </span>
+        </div>
+        {pendingInvites.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Không có lời mời nào đang chờ.
+          </p>
+        ) : (
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[560px]">
+                <thead className="bg-secondary/40 text-muted-foreground">
+                  <tr className="text-left">
+                    <th className="px-4 py-3 font-medium">Email</th>
+                    <th className="px-4 py-3 font-medium">Role</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Invited at</th>
+                    <th className="px-4 py-3 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingInvites.map((inv) => (
+                    <tr key={inv.id} className="border-t border-border hover:bg-secondary/20">
+                      <td className="px-4 py-3">
+                        <div className="inline-flex items-center gap-1.5">
+                          <span className="font-mono text-xs" style={{ fontFamily: 'var(--font-jetbrains), monospace' }}>
+                            {inv.email}
+                          </span>
+                          <CopyButton value={inv.email} label="Copy email" size="sm" />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center rounded-md bg-secondary/60 px-2 py-0.5 text-xs font-medium text-foreground/80">
+                          {roleLabel(inv.role)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center rounded-md bg-primary/10/10 px-2 py-0.5 text-xs font-medium text-primary">
+                          chờ chấp nhận
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(inv.createdAt)}</td>
+                      <td className="px-4 py-3">
+                        <InviteRowActions workspaceSlug={ws.slug} inviteId={inv.id} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
 
       <BulkInviteCsv workspaceSlug={ws.slug} />
     </div>

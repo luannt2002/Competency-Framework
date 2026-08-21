@@ -8,8 +8,9 @@ import { AppSidebar, BottomTabBar } from '@/components/layout/app-sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { db } from '@/lib/db/client';
 import { xpEvents, streaks as streaksT } from '@/lib/db/schema';
-import { applyHeartRefills } from '@/lib/gamification/hearts';
+import { readHearts } from '@/lib/gamification/hearts';
 import { requireUser } from '@/lib/auth/supabase-server';
+import { getEffectiveLevel } from '@/lib/rbac/server';
 import { requireWorkspaceAccess, listMyWorkspaces } from '@/lib/workspace';
 import { workspaceAccentStyle } from '@/lib/theme/workspace-theme';
 
@@ -44,18 +45,20 @@ export default async function WorkspaceLayout({
       .from(streaksT)
       .where(and(eq(streaksT.workspaceId, ws.id), eq(streaksT.userId, user.id)))
       .limit(1),
-    // Lazy heart refill: apply any hearts owed since next_refill_at elapsed,
-    // then use the refreshed count (single atomic UPDATE + RETURNING).
-    applyHeartRefills(ws.id, user.id),
+    // Cùng một nguồn số với API /hearts — rà F7 đo được topbar khoe 5/5 trong
+    // khi API cùng lúc trả 0, vì hai nơi tự chọn giá trị mặc định khác nhau.
+    readHearts(ws.id, user.id),
     listMyWorkspaces(),
   ]);
 
   const dailyXp = Number(xpTodayRow[0]?.s ?? 0);
   const streak = streakRow[0]?.currentStreak ?? 0;
-  const hearts = heartRow?.current ?? 5;
-  // Owner gate for the sidebar admin section. The workspace owner is the
-  // single source of truth via workspaces.owner_user_id (not workspace_members).
-  const isOwner = ws.ownerUserId === user.id;
+  // Không có dòng hearts nghĩa là chưa khởi tạo — hiện 0 chứ đừng bịa 5.
+  const hearts = heartRow?.current ?? 0;
+  // Effective RBAC level for the sidebar admin section — per-item gating
+  // (Members/Audit/Roster/Analytics need EDITOR, Settings needs OWNER).
+  // getEffectiveLevel resolves owner + workspace_members + platform/dev-bypass.
+  const { level: rbacLevel } = await getEffectiveLevel(ws.id, user.id);
 
   return (
     <div className="flex min-h-dvh">
@@ -75,7 +78,7 @@ export default async function WorkspaceLayout({
         workspaceSlug={ws.slug}
         workspaceName={ws.name}
         workspaceIcon={ws.icon}
-        isOwner={isOwner}
+        rbacLevel={rbacLevel}
         workspaces={myWorkspaces.map((w) => ({ slug: w.slug, name: w.name, icon: w.icon }))}
       />
       <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">

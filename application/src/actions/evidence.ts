@@ -32,6 +32,7 @@ import {
   type ConfidenceResult,
 } from '@/lib/evidence/confidence';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
+import { nextLevelSource } from '@/lib/skills/level-source';
 import { writeAudit } from '@/lib/rbac/server';
 import { XP } from '@/lib/learn/xp-rules';
 import { insertXpOnce } from '@/lib/learn/xp-award';
@@ -106,7 +107,9 @@ export async function submitEvidence(
       ),
     );
 
-  const confidence = computeConfidenceFromGrades(allGrades);
+  const confidence = computeConfidenceFromGrades(
+    allGrades as { kind: Parameters<typeof computeConfidenceFromGrades>[0][number]['kind']; score: number }[],
+  );
   const hasManager = allGrades.some((g) => g.kind === 'manager_review');
   const shouldVerify = hasManager && confidence.score >= VERIFIED_MIN_SCORE;
 
@@ -124,11 +127,8 @@ export async function submitEvidence(
     .limit(1);
 
   const prevSource = existing[0]?.levelSource ?? null;
-  const nextSource: 'self_claimed' | 'learned' | 'both' | 'verified' = shouldVerify
-    ? 'verified'
-    : prevSource === 'verified' || prevSource === 'both'
-      ? prevSource
-      : 'learned';
+  // Cùng quy tắc với assessments.ts và crowns.ts — xem lib/skills/level-source.ts.
+  const nextSource = nextLevelSource(prevSource, shouldVerify ? 'verify' : 'learn');
 
   if (existing[0]) {
     await db
@@ -228,15 +228,30 @@ export type EvidenceRow = Pick<
   | 'createdAt'
 >;
 
+/**
+ * Bằng chứng của một kỹ năng.
+ *
+ * `subjectUserId` mặc định là chính người gọi. Truyền người khác thì phải từ
+ * EDITOR trở lên — đây là đường DUY NHẤT để người duyệt nhìn thấy bằng chứng
+ * cần duyệt. Trước đây hàm này ghim cứng `userId = người đang xem`, nên màn
+ * duyệt chỉ hiện đồ của chính người duyệt (rà D4.7).
+ */
 export async function listEvidenceForSkill(
   workspaceSlug: string,
   skillId: string,
+  subjectUserId?: string,
 ): Promise<EvidenceRow[]> {
-  const { ws, user } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
+  const { ws, user, ctx } = await resolveWorkspace(workspaceSlug, RBAC_LEVELS.LEARNER);
 
   // Lightweight UUID shape check — Zod for symmetry with mutations.
   const parsed = z.string().uuid().parse(skillId);
   await assertSkillInWorkspace(parsed, ws.id);
+
+  const subject = subjectUserId ? z.string().uuid().parse(subjectUserId) : user.id;
+  // Xem bằng chứng của người khác là hành vi của người duyệt, không phải người học.
+  if (subject !== user.id && ctx.level < RBAC_LEVELS.EDITOR) {
+    throw new Error('WORKSPACE_NOT_FOUND_OR_FORBIDDEN');
+  }
 
   const rows = await db
     .select({
@@ -253,7 +268,7 @@ export async function listEvidenceForSkill(
     .where(
       and(
         eq(evidenceGrades.workspaceId, ws.id),
-        eq(evidenceGrades.userId, user.id),
+        eq(evidenceGrades.userId, subject),
         eq(evidenceGrades.skillId, parsed),
       ),
     );
@@ -293,6 +308,15 @@ export async function verifyEvidence(input: VerifyEvidenceInput): Promise<{ ok: 
 
   const grade = rows[0];
   if (!grade) throw new Error('EVIDENCE_NOT_FOUND');
+
+  // KHÔNG ai được tự duyệt bằng chứng của chính mình.
+  //
+  // Rà D4.7 đo được: `listEvidenceForSkill` lọc theo `userId = người đang xem`,
+  // nên mọi bằng chứng hiện ra trong drawer đều là của chính họ — nút "Duyệt"
+  // chỉ tự duyệt cho mình, và vẫn cộng +30 XP. Bất kỳ ai đạt EDITOR trở lên là
+  // tự phong `verified` cho mọi kỹ năng của mình được. Cấp bậc không thay thế
+  // được sự tách bạch giữa người làm và người duyệt.
+  if (grade.userId === user.id) throw new Error('CANNOT_VERIFY_OWN_EVIDENCE');
 
   await db
     .update(evidenceGrades)
@@ -385,7 +409,8 @@ export async function computeConfidence(
       ),
     );
 
-  return computeConfidenceFromGrades(grades);
+  // kind giờ là text (enum nới 0013) — ep về union mà hàm confidence chấp nhận
+  return computeConfidenceFromGrades(grades as Parameters<typeof computeConfidenceFromGrades>[0]);
 }
 
 /** Convenience re-export so callers can read kinds without pulling schema-v8. */

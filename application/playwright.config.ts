@@ -12,14 +12,15 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
+    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+    // Mobile là nơi lỗi layout thật sự xuất hiện: sidebar ẩn dưới 768px, bảng
+    // tràn ngang, hàng flex không wrap. Không có project này thì mọi khẳng định
+    // "responsive" đều chưa từng được kiểm.
+    { name: 'mobile', use: { ...devices['Pixel 7'] } },
   ],
   webServer: process.env.CI
     ? {
-        command: 'pnpm dev',
+        command: 'pnpm start',
         url: 'http://localhost:3000',
         reuseExistingServer: false,
         timeout: 120_000,

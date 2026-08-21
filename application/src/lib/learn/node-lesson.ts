@@ -122,6 +122,53 @@ export async function findNodeSlugForLesson(params: {
   return rows[0]?.slug ?? null;
 }
 
+/**
+ * Node chạy bài học này, kèm đủ thông tin để tính XP hoàn thành node.
+ *
+ * `findNodeSlugForLesson` ở trên chỉ trả slug (đủ để dựng URL). Khi hoàn thành
+ * bài học ta cần chính node đó ở dạng đầy đủ: `id` để ghi tiến độ, `depth` +
+ * `hasChildren` để `nodeCompletionXp` trả đúng mức (lá 10 / cấp 2 50 / cấp 1
+ * 200 / gốc 500).
+ */
+export async function findNodeForLesson(params: {
+  workspaceId: string;
+  lessonId: string;
+}): Promise<{ id: string; slug: string; depth: number; hasChildren: boolean } | null> {
+  const rows = await db
+    .select({
+      id: roadmapTreeNodes.id,
+      slug: roadmapTreeNodes.slug,
+      depth: roadmapTreeNodes.depth,
+    })
+    .from(roadmapTreeNodes)
+    .innerJoin(
+      lessons,
+      and(
+        eq(lessons.workspaceId, roadmapTreeNodes.workspaceId),
+        eq(lessons.slug, sql`${roadmapTreeNodes.meta}->>'lessonSlug'`),
+      ),
+    )
+    .where(
+      and(eq(roadmapTreeNodes.workspaceId, params.workspaceId), eq(lessons.id, params.lessonId)),
+    )
+    .limit(1);
+  const node = rows[0];
+  if (!node) return null;
+
+  const child = await db
+    .select({ id: roadmapTreeNodes.id })
+    .from(roadmapTreeNodes)
+    .where(
+      and(
+        eq(roadmapTreeNodes.workspaceId, params.workspaceId),
+        eq(roadmapTreeNodes.parentId, node.id),
+      ),
+    )
+    .limit(1);
+
+  return { id: node.id, slug: node.slug, depth: node.depth, hasChildren: child.length > 0 };
+}
+
 /** The node that runs the lesson an exercise belongs to. */
 export async function findNodeSlugForExercise(params: {
   workspaceId: string;

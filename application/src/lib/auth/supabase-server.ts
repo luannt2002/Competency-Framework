@@ -37,7 +37,7 @@ export async function createSupabaseServerClient() {
 /** Returns the current session user or null. */
 export async function getCurrentUser() {
   // Dev bypass — guarded by NODE_ENV check inside getDevBypassUser
-  const bypass = getDevBypassUser();
+  const bypass = await getDevBypassUser();
   if (bypass) return bypass;
 
   const supabase = await createSupabaseServerClient();

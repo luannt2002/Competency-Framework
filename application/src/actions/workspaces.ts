@@ -296,7 +296,7 @@ async function forkTemplateCore(input: {
   /* ---- Hearts + Streak init ---- */
   await db
     .insert(hearts)
-    .values({ workspaceId: ws.id, userId: user.id, current: 5, max: 5 });
+    .values({ workspaceId: ws.id, userId: user.id, current: '5', max: 5 });
   await db.insert(streaks).values({
     workspaceId: ws.id,
     userId: user.id,
@@ -446,7 +446,7 @@ export async function createBlankWorkspace(): Promise<void> {
     .returning();
   if (!ws) throw new Error('WORKSPACE_INSERT_FAILED');
 
-  await db.insert(hearts).values({ workspaceId: ws.id, userId: user.id, current: 5, max: 5 });
+  await db.insert(hearts).values({ workspaceId: ws.id, userId: user.id, current: '5', max: 5 });
   await db.insert(streaks).values({
     workspaceId: ws.id,
     userId: user.id,
@@ -600,7 +600,7 @@ export async function forkWorkspace(formData: FormData): Promise<void> {
   }
 
   // Init gamification state
-  await db.insert(hearts).values({ workspaceId: newWs.id, userId: user.id, current: 5, max: 5 });
+  await db.insert(hearts).values({ workspaceId: newWs.id, userId: user.id, current: '5', max: 5 });
   await db.insert(streaks).values({
     workspaceId: newWs.id,
     userId: user.id,

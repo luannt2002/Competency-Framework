@@ -12,7 +12,7 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { requireWorkspaceAccess } from '@/lib/workspace';
-import { applyHeartRefills } from '@/lib/gamification/hearts';
+import { readHearts } from '@/lib/gamification/hearts';
 import type { Hearts } from '@/types';
 import { mapErrorToResponse } from '@/lib/api/error-response';
 
@@ -36,9 +36,9 @@ export async function GET(
     const user = await requireUser();
     const ws = await requireWorkspaceAccess(slug);
 
-    // Lazy refill first: apply any hearts owed since next_refill_at passed,
-    // then read back the refreshed row (single atomic UPDATE + RETURNING).
-    const row = await applyHeartRefills(ws.id, user.id);
+    // `readHearts` áp CẢ hai chiều rồi mới trả số: hồi phục theo giờ (F10) và
+    // hao vì nghỉ học (F8). Dùng thẳng `applyHeartRefills` sẽ bỏ qua vế hao.
+    const row = await readHearts(ws.id, user.id);
     if (!row) {
       return NextResponse.json(EMPTY_HEARTS satisfies Hearts);
     }

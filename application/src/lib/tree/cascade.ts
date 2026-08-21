@@ -14,11 +14,27 @@ import { and, eq, inArray, sql as dsql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { roadmapTreeNodes, userNodeProgress } from '@/lib/db/schema';
 
-/** Select-condition matching the node itself + all its descendants. */
+/**
+ * Select-condition khớp CHÍNH node đó **và** toàn bộ hậu duệ của nó.
+ *
+ * `pathStr` chỉ chứa TỔ TIÊN, không chứa chính nó (xem `reopenDoneAncestors`
+ * tách `pathStr` ra thành danh sách tổ tiên). Nên bốn mệnh đề LIKE bên dưới chỉ
+ * bắt được hậu duệ — thiếu `id = nodeId` là thiếu chính cái node đang xét.
+ *
+ * Lỗi đã xảy ra thật (rà 2026-08-21): `deleteTreeNode` dùng điều kiện này để
+ * "xoá node và cả cây con", nhưng vì thiếu vế đó nên xoá một node lá xoá được
+ * **0 dòng**, còn xoá node cha thì **mất hết con mà vẫn giữ nguyên cha** — UI
+ * vẫn toast "Đã xoá". Không test nào chạm tới `deleteTreeNode` nên nó sống sót
+ * qua nhiều đợt gates xanh.
+ *
+ * `descendantIds` bên dưới đã tự lọc `id !== nodeId`, nên nó giữ nguyên nghĩa
+ * "hậu duệ nghiêm ngặt" và không bị ảnh hưởng bởi thay đổi này.
+ */
 export function subtreeCondition(workspaceId: string, nodeId: string) {
   return and(
     eq(roadmapTreeNodes.workspaceId, workspaceId),
-    dsql`(${roadmapTreeNodes.pathStr} = ${nodeId}
+    dsql`(${roadmapTreeNodes.id} = ${nodeId}::uuid
+          OR ${roadmapTreeNodes.pathStr} = ${nodeId}
           OR ${roadmapTreeNodes.pathStr} LIKE ${nodeId + '/%'}
           OR ${roadmapTreeNodes.pathStr} LIKE ${'%/' + nodeId}
           OR ${roadmapTreeNodes.pathStr} LIKE ${'%/' + nodeId + '/%'})`,

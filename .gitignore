@@ -9,9 +9,14 @@ node_modules/
 .yarn/install-state.gz
 
 # Next.js build artifacts
+# `.next-*` bắt cả các thư mục build phụ: .next-prod (đo hiệu năng trên bản
+# production trong khi dev server vẫn chạy) và các .next-<tên> mà agent tự dựng
+# khi rà luồng. Trước đây chỉ có `.next/` nên đống đó suýt bị commit.
 .next/
+.next-*/
 out/
 build/
+*.tsbuildinfo
 
 # Test artifacts
 coverage/

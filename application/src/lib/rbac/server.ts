@@ -63,6 +63,9 @@ function isDevBypassSuper(userId: string): boolean {
   // Dev convenience: the dev-bypass user is treated as super_admin so local
   // development with DEV_AUTH_BYPASS_USER_ID doesn't need PLATFORM_ADMIN_USER_IDS.
   // Hard-gated by NODE_ENV so a production build never grants super_admin via this.
+  // Note: only the ENV bypass id gets this shortcut. A user selected via the
+  // /dev/switch cookie intentionally resolves to their real role
+  // (owner/member) so cross-role RBAC testing is meaningful.
   if (process.env.NODE_ENV === 'production') return false;
   const bypass = process.env.DEV_AUTH_BYPASS_USER_ID;
   return !!bypass && bypass === userId;

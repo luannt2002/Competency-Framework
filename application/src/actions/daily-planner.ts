@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { eq, and, desc, asc, max as drizzleMax } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
+import { spendHearts, SKIP_HEART_COST } from '@/lib/gamification/hearts';
 import {
   activityLog,
   lessons,
@@ -569,11 +570,18 @@ export async function markTaskSkipped(input: z.infer<typeof taskIdInput>): Promi
     .set({ status: 'skipped' })
     .where(and(eq(dailyTasks.id, task.id), eq(dailyTasks.workspaceId, ws.id)));
 
+  // F9 — bỏ qua task tốn nửa tim. Chỉ trừ khi task đang thật sự CHUYỂN sang
+  // 'skipped': bấm lại lần nữa trên một task đã bỏ qua không được trừ thêm.
+  let heartsLeft: number | null = null;
+  if (task.status !== 'skipped') {
+    heartsLeft = await spendHearts(ws.id, user.id, SKIP_HEART_COST);
+  }
+
   await db.insert(activityLog).values({
     workspaceId: ws.id,
     userId: user.id,
     kind: 'daily_task_skipped',
-    payload: { taskId: task.id, kind: task.kind },
+    payload: { taskId: task.id, kind: task.kind, heartCost: SKIP_HEART_COST, heartsLeft },
   });
 
   await writeAudit({
@@ -584,7 +592,7 @@ export async function markTaskSkipped(input: z.infer<typeof taskIdInput>): Promi
     resourceType: 'daily_task',
     resourceId: task.id,
     before: { status: task.status },
-    after: { status: 'skipped' },
+    after: { status: 'skipped', heartCost: SKIP_HEART_COST, heartsLeft },
   });
 
   revalidatePath(`/w/${ws.slug}/daily`);

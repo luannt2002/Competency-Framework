@@ -7,7 +7,7 @@
  * "back" both point at the node, so the trip is: tree -> node -> làm bài.
  *
  * Server Component. It resolves the workspace, finds the lesson the node runs,
- * calls the existing `startLesson` contract, and seeds the client with the
+ * calls the existing `loadLessonRun` contract, and seeds the client with the
  * learner's own attempt history so a returning visit shows real state instead
  * of a blank form.
  *
@@ -22,11 +22,12 @@ import { BookOpen, Clock, PencilLine } from 'lucide-react';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { resolveWorkspace } from '@/lib/rbac/resolve';
 import { db } from '@/lib/db/client';
+import { heartsToNumber } from '@/lib/gamification/hearts';
 import { hearts } from '@/lib/db/schema';
 import { getNodeBySlug } from '@/lib/tree/queries';
 import { findNodeLesson } from '@/lib/learn/node-lesson';
 import { loadExerciseOutcomes, loadSettledExplanations } from '@/lib/exercises/attempts';
-import { startLesson } from '@/actions/learn';
+import { loadLessonRun } from '@/actions/learn';
 import { NodeBreadcrumb } from '@/components/learn/node-header';
 import { LessonRunner } from '@/components/learn/lesson-runner';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -86,9 +87,9 @@ export default async function PracticePage({
     );
   }
 
-  // Existing contract: loads the lesson, sanitizes every payload, and marks
-  // the lesson in progress for this learner.
-  const run = await startLesson({ workspaceSlug: slug, lessonId: lesson.lessonId });
+  // ĐỌC THUẦN. Việc đánh dấu "đã bắt đầu" do runner gọi ở client (startLesson),
+  // vì render của Server Component có thể chạy lại bất cứ lúc nào.
+  const run = await loadLessonRun({ workspaceSlug: slug, lessonId: lesson.lessonId });
 
   const exerciseIds = run.exercises.map((e) => e.id);
   const outcomes = await loadExerciseOutcomes({
@@ -129,7 +130,7 @@ export default async function PracticePage({
         lesson={run}
         initialOutcomes={Object.fromEntries(outcomes)}
         initialExplanations={Object.fromEntries(explanations)}
-        initialHearts={heartRows[0]?.current ?? 5}
+        initialHearts={heartsToNumber(heartRows[0]?.current)}
         backHref={nodeHref}
       />
     </div>

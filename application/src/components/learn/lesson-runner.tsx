@@ -21,7 +21,7 @@
  * in a component is a rule that cannot be tested and will be re-implemented
  * slightly differently by the next screen.
  */
-import { useCallback, useMemo, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -53,6 +53,7 @@ import {
 } from '@/lib/exercises/runner';
 import {
   completeLesson,
+  startLesson,
   submitExercise,
   type CompleteResult,
   type LessonRunData,
@@ -80,6 +81,20 @@ export function LessonRunner({
 }: LessonRunnerProps) {
   const router = useRouter();
   const exercises = lesson.exercises;
+
+  // Đánh dấu "đã bắt đầu làm bài" đúng MỘT lần, từ phía client.
+  // Trước đây việc này nằm trong render của trang (Server Component), nên
+  // `attempts` đếm cả lượt xem trang: đo được 71 → 73 sau đúng hai lần curl,
+  // trong khi số lượt làm bài thật chỉ 24. Ref chặn StrictMode gọi hai lần
+  // trong dev; lỗi ở đây không được chặn đường học nên chỉ ghi log.
+  const startedRef = useRef(false);
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    void startLesson({ workspaceSlug, lessonId: lesson.lessonId }).catch((e) => {
+      console.error('[lesson-runner] startLesson failed', e);
+    });
+  }, [workspaceSlug, lesson.lessonId]);
 
   const specs = useMemo<Record<string, RunnerSpec>>(() => {
     const out: Record<string, RunnerSpec> = {};
@@ -202,10 +217,19 @@ export function LessonRunner({
           });
         }
       } catch (err) {
-        patch(exerciseId, {
-          submitting: false,
-          error: err instanceof Error ? err.message : String(err),
-        });
+        // F7 — hết tim thì server chặn nộp. Nói bằng tiếng người, kèm việc cần
+        // làm tiếp, thay vì ném mã lỗi thô ra màn hình.
+        const raw = err instanceof Error ? err.message : String(err);
+        if (raw === 'NO_HEARTS') {
+          setHearts(0);
+          patch(exerciseId, { submitting: false, retrying: false });
+          toast.error('Bạn đã hết tim', {
+            description:
+              'Tim hồi lại 1 trái mỗi 4 giờ. Ôn lại một bài đã hoàn thành cũng được +1 tim.',
+          });
+          return;
+        }
+        patch(exerciseId, { submitting: false, error: raw });
       }
     },
     [specs, states, patch, workspaceSlug, lesson.lessonId],
@@ -226,8 +250,13 @@ export function LessonRunner({
         setCompletion(res);
         fireConfetti({ intensity: 'big' });
         toast.success('Hoàn thành bài học', {
-          description: `+${res.xpAwarded} XP · streak ${res.newStreak}`,
+          description:
+            `+${res.xpAwarded} XP · streak ${res.newStreak}` +
+            // F11 — ôn lại bài đã xong được +1 tim; nói ra thì người học mới
+            // biết đường kiếm lại tim tồn tại.
+            (res.heartsEarned > 0 ? ` · +${res.heartsEarned} tim (ôn lại)` : ''),
         });
+        if (res.heartsEarned > 0) setHearts((h) => Math.min(5, h + res.heartsEarned));
         router.refresh();
       } catch (err) {
         toast.error('Không hoàn thành được bài học', { description: String(err) });

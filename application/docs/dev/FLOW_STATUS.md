@@ -207,3 +207,18 @@ Ranh giới còn lại (P3 trong PLAN): invite-token cho người chưa có tài
 % hoàn thành + tiến độ demo trên share · discover filter/sort · đặt tên khi
 fork · Last Active/At Risk · QR + /cert/<id> · export theo member · analytics
 creator · share full tree.
+
+## Đợt 7 phần 2 — P3 (2026-08-21)
+
+Vá tiếp 5 mục: share có % hoàn thành + tiến độ creator (A4/A6) · discover
+sort/filter + mô tả + số fork thật từ activity_log (E1.1/E1.2) · fork đặt được
+tên (E2.3) · roster cột Hoạt động + cờ At Risk ≥7 ngày (D3.3/D3.4) · chứng chỉ
+có bảng certificates + route public /cert/<code> + QR trên sheet (G8/G10/G12).
+
+Chất lượng: typecheck · lint · **284/284 test** (24 file) · 4 guard sạch (44
+bảng scoped). Build prod mới đang chạy 3210 (tunnel cùng URL).
+
+Còn lại trong P3: invite-token cho người chưa có tài khoản · export theo
+member + drill-down (D3.6/D3.7/D4.x) · analytics creator (C5) · custom badge
+CRUD (F16) · share full tree (A3) · hearts decay/skip/replay (F8/F9/F11 — cân
+nhắc lại game design trước khi làm).

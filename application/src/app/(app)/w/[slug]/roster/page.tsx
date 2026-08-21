@@ -33,6 +33,8 @@ import {
   workspaceMembers,
   roadmapTreeNodes,
   userNodeProgress,
+  streaks,
+  activityLog,
 } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
@@ -42,12 +44,17 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { RosterTable, type RosterMemberData, type RosterPhaseColumn } from '@/components/admin/roster-table';
 import { getUsersDisplay, shortId } from '@/lib/auth/user-display';
 
+/** Số ngày (UTC, làm tròn xuống) từ `d` đến `now`. */
+function daysSinceUTC(d: Date, now = new Date()): number {
+  const DAY_MS = 86_400_000;
+  return Math.floor((now.getTime() - d.getTime()) / DAY_MS);
+}
+
 export default async function RosterPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
+}) {  const { slug } = await params;
   await requireUser();
 
   const wsRows = await db
@@ -216,13 +223,77 @@ export default async function RosterPage({
       isOwner: m.isOwner,
       perPhase,
       overallPct,
+      lastActiveISO: null,
+      atRisk: false,
     };
   });
+
+  // D3.3 — Last active per member (workspace-scoped, one grouped query per
+  // source; no N+1). Primary source: streaks.last_active_date (updated by the
+  // streak engine on any learner activity). Fallback / upper bound: the latest
+  // activity_log.created_at for that user in THIS workspace. We take the max
+  // of the two per user.
+  const memberUserIds = members.map((m) => m.userId);
+  const lastActiveByUser = new Map<string, Date>();
+  const startedByUser = new Set<string>();
+  if (memberUserIds.length > 0) {
+    const streakRows = await db
+      .select({
+        userId: streaks.userId,
+        lastActiveDate: streaks.lastActiveDate,
+      })
+      .from(streaks)
+      .where(and(eq(streaks.workspaceId, ws.id), inArray(streaks.userId, memberUserIds)));
+    for (const r of streakRows) {
+      // date column comes back as 'YYYY-MM-DD'; parse as UTC to avoid TZ drift.
+      if (r.lastActiveDate) {
+        lastActiveByUser.set(r.userId, new Date(`${r.lastActiveDate}T00:00:00Z`));
+      }
+    }
+
+    const activityRows = await db
+      .select({
+        userId: activityLog.userId,
+        lastAt: dsql<string | null>`max(${activityLog.createdAt})`,
+      })
+      .from(activityLog)
+      .where(
+        and(eq(activityLog.workspaceId, ws.id), inArray(activityLog.userId, memberUserIds)),
+      )
+      .groupBy(activityLog.userId);
+    for (const r of activityRows) {
+      const d = r.lastAt ? new Date(r.lastAt) : null;
+      if (!d || Number.isNaN(d.getTime())) continue;
+      const existing = lastActiveByUser.get(r.userId);
+      if (!existing || d > existing) lastActiveByUser.set(r.userId, d);
+    }
+
+    // D3.4 — "started" = has ANY progress row (any status) in this workspace.
+    const startedRows = await db
+      .selectDistinct({ userId: userNodeProgress.userId })
+      .from(userNodeProgress)
+      .where(
+        and(
+          eq(userNodeProgress.workspaceId, ws.id),
+          inArray(userNodeProgress.userId, memberUserIds),
+        ),
+      );
+    for (const r of startedRows) startedByUser.add(r.userId);
+  }
 
   // D3.2 — tên/email thật thay shortId(UUID), lấy từ Supabase Auth (cache 5').
   const displayByUser = await getUsersDisplay(members.map((m) => m.userId));
   for (const md of memberData) {
     md.displayName = displayByUser.get(md.userId)?.displayName ?? shortId(md.userId);
+    const lastActive = lastActiveByUser.get(md.userId) ?? null;
+    md.lastActiveISO = lastActive ? lastActive.toISOString() : null;
+    // D3.4 — At Risk: đã bắt đầu (có progress row) VÀ không hoạt động ≥ 7 ngày
+    // VÀ hoàn thành < 100%. Người chưa bắt đầu hoặc đã xong không bị đánh dấu.
+    md.atRisk =
+      startedByUser.has(md.userId) &&
+      lastActive !== null &&
+      daysSinceUTC(lastActive) >= 7 &&
+      md.overallPct < 100;
   }
 
   // Aggregate header stats.

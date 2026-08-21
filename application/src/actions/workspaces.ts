@@ -496,6 +496,17 @@ export async function forkWorkspace(formData: FormData): Promise<void> {
   if (!srcWs) throw new Error('WORKSPACE_NOT_FOUND');
   if (srcWs.visibility !== 'public-readonly') throw new Error('WORKSPACE_NOT_PUBLIC');
 
+  // Audit 7.13 / E2.3 — optional custom name for the fork. Falls back to the
+  // auto name when absent/blank/invalid.
+  const autoName = `${srcWs.name} (Fork)`;
+  const newNameParsed = z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .safeParse(String(formData.get('newName') ?? ''));
+  const newName = newNameParsed.success ? newNameParsed.data : autoName;
+
   // Load all tree nodes (BFS order: roots first via depth asc)
   const srcNodes = await db
     .select()
@@ -518,7 +529,7 @@ export async function forkWorkspace(formData: FormData): Promise<void> {
     .values({
       ownerUserId: user.id,
       slug: newSlug,
-      name: `${srcWs.name} (Fork)`,
+      name: newName,
       icon: srcWs.icon ?? null,
       color: srcWs.color ?? null,
       visibility: 'private',

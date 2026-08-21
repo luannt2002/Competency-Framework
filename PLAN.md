@@ -156,11 +156,11 @@ E 11/0/1/4 · F 10/5/0/4 · G 5/5/0/2 (đủ/thiếu/đứt/sai). Chi tiết `do
 
 ### P3 — spec đầy đủ (làm sau, mỗi cái một mẻ)
 
-- [ ] **7.11 A4** badge "Y% hoàn thành" trên share · **A6** tiến độ demo creator.
-- [ ] **7.12 E1.1/E1.2** discover filter/sort + mô tả + số fork.
-- [ ] **7.13 E2.3** cho user đặt tên khi fork.
-- [ ] **7.14 D3.3/D3.4** roster Last Active + cờ At Risk.
-- [ ] **7.15 G8/G10** QR + link `/cert/<id>` để employer verify.
+- [x] **7.11 A4** ✅ badge "X% người hoàn thành" (trung bình các learner có tiến độ, helper thuần + 6 test) + A6 thanh "Người tạo đã hoàn thành Z%" (ẩn khi owner chưa có tiến độ).
+- [x] **7.12 E1.1/E1.2** ✅ sort Mới nhất/Phổ biến nhất/Nhiều node nhất + filter theo loại root node; card có mô tả (line-clamp-2) + số fork thật (đếm distinct user từ activity_log workspace_forked). Chưa có cột forked_from — dùng activity_log, nếu sau này cần chính xác thì thêm cột.
+- [x] **7.13 E2.3** ✅ ForkButton dialog đặt tên (default "X (Fork)", zod 1-80 ký tự), chưa login vẫn redirect sign-in.
+- [x] **7.14 D3.3/D3.4** ✅ cột "Hoạt động" (hôm nay/X ngày trước, max của streaks.last_active_date và activity_log) + cờ At Risk amber (đã bắt đầu + ≥7 ngày + <100%), 6 test.
+- [x] **7.15 G8/G10** ✅ bảng certificates (migration 0012) — issue khi xem cert ≥80%, giữ issuedAt/code gốc; route public /cert/<code> (noindex, revoked → 404, link share chỉ khi public); QR in trên sheet A4 (lib qrcode) + code Crockford base32 10 ký tự (5000 sample không trùng).
 - [ ] **7.16 F8/F9/F11** hearts decay/skip/replay-earn (cân nhắc lại game design).
 - [ ] **7.17 D3.6/D3.7** export theo member; **D4.x** drill-down member.
 - [ ] **7.18 C5** analytics creator; **F16** custom badge CRUD; **A3** share full tree.

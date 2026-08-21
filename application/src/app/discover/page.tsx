@@ -12,15 +12,25 @@
  *     root node (the canonical shape in this app). If a workspace has 0 or
  *     >1 roots, totalPhases falls back to the root-count itself — those roots
  *     ARE the top-level phases.
+ *   - description: workspaces have no description column, so we take the
+ *     sole root node's description (same trick as the share page metadata).
+ *   - domain: no domain/tag column either — approximated with the root
+ *     node's `nodeType` (course/phase/...) as a coarse category filter.
+ *     No schema change is invented for this (audit E1.1 decision).
+ *   - forkCount: workspaces do NOT record their fork source (no forkedFrom
+ *     column), but every fork writes an activity_log row of kind
+ *     `workspace_forked` whose payload carries `sourceWorkspaceId`. We count
+ *     distinct forking actors per source from activity_log. If a real
+ *     linkage column is added later, switch to it (audit E1.2 decision).
  *
- * All three numbers are computed in two grouped SQL queries (no N+1).
+ * All numbers are computed in grouped SQL queries (no N+1).
  */
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { and, eq, inArray, isNull, sql as dsql } from 'drizzle-orm';
 import { Sparkles } from 'lucide-react';
 import { db } from '@/lib/db/client';
-import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
+import { workspaces, roadmapTreeNodes, activityLog } from '@/lib/db/schema';
 import {
   DiscoverGrid,
   type DiscoverWorkspace,
@@ -45,6 +55,7 @@ export default async function DiscoverPage() {
       slug: workspaces.slug,
       name: workspaces.name,
       ownerUserId: workspaces.ownerUserId,
+      createdAt: workspaces.createdAt,
     })
     .from(workspaces)
     .where(eq(workspaces.visibility, 'public-readonly'));
@@ -69,11 +80,15 @@ export default async function DiscoverPage() {
 
     // 3) Roots per workspace — for the single-root case we treat phases as
     //    "direct children of that root"; for the multi-root case, the roots
-    //    ARE the top-level phases.
+    //    ARE the top-level phases. The root's nodeType doubles as a coarse
+    //    domain/category (no domain column exists) and its description is
+    //    used as the card description (same trick as the share page metadata).
     const rootRows = await db
       .select({
         id: roadmapTreeNodes.id,
         workspaceId: roadmapTreeNodes.workspaceId,
+        nodeType: roadmapTreeNodes.nodeType,
+        description: roadmapTreeNodes.description,
       })
       .from(roadmapTreeNodes)
       .where(
@@ -83,11 +98,41 @@ export default async function DiscoverPage() {
         ),
       );
     const rootsByWs = new Map<string, string[]>();
+    const rootMetaByWs = new Map<
+      string,
+      { nodeType: string; description: string | null }
+    >();
     for (const r of rootRows) {
       const arr = rootsByWs.get(r.workspaceId) ?? [];
       arr.push(r.id);
       rootsByWs.set(r.workspaceId, arr);
+      if (arr.length === 1) {
+        rootMetaByWs.set(r.workspaceId, {
+          nodeType: r.nodeType,
+          description: r.description,
+        });
+      } else {
+        rootMetaByWs.delete(r.workspaceId);
+      }
     }
+
+    // 3b) Fork counts — count distinct forking actors per source workspace
+    //     from activity_log `workspace_forked` rows (payload.sourceWorkspaceId).
+    //     There is no forkedFrom column on workspaces; activity_log is the
+    //     only reliable record of the fork linkage.
+    const forkRows = await db
+      .select({
+        sourceId: dsql<string>`payload->>'sourceWorkspaceId'`,
+        actors: dsql<number>`count(distinct ${activityLog.userId})::int`,
+      })
+      .from(activityLog) // guard-tenant-scope: allow — cross-workspace aggregation over public workspaces' fork events; payload->>'sourceWorkspaceId' is the workspaceId linkage
+      .where(eq(activityLog.kind, 'workspace_forked'))
+      .groupBy(dsql`payload->>'sourceWorkspaceId'`);
+    const forksBySource = new Map<string, number>(
+      forkRows
+        .filter((r) => r.sourceId)
+        .map((r) => [r.sourceId, Number(r.actors)]),
+    );
 
     // 4) For workspaces with exactly one root, count its direct children.
     const singleRootIds: string[] = [];
@@ -118,16 +163,21 @@ export default async function DiscoverPage() {
         } else {
           totalPhases = roots.length;
         }
+        const rootMeta = rootMetaByWs.get(w.id);
         return {
           id: w.id,
           slug: w.slug,
           name: w.name,
           ownerUserId: w.ownerUserId,
+          createdAt: (w.createdAt ?? new Date(0)).toISOString(),
           totalNodes: totalByWs.get(w.id) ?? 0,
           totalPhases,
+          rootNodeType: rootMeta?.nodeType ?? null,
+          description: rootMeta?.description ?? null,
+          forkCount: forksBySource.get(w.id) ?? 0,
         };
       })
-      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   return (

@@ -12,9 +12,11 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { eq, count, isNull, and } from 'drizzle-orm';
+import { eq, count, isNull, and, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
+import { userNodeProgress } from '@/lib/db/schema-tree';
+import { averageCompletionPct, completionPct } from '@/lib/tree/completion';
 import { workspaceMembers } from '@/lib/db/schema-rbac';
 import { getRootNodes, getTreeSections } from '@/lib/tree/queries';
 import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
@@ -138,14 +140,38 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
   }
 
   // Read-only: pass null userId — queries skip progress joins.
-  const [rootNodes, totalNodesRow] = await Promise.all([
+  const [rootNodes, totalNodesRow, progressByUser] = await Promise.all([
     getRootNodes(ws.id, null),
     db
       .select({ n: count() })
       .from(roadmapTreeNodes)
       .where(eq(roadmapTreeNodes.workspaceId, ws.id)),
+    // Audit 7.11 / A4 + A6 — one grouped query: per-user done counts among
+    // users with ANY progress rows in this workspace (read-only, ws-scoped).
+    db
+      .select({
+        userId: userNodeProgress.userId,
+        done: sql<number>`count(*) filter (where ${userNodeProgress.status} = 'done')`.mapWith(Number),
+      })
+      .from(userNodeProgress)
+      .where(eq(userNodeProgress.workspaceId, ws.id))
+      .groupBy(userNodeProgress.userId),
   ]);
   const totalNodes = totalNodesRow[0]?.n ?? 0;
+
+  // A4: avg completion % across learners with progress.
+  const avgCompletionPct = averageCompletionPct(
+    progressByUser.map((r) => r.done),
+    totalNodes,
+  );
+  const hasLearnerProgress = progressByUser.length > 0;
+
+  // A6: creator's own demo progress — only shown when the owner has rows.
+  const ownerDone = ws.ownerUserId
+    ? progressByUser.find((r) => r.userId === ws.ownerUserId)?.done
+    : undefined;
+  const ownerCompletionPct =
+    ownerDone !== undefined ? completionPct(ownerDone, totalNodes) : null;
 
   // Resolve the viewer (may be null on a true public visit) so we can show
   // the follow toggle only when logged in.
@@ -197,6 +223,7 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
           )}
           <ForkButton
             sourceSlug={slug}
+            defaultName={`${ws.name} (Fork)`}
             viewerId={viewer?.id ?? null}
             isOwner={isOwner}
           />
@@ -208,8 +235,23 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
       <div className="grid grid-cols-3 gap-3 mb-10 max-w-3xl mx-auto">
         <StatChip icon={Layers} label="Giai đoạn" value={String(totalSections)} sub="cấp 1" color="text-hue-1" />
         <StatChip icon={Sparkles} label="Tuần / Buổi" value={String(totalSubs)} sub="cấp 2" color="text-hue-2" />
-        <StatChip icon={Sparkles} label="Tổng mục" value={String(totalNodes)} sub="trong cây" color="text-amber-500" />
+        <StatChip icon={Sparkles} label="Tổng mục" value={String(totalNodes)} sub={hasLearnerProgress ? `${avgCompletionPct}% người hoàn thành` : 'trong cây'} color="text-amber-500" />
       </div>
+
+      {/* A6 — creator's demo progress: subtle, only when the owner has tracked anything */}
+      {ownerCompletionPct !== null && (
+        <div className="mb-6 max-w-3xl mx-auto space-y-1.5">
+          <p className="text-xs text-muted-foreground">
+            Người tạo đã hoàn thành {ownerCompletionPct}%
+          </p>
+          <div className="h-1.5 w-full max-w-xs rounded-full bg-secondary overflow-hidden">
+            <div
+              className="h-full rounded-full bg-emerald-500/70 transition-all"
+              style={{ width: `${ownerCompletionPct}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       <RoadmapHero badge="Roadmap · Read-only share" title={heroTitle} subtitle={heroSubtitle} />
 
@@ -249,6 +291,7 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
             <div className="flex items-center justify-center">
               <ForkButton
                 sourceSlug={slug}
+                defaultName={`${ws.name} (Fork)`}
                 viewerId={viewer?.id ?? null}
                 isOwner={isOwner}
               />

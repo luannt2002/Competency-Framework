@@ -16,6 +16,7 @@
  */
 import { redirect } from 'next/navigation';
 import { and, count, eq, inArray } from 'drizzle-orm';
+import QRCode from 'qrcode';
 import { Award, Printer } from 'lucide-react';
 import { db } from '@/lib/db/client';
 import {
@@ -24,6 +25,7 @@ import {
   roadmapTreeNodes,
   userNodeProgress,
 } from '@/lib/db/schema';
+import { issueCertificate } from '@/lib/db/certificates';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { requireMinLevel, RBACError } from '@/lib/rbac/server';
@@ -130,7 +132,37 @@ export default async function CertificatePage({
 
   const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
   const eligible = pct >= 80;
-  const issuedAt = new Date();
+
+  // G10 — an eligible view upserts the certificate row: the FIRST view fixes
+  // issuedAt + uniqueCode; re-views only refresh pct/counts. The stored
+  // issuedAt (not "now") is what the sheet and /cert verification show.
+  let certCode: string | null = null;
+  let issuedAt = new Date();
+  if (eligible) {
+    const cert = await issueCertificate({
+      workspaceId: ws.id,
+      subjectUserId,
+      pct,
+      doneCount,
+      totalNodes: total,
+    });
+    certCode = cert.uniqueCode;
+    issuedAt = cert.issuedAt;
+  }
+
+  // G8 — QR pointing at the public verification URL, rendered server-side
+  // as a compact SVG and embedded in the printed sheet.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const verifyUrl = certCode ? `${appUrl}/cert/${certCode}` : null;
+  let qrSvg: string | null = null;
+  if (verifyUrl) {
+    qrSvg = await QRCode.toString(verifyUrl, {
+      type: 'svg',
+      margin: 0,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#3a2a1c', light: '#00000000' },
+    });
+  }
 
   // G3 — tên thật từ Supabase Auth thay UUID, fallback shortId.
   const subjectDisplay = await getUserDisplay(subjectUserId);
@@ -159,6 +191,7 @@ export default async function CertificatePage({
           }
           .no-print { display: none !important; }
         }
+        .cert-qr svg { display: block; width: 100%; height: 100%; }
       `}</style>
 
       <div className="no-print sticky top-0 z-20 flex items-center justify-between gap-3 px-6 py-3 border-b border-border bg-background/80 backdrop-blur">
@@ -169,11 +202,19 @@ export default async function CertificatePage({
             {ws.name} · {subjectDisplay.displayName}
           </span>
         </div>
-        {eligible && (
-          <PrintButton>
-            <Printer className="size-4" />
-            Print / Save as PDF
-          </PrintButton>
+        {eligible && certCode && verifyUrl && (
+          <div className="flex items-center gap-3">
+            <span
+              className="hidden md:inline text-xs text-muted-foreground"
+              style={{ fontFamily: 'var(--font-jetbrains), monospace' }}
+            >
+              {verifyUrl}
+            </span>
+            <PrintButton>
+              <Printer className="size-4" />
+              Print / Save as PDF
+            </PrintButton>
+          </div>
         )}
       </div>
 
@@ -211,6 +252,8 @@ export default async function CertificatePage({
             done={doneCount}
             total={total}
             issuedAt={issuedAt}
+            certCode={certCode}
+            qrSvg={qrSvg}
           />
         )}
       </div>
@@ -227,6 +270,8 @@ function CertificateSheet({
   done,
   total,
   issuedAt,
+  certCode,
+  qrSvg,
 }: {
   workspaceName: string;
   subjectUserId: string;
@@ -235,6 +280,8 @@ function CertificateSheet({
   done: number;
   total: number;
   issuedAt: Date;
+  certCode: string | null;
+  qrSvg: string | null;
 }) {
   const initial = workspaceName.charAt(0).toUpperCase();
   return (
@@ -362,6 +409,44 @@ function CertificateSheet({
         >
           Ngày cấp: <strong>{formatVnDate(issuedAt)}</strong>
         </p>
+
+        {/* G8 — QR trỏ tới /cert/<code> để nhà tuyển dụng xác thực (G10/G12).
+            ~16mm, góc dưới-phải, trong khung viền. QR SVG render server-side. */}
+        {qrSvg && (
+          <div
+            className="absolute flex flex-col items-center"
+            style={{ right: '20mm', bottom: '17mm', textAlign: 'center' }}
+          >
+            <div
+              className="cert-qr bg-white rounded-[2mm] p-[1.5mm]"
+              style={{ width: '16mm', height: '16mm' }}
+              // Trusted server-generated SVG from the `qrcode` package.
+              dangerouslySetInnerHTML={{ __html: qrSvg }}
+            />
+            <div
+              style={{
+                marginTop: '1.5mm',
+                fontSize: '9px',
+                color: '#7d5b3f',
+                letterSpacing: '0.06em',
+              }}
+            >
+              Quét để xác thực
+            </div>
+            {certCode && (
+              <div
+                style={{
+                  marginTop: '0.5mm',
+                  fontSize: '9px',
+                  color: '#7d5b3f',
+                  fontFamily: 'var(--font-jetbrains), monospace',
+                }}
+              >
+                {certCode}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Footer */}
         <div

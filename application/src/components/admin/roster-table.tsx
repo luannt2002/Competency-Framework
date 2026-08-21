@@ -43,7 +43,34 @@ export type RosterMemberData = {
   isOwner: boolean;
   perPhase: { phaseId: string; done: number; total: number; pct: number }[];
   overallPct: number;
+  /** ISO timestamp hoạt động gần nhất (D3.3); null = chưa có ghi nhận. */
+  lastActiveISO: string | null;
+  /** D3.4 — đã bắt đầu AND ≥ 7 ngày không hoạt động AND < 100%. */
+  atRisk: boolean;
 };
+
+export const AT_RISK_DAYS = 7;
+
+/** Số ngày từ ISO timestamp đến `now` (làm tròn xuống, dựa trên UTC date). */
+export function daysSinceISO(iso: string, now = new Date()): number {
+  const DAY_MS = 86_400_000;
+  const d = new Date(iso);
+  const a = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const b = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.round((b - a) / DAY_MS);
+}
+
+/**
+ * D3.3 — định dạng tương đối tiếng Việt cho cột "Hoạt động":
+ * hôm nay / hôm qua / "X ngày trước" / "—" (không có dữ liệu).
+ */
+export function formatLastActive(iso: string | null, now = new Date()): string {
+  if (!iso) return '—';
+  const days = daysSinceISO(iso, now);
+  if (days <= 0) return 'hôm nay';
+  if (days === 1) return 'hôm qua';
+  return `${days} ngày trước`;
+}
 
 function roleLabel(role: string): string {
   switch (role) {
@@ -125,6 +152,7 @@ export function RosterTable({
                   Member
                 </th>
                 <th className="px-3 py-3 font-medium">Role</th>
+                <th className="px-3 py-3 font-medium">Hoạt động</th>
                 {phases.map((p) => (
                   <th
                     key={p.id}
@@ -148,7 +176,7 @@ export function RosterTable({
               {filtered.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={phases.length + 3}
+                    colSpan={phases.length + 4}
                     className="px-4 py-8 text-center text-muted-foreground text-xs"
                   >
                     No members match `{filter}`.
@@ -172,12 +200,30 @@ export function RosterTable({
                             owner
                           </span>
                         )}
+                        {m.atRisk && (
+                          <span
+                            title={`Nguy cơ bỏ cuộc: đã bắt đầu học nhưng không hoạt động ≥ ${AT_RISK_DAYS} ngày và hoàn thành < 100%.`}
+                            className="rounded-md bg-amber-500/15 text-amber-500 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider"
+                          >
+                            at risk
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-3 py-3 text-xs">
                       <span className="inline-flex items-center rounded-md bg-secondary/60 px-2 py-0.5 text-[10px] font-medium text-foreground/80">
                         {roleLabel(m.role)}
                       </span>
+                    </td>
+                    <td
+                      className="px-3 py-3 text-xs text-muted-foreground"
+                      title={
+                        m.lastActiveISO
+                          ? `Hoạt động gần nhất: ${new Date(m.lastActiveISO).toLocaleString('vi-VN')}`
+                          : 'Chưa có ghi nhận hoạt động'
+                      }
+                    >
+                      {formatLastActive(m.lastActiveISO)}
                     </td>
                     {m.perPhase.map((c) => (
                       <td

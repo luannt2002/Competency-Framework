@@ -160,6 +160,36 @@ Luật đo: production build, warm-up trước, đếm `execute` bằng `grep -c
 
 ---
 
+## Sự cố 22/08/2026 — `db:push` xoá bảng thật
+
+Ghi lại đầy đủ vì đây là bài học đắt nhất của cả đợt.
+
+**Việc định làm:** thêm 3 index → chạy `pnpm db:push --force`.
+
+**Việc đã xảy ra:**
+```
+ALTER TABLE "badges" DROP COLUMN "is_active"
+DROP TYPE  "public"."exercise_kind"
++ xoá 3 bảng: certificates, exercise_types, workspace_invites
+```
+
+**Hai tầng nguyên nhân, cả hai đều có sẵn trong dự án:**
+
+1. `drizzle.config.ts` chỉ khai `./src/lib/db/schema.ts`, trong khi lược đồ nằm ở **14 file**. drizzle-kit thấy một phần, coi phần còn lại là thừa.
+2. Bảng `badges` bị khai **hai lần** một cách cố ý — `schema.ts` (thiếu `is_active`) và `schema-badges.ts` (bản sao có cột). Docblock ghi rõ lý do: *"Rather than edit it, this file declares a typed mirror of the SAME physical table"*. drizzle nhìn bản thiếu cột → `DROP COLUMN`.
+
+**Đã khôi phục:** cột + 3 bảng (chạy lại migration 0006/0012/0015) + dòng `sre_postmortem` dựng lại từ payload bài tập còn sót. Dữ liệu trong `certificates` và `workspace_invites` **mất hẳn** — là dữ liệu thử nghiệm.
+
+**Đã vá gốc rễ:**
+- `drizzle.config.ts` → glob `schema*.ts`
+- Gộp `is_active` về bản chuẩn; `schema-badges.ts` chỉ còn `export { badges as badgesAdmin }`
+- Thêm `drizzle/scripts/migrate.ts` + `pnpm db:migrate`; `db:setup` chuyển sang dùng nó
+- Đổi tên `db:push` → **`db:push:UNSAFE`**
+
+**Vì sao không thể làm `push` an toàn:** kể cả sau khi vá cấu hình, nó vẫn đề xuất xoá 5 ràng buộc CHECK (`exercises_kind_slug_check`, `exercise_types_slug_check`, `uea_status_check`, `uea_score_range_check`, `notifications_kind_check`) — do migration SQL thô tạo ra, TS không diễn đạt được. Cách duy nhất là **đừng dùng `push`**.
+
+**Bài học:** chỗ nguy hiểm nhất trong repo lại là chỗ duy nhất không có test nào gác. Mình cẩn thận với từng dòng code suốt cả đợt rồi thêm `--force` mà không xem trước kế hoạch.
+
 ## Ngoài phạm vi đã chốt
 
 User chốt "chỉ fix + tối ưu, chưa bàn public". Ghi lại để không quên:

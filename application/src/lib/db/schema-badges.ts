@@ -1,39 +1,17 @@
 /**
- * schema-badges.ts — F16 custom badge management.
+ * schema-badges.ts — bí danh giữ tương thích, KHÔNG còn là định nghĩa thứ hai.
  *
- * `badges` physically lives in `schema.ts` but WITHOUT the `is_active` column
- * added by migration 0013 (schema.ts is frozen for this change set). Rather
- * than edit it, this file declares a typed mirror of the SAME physical table
- * (`pgTable('badges', …)`) including the new column. All badge-CRUD code uses
- * this definition; `schema.ts`'s `badges` remains untouched and still works
- * for existing readers (it simply doesn't select is_active).
+ * File này từng khai lại `pgTable('badges', …)` một lần nữa để thêm cột
+ * `is_active` mà migration 0013 tạo ra, với lý do "schema.ts đang đóng băng".
+ * Hậu quả: một bảng VẬT LÝ có hai định nghĩa lệch nhau, và drizzle-kit chỉ
+ * nhìn thấy bản trong `schema.ts` — bản thiếu cột. Ngày 22/08/2026 một lần
+ * `pnpm db:push --force` vì thế sinh ra `ALTER TABLE badges DROP COLUMN
+ * is_active` và xoá cột thật khỏi DB.
  *
- * Column list mirrors drizzle/migrations/0000 + 0013 exactly.
+ * Cột đã được gộp về đúng chỗ trong `schema.ts`. Giữ tên `badgesAdmin` ở đây
+ * để hai nơi đang import không phải sửa, nhưng nó chỉ còn là một cái tên khác
+ * của cùng một đối tượng — không có bản sao nào nữa.
+ *
+ * Đừng khai lại bảng ở file khác để "thêm cột": sửa thẳng định nghĩa gốc.
  */
-import { sql } from 'drizzle-orm';
-import {
-  pgTable,
-  uuid,
-  text,
-  jsonb,
-  boolean,
-  uniqueIndex,
-} from 'drizzle-orm/pg-core';
-
-export const badgesAdmin = pgTable(
-  'badges',
-  {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
-    workspaceId: uuid('workspace_id').notNull(),
-    slug: text('slug').notNull(),
-    name: text('name').notNull(),
-    description: text('description'),
-    icon: text('icon'),
-    rule: jsonb('rule'),
-    // Added by 0013_badges_is_active.sql — soft deactivate; earned rows stay.
-    isActive: boolean('is_active').notNull().default(true),
-  },
-  (t) => ({
-    wsSlugUq: uniqueIndex('badges_ws_slug_uq').on(t.workspaceId, t.slug),
-  }),
-);
+export { badges as badgesAdmin } from './schema';

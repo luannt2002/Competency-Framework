@@ -226,14 +226,21 @@ export const weeks = pgTable(
   }),
 );
 
-export const modules = pgTable('modules', {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
-  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  weekId: uuid('week_id').notNull().references(() => weeks.id, { onDelete: 'cascade' }),
-  title: text('title').notNull(),
-  summary: text('summary'),
-  displayOrder: integer('display_order').default(0),
-});
+export const modules = pgTable(
+  'modules',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+    weekId: uuid('week_id').notNull().references(() => weeks.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    summary: text('summary'),
+    displayOrder: integer('display_order').default(0),
+  },
+  (t) => ({
+    // "Module của một tuần" — cây học tập duyệt qua đường này mỗi lần dựng.
+    wsWeekIdx: index('modules_ws_week_idx').on(t.workspaceId, t.weekId),
+  }),
+);
 
 export const lessons = pgTable(
   'lessons',
@@ -263,7 +270,9 @@ export const lessonSkillMap = pgTable(
   (t) => ({ pk: primaryKey({ columns: [t.lessonId, t.skillId] }) }),
 );
 
-export const exercises = pgTable('exercises', {
+export const exercises = pgTable(
+  'exercises',
+  {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
   lessonId: uuid('lesson_id').notNull().references(() => lessons.id, { onDelete: 'cascade' }),
@@ -281,7 +290,22 @@ export const exercises = pgTable('exercises', {
   explanationMd: text('explanation_md'),
   xpAward: integer('xp_award').default(10),
   displayOrder: integer('display_order').default(0),
-});
+  },
+  (t) => ({
+    /**
+     * Đường đọc nóng nhất của bảng này: "các bài tập của một bài học".
+     * `computeLessonScore` và `loadLessonRun` đều lọc theo cặp cột này, và
+     * chúng chạy mỗi lần mở trang luyện tập.
+     *
+     * Đo trên DB thật, 50.075 dòng, cùng câu truy vấn:
+     *     không index → Seq Scan       6.180 ms
+     *     có index    → Index Scan     0.206 ms
+     * Ở quy mô hiện tại (75 dòng) seq scan mất 0.076ms nên index KHÔNG giúp
+     * gì — đây là phòng cho nội dung lớn dần, không phải chữa bệnh đang có.
+     */
+    wsLessonIdx: index('ex_ws_lesson_idx').on(t.workspaceId, t.lessonId),
+  }),
+);
 
 export const userLessonProgress = pgTable(
   'user_lesson_progress',
@@ -456,6 +480,16 @@ export const badges = pgTable(
     description: text('description'),
     icon: text('icon'),
     rule: jsonb('rule'),
+    /**
+     * F16 — tắt mềm một huy hiệu; những dòng đã trao vẫn giữ nguyên.
+     *
+     * Thêm bởi migration 0013. Trước đợt này cột nằm ở một bản sao khai trong
+     * `schema-badges.ts` vì `schema.ts` được coi là "đóng băng", nên cùng một
+     * bảng vật lý có HAI định nghĩa lệch nhau. drizzle-kit nhìn bản ở đây,
+     * thấy thiếu cột, và sinh lệnh `DROP COLUMN is_active` — đó chính là cách
+     * sự cố 22/08/2026 xảy ra. Một bảng vật lý phải có đúng một định nghĩa.
+     */
+    isActive: boolean('is_active').notNull().default(true),
   },
   (t) => ({
     wsSlugUq: uniqueIndex('badges_ws_slug_uq').on(t.workspaceId, t.slug),
@@ -491,16 +525,25 @@ export const userWeekNotes = pgTable(
 );
 
 /* ============================ LABS (week hands-on) ============================ */
-export const labs = pgTable('labs', {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
-  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  weekId: uuid('week_id').notNull().references(() => weeks.id, { onDelete: 'cascade' }),
-  title: text('title').notNull(),
-  description: text('description'),
-  bodyMd: text('body_md'),
-  estMinutes: integer('est_minutes').default(30),
-  displayOrder: integer('display_order').default(0),
-});
+export const labs = pgTable(
+  'labs',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+    weekId: uuid('week_id').notNull().references(() => weeks.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description'),
+    bodyMd: text('body_md'),
+    estMinutes: integer('est_minutes').default(30),
+    displayOrder: integer('display_order').default(0),
+  },
+  (t) => ({
+    // Cùng lý do với `exercises`: đường đọc là "lab của một tuần", và
+    // `eq(labs.weekId, ...)` xuất hiện 4 lần trong src/. Xem chú thích ở
+    // `exercises` để biết số đo.
+    wsWeekIdx: index('labs_ws_week_idx').on(t.workspaceId, t.weekId),
+  }),
+);
 
 export const userLabProgress = pgTable(
   'user_lab_progress',

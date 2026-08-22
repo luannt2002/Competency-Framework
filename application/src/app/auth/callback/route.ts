@@ -10,10 +10,34 @@ import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { acceptPendingInvites } from '@/lib/auth/join-pending-invites';
 
+/**
+ * Chỉ nhận đường dẫn nội bộ làm đích chuyển hướng sau đăng nhập.
+ *
+ * GIA CỐ, không phải vá lỗ hổng — đã đo: với `${origin}${next}` và `origin`
+ * không có dấu `/` cuối, mọi payload thử qua (`//evil.com`, `///evil.com`,
+ * `/\evil.com`, `https://evil.com`) đều cho ra host của chính mình, không cái
+ * nào thoát ra ngoài. Vậy hiện KHÔNG có open redirect.
+ *
+ * Nhưng an toàn ấy đang dựa vào một bất biến NGẦM: đích được ghép bằng nối
+ * chuỗi sau một origin không có dấu gạch cuối. Ai đổi sang `new URL(next,
+ * origin)` — một refactor trông vô hại — là `//evil.com` thoát ra ngay. Viết
+ * hẳn ràng buộc ra đây để nó không phụ thuộc vào cách ghép chuỗi nữa.
+ */
+function safeNextPath(raw: string | null): string {
+  const fallback = '/onboarding';
+  if (!raw) return fallback;
+  // Phải là đường dẫn tuyệt đối nội bộ: đúng một `/` mở đầu, không `//`, không
+  // `\` (trình duyệt quy `\` về `/`), không scheme.
+  if (!raw.startsWith('/')) return fallback;
+  if (raw.startsWith('//') || raw.startsWith('/\\')) return fallback;
+  if (raw.includes('\\')) return fallback;
+  return raw;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/onboarding';
+  const next = safeNextPath(searchParams.get('next'));
 
   if (code) {
     const supabase = await createSupabaseServerClient();

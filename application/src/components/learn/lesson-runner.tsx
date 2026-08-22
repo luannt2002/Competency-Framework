@@ -239,13 +239,15 @@ export function LessonRunner({
     if (finishing) return;
     startFinishing(async () => {
       try {
-        // The server recomputes this from recorded attempts; sending it keeps
-        // the action's signature honest without making the client the source
-        // of truth for anyone's score.
+        // Không gửi điểm lên. Server tự tính lại từ các lượt làm đã ghi.
+        //
+        // Chỗ này từng gửi `scorePct: progress.scorePct` kèm lời trấn an rằng
+        // "server tính lại nên client không phải nguồn sự thật" — nhưng server
+        // có một nhánh dự phòng nhận đúng con số đó khi bài học không có bài
+        // tập nào. Bỏ tham số là cách duy nhất khiến lời trấn an ấy thành thật.
         const res = await completeLesson({
           workspaceSlug,
           lessonId: lesson.lessonId,
-          scorePct: progress.scorePct,
         });
         setCompletion(res);
         fireConfetti({ intensity: 'big' });

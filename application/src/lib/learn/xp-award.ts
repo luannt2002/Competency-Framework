@@ -86,8 +86,13 @@ export async function awardStreakTick(
 /**
  * Compute a lesson score SERVER-SIDE from recorded attempts:
  * distinct correct exercises / total exercises in the lesson.
- * Never trust the client's scorePct — this is the source of truth.
- * Returns null when the lesson has no exercises (caller keeps its input).
+ *
+ * Đây là nguồn sự thật về điểm — không có nhánh nào nhận điểm từ client.
+ *
+ * Trả `null` khi bài học không có bài tập nào. Người gọi phải hiểu `null` là
+ * "chưa có gì để chấm" và quy về 0; TRƯỚC ĐÂY `completeLesson` hiểu nhầm thành
+ * "giữ nguyên số client gửi", biến đúng trường hợp này thành đường tự phong
+ * `mastered`.
  */
 export async function computeLessonScore(
   workspaceId: string,
@@ -97,7 +102,9 @@ export async function computeLessonScore(
   const lessonExercises = await db
     .select({ id: exercises.id })
     .from(exercises)
-    .where(eq(exercises.lessonId, lessonId));
+    // Lọc theo workspace, không chỉ theo lessonId: `lessonId` có thể là của
+    // tenant khác, và khi đó câu này sẽ đếm bài tập của họ.
+    .where(and(eq(exercises.lessonId, lessonId), eq(exercises.workspaceId, workspaceId)));
   if (lessonExercises.length === 0) return null;
 
   const correctRows = await db

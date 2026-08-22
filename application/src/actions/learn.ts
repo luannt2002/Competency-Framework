@@ -408,10 +408,17 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
   };
 }
 
+/**
+ * KHÔNG có `scorePct`.
+ *
+ * Điểm được tính lại ở server từ các lượt làm đã ghi. Nhận nó qua tham số chỉ
+ * tạo ra một đường để client tự chấm cho mình — và đường đó đã bị dùng: khi bài
+ * học không có bài tập nào, `computeLessonScore` trả `null` và nhánh dự phòng
+ * `?? parsed.scorePct` lấy đúng số client gửi.
+ */
 const completeInput = z.object({
   workspaceSlug: z.string(),
   lessonId: z.string().uuid(),
-  scorePct: z.number().min(0).max(1),
 });
 
 export type CompleteResult = {
@@ -433,9 +440,30 @@ export async function completeLesson(input: z.infer<typeof completeInput>): Prom
   const parsed = completeInput.parse(input);
   const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
 
-  // ===== Server-side score: derive from recorded attempts, never trust client =====
-  const scorePct =
-    (await computeLessonScore(ws.id, user.id, parsed.lessonId)) ?? parsed.scorePct;
+  // `lessonId` do phía gọi truyền vào, nên phải đối chiếu nó THUỘC workspace này.
+  //
+  // `startLesson` ngay trên đã có khối kiểm y hệt, `completeLesson` thì không —
+  // nên learner ở workspace A gọi được với `lessonId` của workspace B và sinh ra
+  // dòng `user_lesson_progress` của A trỏ sang bài của B: tiến độ rác, badge bị
+  // thổi, và không bề mặt nào hiển thị nổi hàng đó.
+  const lessonRows = await db
+    .select({ id: lessons.id })
+    .from(lessons)
+    .where(and(eq(lessons.id, parsed.lessonId), eq(lessons.workspaceId, ws.id)))
+    .limit(1);
+  if (!lessonRows[0]) throw new Error('LESSON_NOT_FOUND');
+
+  // ===== Điểm tính ở server, KHÔNG nhận từ client =====
+  //
+  // Trước đợt này dòng dưới là `computeLessonScore(...) ?? parsed.scorePct`,
+  // ngay dưới một chú thích ghi "never trust client". `computeLessonScore` trả
+  // `null` đúng khi bài học KHÔNG CÓ bài tập nào (xp-award.ts) — và đó chính là
+  // lúc `??` nhận điểm client. Gửi `scorePct: 1` là được `mastered`, cộng XP
+  // thưởng và 2 crown mà không làm gì cả.
+  //
+  // Bài không có bài tập thì điểm là 0: chưa làm gì thì chưa thạo gì. `scorePct`
+  // cũng đã bỏ khỏi `completeInput` — tham số nào không được tin thì đừng nhận.
+  const scorePct = (await computeLessonScore(ws.id, user.id, parsed.lessonId)) ?? 0;
 
   // Mark progress
   const mastered = scorePct >= 0.999;

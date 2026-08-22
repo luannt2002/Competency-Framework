@@ -193,6 +193,8 @@ export type SkillDistributionRow = {
   learners: number;
   selfClaimed: number;
   learned: number;
+  /** Vừa tự nhận vừa học xong — bỏ sót giá trị này làm phân bố ra 0/0/0. */
+  both: number;
   verified: number;
 };
 
@@ -217,8 +219,12 @@ export async function getSkillDistribution(
         number | null
       >`avg(${userSkillProgress.crowns}) filter (where ${userSkillProgress.crowns} is not null)`,
       learners: count(),
+      // `level_source` có BỐN giá trị, không phải ba. Bỏ sót `both` làm cả ba
+      // thanh phân bố ra 0 khi learner duy nhất đang ở trạng thái đó — đo được
+      // trên dữ liệu thật: 1 learner, bar rộng 0 (rà C5.4).
       selfClaimed: dsql<number>`count(*) filter (where ${userSkillProgress.levelSource} = 'self_claimed')`,
       learned: dsql<number>`count(*) filter (where ${userSkillProgress.levelSource} = 'learned')`,
+      both: dsql<number>`count(*) filter (where ${userSkillProgress.levelSource} = 'both')`,
       verified: dsql<number>`count(*) filter (where ${userSkillProgress.levelSource} = 'verified')`,
     })
     .from(userSkillProgress)
@@ -235,7 +241,14 @@ export async function getSkillDistribution(
     )
     .where(eq(userSkillProgress.workspaceId, workspaceId))
     .groupBy(skills.id, skills.name)
-    .orderBy(dsql`count(*) filter (where ${userSkillProgress.levelSource} = 'verified') desc`);
+    // Xếp theo mức độ được XÁC MINH: verified trước, rồi tới both (đã học +
+    // tự nhận). Chỉ đếm `verified` thì mọi kỹ năng chưa ai duyệt đều hoà 0 và
+    // thứ tự trở thành ngẫu nhiên.
+    .orderBy(
+      dsql`count(*) filter (where ${userSkillProgress.levelSource} = 'verified') desc,
+           count(*) filter (where ${userSkillProgress.levelSource} = 'both') desc,
+           count(*) desc`,
+    );
 
   return rows.map((r) => ({
     skillId: r.skillId,
@@ -245,6 +258,7 @@ export async function getSkillDistribution(
     learners: Number(r.learners),
     selfClaimed: Number(r.selfClaimed),
     learned: Number(r.learned),
+    both: Number(r.both),
     verified: Number(r.verified),
   }));
 }

@@ -6,9 +6,9 @@
  * pages". Every level of the tree is reachable on this single page; nodes with
  * children render as collapsible groups (expand/collapse is the only control).
  *
- * Default state (pure fn `defaultCollapsed`):
- *   - total nodes < EXPAND_ALL_LIMIT (60) → everything expanded
- *   - otherwise → nodes at depth >= 2 start collapsed, showing "+N mục"
+ * Trạng thái mặc định (hàm thuần `defaultCollapsed`):
+ *   - tổng số mục < EXPAND_ALL_LIMIT → bung hết
+ *   - lớn hơn → thu gọn từ cấp 3 trở xuống, hiện "+N mục"
  *
  * No progress, no status, no locks — read-only showcase.
  */
@@ -23,14 +23,25 @@ import {
   type RoadmapColor,
 } from '@/lib/tree/node-meta';
 
-/** Below this total node count the tree renders fully expanded. */
-export const EXPAND_ALL_LIMIT = 60;
+/**
+ * Dưới ngưỡng này thì cây bung hết.
+ *
+ * Đặt 200 chứ không phải 60: bước A3 của đặc tả là "người xem thấy TOÀN BỘ cấu
+ * trúc lộ trình trên một trang, không phải bấm qua từng trang". Một lộ trình
+ * thật trong DB có 166 mục — để ngưỡng 60 thì nó tự thu gọn và A3 mất.
+ *
+ * Trước đợt này ngưỡng 60 vẫn "chạy đúng" một cách ăn may: phép đếm hậu duệ bị
+ * lỗi nên tổng ra 48, lọt dưới ngưỡng. Sửa phép đếm mà quên ngưỡng là đổi một
+ * lỗi lấy một lỗi khác.
+ */
+export const EXPAND_ALL_LIMIT = 200;
 
 /**
- * Pure: compute the initial collapsed-set for a forest.
- * Depth is the node's own depth (root = 0). Heuristic: small trees expand all;
- * large trees collapse everything at depth >= 2 (i.e. deeper than section →
- * sub-section) so the page stays scannable.
+ * Thuần: tính tập node thu gọn ban đầu cho một rừng.
+ *
+ * Cây nhỏ bung hết. Cây rất lớn thu gọn từ **cấp 3** trở xuống — giữ được ba
+ * cấp đầu (gốc → giai đoạn → tuần) để trang vẫn quét mắt được, mà không giấu
+ * mất cấu trúc như ngưỡng cấp 2 cũ.
  */
 export function defaultCollapsed(roots: ShareTreeNode[]): Set<string> {
   const total = roots.reduce((acc, r) => acc + 1 + r.descendantCount, 0);
@@ -38,7 +49,7 @@ export function defaultCollapsed(roots: ShareTreeNode[]): Set<string> {
   if (total < EXPAND_ALL_LIMIT) return collapsed;
   const walk = (nodes: ShareTreeNode[]) => {
     for (const n of nodes) {
-      if (n.depth >= 2 && n.children.length > 0) collapsed.add(n.id);
+      if (n.depth >= 3 && n.children.length > 0) collapsed.add(n.id);
       walk(n.children);
     }
   };

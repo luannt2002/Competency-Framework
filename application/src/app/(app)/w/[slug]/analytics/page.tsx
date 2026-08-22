@@ -232,7 +232,13 @@ export default async function AnalyticsPage({
                 </thead>
                 <tbody>
                   {skillRows.map((s) => {
-                    const total = Math.max(s.selfClaimed + s.learned + s.verified, 1);
+                    // Mẫu số phải gồm ĐỦ bốn nguồn. Thiếu `both` thì learner
+                    // duy nhất đang ở trạng thái đó không xuất hiện ở đâu cả,
+                    // và cả ba thanh cùng rộng 0 dù cột "Learners" ghi 1.
+                    const total = Math.max(
+                      s.selfClaimed + s.learned + s.both + s.verified,
+                      1,
+                    );
                     return (
                       <tr key={s.skillId} className="border-t border-border">
                         <td className="px-4 py-3 font-medium">{s.skillName}</td>
@@ -250,18 +256,36 @@ export default async function AnalyticsPage({
                                 style={{ width: `${(s.learned / total) * 100}%` }}
                               />
                               <div
+                                className="bg-hue-1"
+                                style={{ width: `${(s.both / total) * 100}%` }}
+                              />
+                              <div
                                 className="bg-emerald-500"
                                 style={{ width: `${(s.verified / total) * 100}%` }}
                               />
                             </div>
                             <span className="text-xs text-muted-foreground tabular-nums">
-                              {s.selfClaimed} / {s.learned} /{' '}
-                              <span className="text-emerald-600">{s.verified}</span>
+                              <span title="Tự nhận">{s.selfClaimed}</span> /{' '}
+                              <span title="Đã học">{s.learned}</span> /{' '}
+                              <span title="Tự nhận + đã học">{s.both}</span> /{' '}
+                              <span className="text-emerald-600" title="Đã xác minh">
+                                {s.verified}
+                              </span>
                             </span>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums">
-                          {s.avgLevelValue === null ? '—' : s.avgLevelValue.toFixed(1)}
+                          {/* `numeric_value` là thang 0–100 (XS=0, S=33, M=66,
+                              L=100). In trần ra "33.0" thì người đọc không biết
+                              trên thang nào — thêm mẫu số cho rõ. */}
+                          {s.avgLevelValue === null ? (
+                            '—'
+                          ) : (
+                            <>
+                              {s.avgLevelValue.toFixed(0)}
+                              <span className="text-muted-foreground">/100</span>
+                            </>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums">
                           {s.avgCrowns === null ? '—' : s.avgCrowns.toFixed(1)}

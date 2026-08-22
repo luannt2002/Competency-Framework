@@ -42,7 +42,10 @@ export async function getFullTree(workspaceId: string): Promise<ShareTreeNode[]>
     })
     .from(roadmapTreeNodes)
     .where(eq(roadmapTreeNodes.workspaceId, workspaceId))
-    .orderBy(asc(roadmapTreeNodes.orderIndex));
+    // Sắp theo (depth, orderIndex): cha luôn được nạp trước con, và trong mỗi
+    // nhóm anh em thứ tự đúng như người tạo đã xếp. Sắp chỉ theo `orderIndex`
+    // là trộn lẫn mọi cấp — `orderIndex` chỉ có nghĩa TRONG một nhóm anh em.
+    .orderBy(asc(roadmapTreeNodes.depth), asc(roadmapTreeNodes.orderIndex));
 
   const nodesById = new Map<string, ShareTreeNode>();
   for (const r of rows) {
@@ -70,13 +73,26 @@ export async function getFullTree(workspaceId: string): Promise<ShareTreeNode[]>
     }
   }
 
-  // Bottom-up descendant counts (iterate reverse order: children come after
-  // parents in orderIndex ordering, so reverse guarantees children-first).
-  for (const r of [...rows].reverse()) {
-    const node = nodesById.get(r.id)!;
-    if (r.parentId && nodesById.has(r.parentId)) {
-      nodesById.get(r.parentId)!.descendantCount += node.descendantCount + 1;
-    }
+  // Đếm hậu duệ bằng cách duyệt CÂY ĐÃ DỰNG, không dựa vào thứ tự dòng.
+  //
+  // Bản cũ cộng dồn theo thứ tự `orderIndex` đảo ngược, dựa trên giả định "con
+  // luôn đứng sau cha". Giả định đó sai — `orderIndex` chỉ có nghĩa trong nhóm
+  // anh em, nên một node cấp 4 có orderIndex 0 đứng TRƯỚC một node cấp 1 có
+  // orderIndex 3. Hệ quả đo được (rà A3b): trang share hiện "48 mục" trong khi
+  // đệ quy cho 159; "Giai đoạn 1" hiện 15 trong khi thật 46.
+  //
+  // Duyệt hậu thứ tự bằng ngăn xếp thay vì đệ quy: cây do người dùng tự dựng,
+  // không có giới hạn độ sâu, nên đệ quy có thể tràn ngăn xếp.
+  const post: ShareTreeNode[] = [];
+  const stack = [...roots];
+  while (stack.length > 0) {
+    const n = stack.pop()!;
+    post.push(n);
+    for (const c of n.children) stack.push(c);
+  }
+  for (let i = post.length - 1; i >= 0; i--) {
+    const n = post[i]!;
+    n.descendantCount = n.children.reduce((acc, c) => acc + 1 + c.descendantCount, 0);
   }
 
   return roots;

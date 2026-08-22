@@ -140,10 +140,14 @@ export type UnfinishedLeafNode = {
  * Shared by the Daily Planner generator (Flow B5) and the dashboard's
  * "Upcoming" rail (Flow B3) so both agree on what "next" means.
  */
+/** Node dài hơn ngưỡng này không phải việc của MỘT ngày — khớp với planner. */
+export const DEFAULT_MAX_TASK_MINUTES = 120;
+
 export async function listUnfinishedLeafNodes(
   workspaceId: string,
   userId: string,
   limit: number,
+  maxMinutes: number = DEFAULT_MAX_TASK_MINUTES,
 ): Promise<UnfinishedLeafNode[]> {
   const rows = await db
     .select({
@@ -173,9 +177,19 @@ export async function listUnfinishedLeafNodes(
             )`,
       ),
     )
-    .orderBy(asc(roadmapTreeNodes.pathStr), asc(roadmapTreeNodes.orderIndex));
+    // Sắp theo (depth, orderIndex) — thứ tự người tạo đã xếp.
+    //
+    // Bản cũ sắp theo `path_str`, mà cột đó là chuỗi UUID nối bằng '/'. Sắp
+    // chữ cái trên chuỗi UUID cho ra thứ tự ~ngẫu nhiên, nên khối "Sắp tới"
+    // gợi ý những node không liên quan gì tới chỗ người học đang đứng (rà B3.7).
+    .orderBy(asc(roadmapTreeNodes.depth), asc(roadmapTreeNodes.orderIndex));
 
-  const unfinished = rows.filter((r) => r.status !== 'done');
+  // Bỏ node quá dài — dùng CHUNG ngưỡng với planner. Trước đây bộ lọc chỉ nằm
+  // trong `planDay`, nên khối "Sắp tới" gợi ý cả node "Tuần ~480 phút": đó là
+  // việc của cả tuần, không phải việc để bắt đầu bây giờ.
+  const unfinished = rows.filter(
+    (r) => r.status !== 'done' && (r.estMinutes ?? DEFAULT_NODE_EST_MINUTES) <= maxMinutes,
+  );
   const started = unfinished
     .filter((r) => r.status === 'doing')
     .sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0));

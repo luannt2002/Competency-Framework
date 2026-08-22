@@ -12,6 +12,7 @@
 import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { streaks } from '@/lib/db/schema';
+import { todayVN, isoDaysAgoVN } from '@/lib/day-vn';
 
 export type StreakTickResult = {
   ticked: boolean;
@@ -19,19 +20,33 @@ export type StreakTickResult = {
   longest: number;
 };
 
-/** Fixed offset of Asia/Ho_Chi_Minh (UTC+7, no daylight saving). */
-const VN_TZ_OFFSET_MS = 7 * 60 * 60 * 1000;
+// Định nghĩa "hôm nay" nay nằm ở @/lib/day-vn — dùng chung với planner và ô
+// "XP hôm nay" trên topbar. Re-export để các chỗ đang import từ đây không vỡ.
+export { todayVN, isoDaysAgoVN } from '@/lib/day-vn';
 
-/** YYYY-MM-DD of "now" in Vietnam time. Exported for tests. */
-export function todayVN(): string {
-  return new Date(Date.now() + VN_TZ_OFFSET_MS).toISOString().slice(0, 10);
-}
-
-/** YYYY-MM-DD of N days before today (Vietnam time). Exported for tests. */
-export function isoDaysAgoVN(n: number): string {
-  return new Date(Date.now() + VN_TZ_OFFSET_MS - n * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+/**
+ * Chuỗi ngày học **thực tế tính đến hôm nay**.
+ *
+ * `streaks.current_streak` chỉ được cập nhật khi người học hoạt động, và không
+ * có tiến trình nền nào reset nó. Nghỉ học thì con số cũ nằm nguyên trong bảng:
+ * dựng lại được (rà F13) — `last_active_date = 2026-08-01`, hôm nay 21/8, topbar
+ * vẫn khoe **Streak 7**. Chuỗi đã đứt từ 20 ngày trước.
+ *
+ * Không viết tiến trình nền để dọn: tính lúc ĐỌC thì luôn đúng, không cần cron,
+ * và không có cửa sổ thời gian nào để hiển thị sai.
+ *
+ * Chuỗi còn sống khi lần hoạt động cuối là hôm nay hoặc hôm qua — hôm nay chưa
+ * học vẫn chưa mất chuỗi, vì ngày còn chưa hết.
+ */
+export function effectiveStreak(
+  currentStreak: number | null | undefined,
+  lastActiveDate: string | null | undefined,
+  today: string,
+  yesterday: string,
+): number {
+  const n = currentStreak ?? 0;
+  if (n <= 0 || !lastActiveDate) return 0;
+  return lastActiveDate === today || lastActiveDate === yesterday ? n : 0;
 }
 
 export async function tickStreak(workspaceId: string, userId: string): Promise<StreakTickResult> {

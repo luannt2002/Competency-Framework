@@ -8,9 +8,12 @@ import { describe, it, expect } from 'vitest';
 import { isoDate, todayISO, tomorrowISO, daysBetween } from '@/lib/learn/planner-dates';
 
 describe('planner-dates', () => {
-  it('isoDate formats UTC yyyy-mm-dd with zero padding', () => {
-    expect(isoDate(new Date('2026-08-19T23:30:00Z'))).toBe('2026-08-19');
-    expect(isoDate(new Date('2026-01-05T00:00:00Z'))).toBe('2026-01-05');
+  it('isoDate cắt ngày theo giờ VIỆT NAM, không phải UTC', () => {
+    // 23:30Z ngày 19 = 06:30 sáng ngày 20 giờ VN. Bản cũ cắt theo UTC nên trả
+    // 19 — lệch đúng 7 tiếng so với streak, mỗi ngày.
+    expect(isoDate(new Date('2026-08-19T23:30:00Z'))).toBe('2026-08-20');
+    expect(isoDate(new Date('2026-08-19T16:59:00Z'))).toBe('2026-08-19');
+    expect(isoDate(new Date('2026-01-04T17:00:00Z'))).toBe('2026-01-05');
   });
 
   it('todayISO returns yyyy-mm-dd', () => {

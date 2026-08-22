@@ -75,14 +75,14 @@ cứng LEARNER, **không trả cấp quyền thật**) và `lib/rbac/resolve.ts:
 
 ### 3.3 — Số liệu đang sai (sửa trước khi làm đẹp)
 
-- [ ] **Q14** **Hai định nghĩa "hôm nay"** — planner + "XP today" cắt **UTC**, streak cắt **VN** ⇒ 00:00–07:00 giờ VN planner vẫn là kế hoạch hôm qua. `planner-dates.ts:1-16` vs `streak.ts:22-28` vs `layout.tsx:28-30`. Gom về `todayVN()`.
-- [ ] **Q15** **F13** streak không reset hằng ngày — dựng lại được: `last_active_date=2026-08-01`, hôm nay 21/8, topbar vẫn khoe **Streak 7**.
+- [x] **Q14** ✅ tạo `src/lib/day-vn.ts` làm nguồn duy nhất; `planner-dates` + `streak` + ô "XP hôm nay" + analytics + heatmap đều cắt theo giờ VN. 9 unit test, có mốc 16:59Z/17:00Z là ranh giới ngày — **Hai định nghĩa "hôm nay"** — planner + "XP today" cắt **UTC**, streak cắt **VN** ⇒ 00:00–07:00 giờ VN planner vẫn là kế hoạch hôm qua. `planner-dates.ts:1-16` vs `streak.ts:22-28` vs `layout.tsx:28-30`. Gom về `todayVN()`.
+- [x] **Q15** ✅ `effectiveStreak()` tính lúc ĐỌC, không cần tiến trình nền. Dựng lại lỗi trên DB thật: chuỗi 7 + hoạt động cuối 01/08 → topbar hiện **0**; đổi hoạt động cuối thành hôm qua → hiện **7**. Đã dọn DB — **F13** streak không reset hằng ngày — dựng lại được: `last_active_date=2026-08-01`, hôm nay 21/8, topbar vẫn khoe **Streak 7**.
 - [ ] **Q16** **B3.7** "Sắp tới" `ORDER BY path_str` mà `path_str` là chuỗi UUID ⇒ thứ tự ~ngẫu nhiên; rail không lọc `maxTaskMinutes` ⇒ render 5 node "Tuần ~480p".
 - [ ] **Q17** **A3b** `full-tree.ts:45,73-80` `orderBy` chỉ theo `orderIndex`, giả định "con sau cha" ⇒ render "48 mục" trong khi đệ quy cho **159**; "Giai đoạn 1" hiện 15 trong khi thật 46. ⚠️ Nâng `EXPAND_ALL_LIMIT` cùng lúc.
 - [ ] **Q18** `full-tree` chưa có **một** unit test nào — viết cùng Q17.
 - [ ] **Q19** **C5.4** analytics bỏ sót `level_source='both'` ⇒ phân bố **0/0/0** dù có 1 learner; `orderBy count(verified)` cũng sai.
 - [x] **Q20** ✅ tạo `src/lib/format-date.ts` ghim `vi-VN` + `Asia/Ho_Chi_Minh`, thay 8 chỗ `toLocale*` không truyền locale; `relativeTime` cũ uỷ quyền sang bản VN. 9 unit test, có phép kiểm chống lệch hydration (17:30Z = ngày hôm sau theo giờ VN) — 6+ chỗ `toLocaleDateString()` không truyền locale ⇒ "8/20/2026, 11:47:37 AM"; Server Component còn nguy cơ lệch hydration. Helper chung `Intl('vi-VN', Asia/Ho_Chi_Minh)`.
-- [ ] **Q21** `dashboard-rail.tsx:159` `toISOString()` = UTC ⇒ UTC+7 lùi 1 ngày trước 07:00.
+- [x] **Q21** ✅ `dashboard-rail` hiện ngày theo giờ VN thay vì `toISOString()` — `dashboard-rail.tsx:159` `toISOString()` = UTC ⇒ UTC+7 lùi 1 ngày trước 07:00.
 - [ ] **Q22** Sentinel `999` lọt ra UI: "Weak skill (unset) — 999d since last touch" (`daily-planner.ts:330`).
 
 ### 3.4 — Mất dữ liệu / chặn tính năng khác
@@ -202,6 +202,7 @@ thuộc `postgres` — **chủ bảng đọc xuyên mọi policy** nên đây l�
 | Ngày | Cụm | Kết quả |
 |---|---|---|
 | 2026-08-22 | — | Hàng đợi lập: **96 mục**. Bắt đầu từ Q1. |
+| 2026-08-22 | Q14, Q15, Q21 | **17 mục xong.** Chỉ còn MỘT định nghĩa "hôm nay". Test 423 → **438**. |
 | 2026-08-22 | Q9–Q13 | **14 mục xong.** Gộp hai resolver song song — gốc rễ của việc learner thấy nút Sửa/Xoá. Ma trận quyền 7 trang × 4 vai đo runtime, đúng hết. |
 | 2026-08-22 | Q5, Q20 | **9 mục xong.** Test 413 → **423**. Hàng đợi duyệt bằng chứng chạy thật; ngày giờ hết render kiểu Mỹ. |
 | 2026-08-22 | Q1–Q4, Q6–Q8 | **7 mục xong.** Test 400 → **413**. Đo runtime theo vai: editor không còn thấy link vào trang OWNER, và 4 trang EDITOR đều vào được thật. |

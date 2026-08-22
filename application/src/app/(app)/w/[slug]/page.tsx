@@ -36,6 +36,8 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { NoNodesIllustration } from '@/components/ui/empty-state-illustrations';
+import { effectiveStreak } from '@/lib/gamification/streak';
+import { todayVN, isoDaysAgoVN } from '@/lib/day-vn';
 
 export default async function DashboardPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -77,7 +79,15 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   ]);
 
   const totalXp = Number(xpRow[0]?.s ?? 0);
-  const streak = streakRow[0]?.currentStreak ?? 0;
+  // Chuỗi tính lúc ĐỌC, không đọc thẳng cột trong bảng: không có tiến trình
+  // nền nào reset nó, nên nghỉ học 20 ngày thì con số cũ vẫn nằm nguyên đó và
+  // topbar khoe chuỗi đã đứt từ lâu (rà F13, dựng lại được trên DB thật).
+  const streak = effectiveStreak(
+    streakRow[0]?.currentStreak,
+    streakRow[0]?.lastActiveDate,
+    todayVN(),
+    isoDaysAgoVN(1),
+  );
   // No hearts row yet = the learner has not lost any; show a full bar rather
   // than a scary 0 (same default the topbar uses).
   const heartsMax = heartRow[0]?.max ?? 5;

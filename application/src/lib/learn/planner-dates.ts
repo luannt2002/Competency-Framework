@@ -1,30 +1,31 @@
 /**
- * Date helpers for the daily planner — pure functions, no DB, unit-testable.
- * All dates are ISO yyyy-mm-dd strings in UTC (server convention).
+ * Ngày tháng cho trình lập kế hoạch ngày — thuần, không IO, test được.
+ *
+ * Trước đây file này cắt ngày theo **UTC** trong khi streak cắt theo giờ Việt
+ * Nam, nên từ 00:00 đến 07:00 giờ VN, planner vẫn coi là ngày hôm qua còn
+ * streak đã sang ngày mới — lệch 7 tiếng mỗi ngày, mỗi ngày. Giờ cả hai lấy
+ * chung một định nghĩa ở `@/lib/day-vn`.
+ *
+ * Tên hàm giữ nguyên để hơn 20 chỗ gọi không phải sửa; chỉ ý nghĩa múi giờ đổi.
  */
+import { isoDateVN, todayVN, tomorrowVN, daysBetweenISO } from '@/lib/day-vn';
 
-/** Format a Date as ISO date (yyyy-mm-dd) in UTC. */
+/** `yyyy-mm-dd` của một mốc thời gian, theo giờ Việt Nam. */
 export function isoDate(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return isoDateVN(d);
 }
 
+/** `yyyy-mm-dd` của hôm nay, giờ Việt Nam. */
 export function todayISO(): string {
-  return isoDate(new Date());
+  return todayVN();
 }
 
+/** `yyyy-mm-dd` của ngày mai, giờ Việt Nam. */
 export function tomorrowISO(): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + 1);
-  return isoDate(d);
+  return tomorrowVN();
 }
 
-/** Days between two ISO date strings (positive => `b` is after `a`). */
+/** Số ngày giữa hai chuỗi ISO (dương nghĩa là `b` sau `a`). */
 export function daysBetween(aIso: string | null, bIso: string): number {
-  if (!aIso) return Number.POSITIVE_INFINITY;
-  const a = new Date(`${aIso}T00:00:00Z`).getTime();
-  const b = new Date(`${bIso}T00:00:00Z`).getTime();
-  return Math.floor((b - a) / 86_400_000);
+  return daysBetweenISO(aIso, bIso);
 }

@@ -13,6 +13,9 @@ import { requireUser } from '@/lib/auth/supabase-server';
 import { getEffectiveLevel } from '@/lib/rbac/server';
 import { requireWorkspacePage, listMyWorkspaces } from '@/lib/workspace';
 import { workspaceAccentStyle } from '@/lib/theme/workspace-theme';
+import { startOfDayVN } from '@/lib/day-vn';
+import { effectiveStreak } from '@/lib/gamification/streak';
+import { todayVN, isoDaysAgoVN } from '@/lib/day-vn';
 
 export default async function WorkspaceLayout({
   children,
@@ -25,9 +28,13 @@ export default async function WorkspaceLayout({
   const ws = await requireWorkspacePage(slug);
   const user = await requireUser();
 
-  // Start of today (UTC) — MVP good enough.
-  const startOfToday = new Date();
-  startOfToday.setUTCHours(0, 0, 0, 0);
+  // Đầu ngày theo giờ VIỆT NAM, không phải UTC.
+  //
+  // Cắt theo UTC nghĩa là ô "XP hôm nay" reset lúc 07:00 sáng giờ VN, trong khi
+  // streak ngay bên cạnh đã sang ngày mới từ 00:00 — hai con số cạnh nhau trên
+  // cùng một thanh nói hai ngày khác nhau (rà F19). Một định nghĩa duy nhất:
+  // @/lib/day-vn.
+  const startOfToday = startOfDayVN();
 
   const [xpTodayRow, streakRow, heartRow, myWorkspaces] = await Promise.all([
     db
@@ -52,7 +59,15 @@ export default async function WorkspaceLayout({
   ]);
 
   const dailyXp = Number(xpTodayRow[0]?.s ?? 0);
-  const streak = streakRow[0]?.currentStreak ?? 0;
+  // Chuỗi tính lúc ĐỌC, không đọc thẳng cột trong bảng: không có tiến trình
+  // nền nào reset nó, nên nghỉ học 20 ngày thì con số cũ vẫn nằm nguyên đó và
+  // topbar khoe chuỗi đã đứt từ lâu (rà F13, dựng lại được trên DB thật).
+  const streak = effectiveStreak(
+    streakRow[0]?.currentStreak,
+    streakRow[0]?.lastActiveDate,
+    todayVN(),
+    isoDaysAgoVN(1),
+  );
   // Không có dòng hearts nghĩa là chưa khởi tạo — hiện 0 chứ đừng bịa 5.
   const hearts = heartRow?.current ?? 0;
   // Effective RBAC level for the sidebar admin section — per-item gating

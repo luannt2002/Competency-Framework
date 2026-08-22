@@ -6,6 +6,7 @@
  */
 
 import { useMemo } from 'react';
+import { startOfDayVN, isoDateVN, VN_TZ_OFFSET_MS } from '@/lib/day-vn';
 
 export type DailyXp = {
   date: string; // YYYY-MM-DD
@@ -79,20 +80,17 @@ export function ActivityHeatmap({ data, weeks = 12 }: Props) {
 
 function buildGrid(data: DailyXp[], weeks: number): DailyXp[][] {
   const map = new Map(data.map((d) => [d.date, d.xp]));
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  // Roll back to last Sunday
-  const dayOfWeek = today.getUTCDay();
-  const start = new Date(today);
-  start.setUTCDate(today.getUTCDate() - dayOfWeek - (weeks - 1) * 7);
+  // Lưới ngày phải cắt theo giờ VN, cùng ranh giới với dữ liệu XP đổ vào nó —
+  // nếu không, ô "hôm nay" trên lịch nhiệt lệch một ngày suốt 00:00–07:00.
+  const today = startOfDayVN();
+  const dayOfWeek = new Date(today.getTime() + VN_TZ_OFFSET_MS).getUTCDay();
+  const startMs = today.getTime() - (dayOfWeek + (weeks - 1) * 7) * 86_400_000;
 
   const grid: DailyXp[][] = [];
   for (let w = 0; w < weeks; w++) {
     const col: DailyXp[] = [];
     for (let d = 0; d < 7; d++) {
-      const date = new Date(start);
-      date.setUTCDate(start.getUTCDate() + w * 7 + d);
-      const iso = date.toISOString().slice(0, 10);
+      const iso = isoDateVN(startMs + (w * 7 + d) * 86_400_000);
       col.push({ date: iso, xp: map.get(iso) ?? 0 });
     }
     grid.push(col);

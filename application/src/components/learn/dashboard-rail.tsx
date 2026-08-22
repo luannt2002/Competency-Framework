@@ -18,6 +18,7 @@ import { activityLog, skills, userSkillProgress } from '@/lib/db/schema';
 import { activityIcon, activityLabel } from '@/lib/learn/activity-labels';
 import { listUnfinishedLeafNodes } from '@/lib/learn/node-progress';
 import { typeMeta } from '@/components/learn/node-card';
+import { formatDateVN } from '@/lib/format-date';
 
 const RECENT_LIMIT = 6;
 const UPCOMING_LIMIT = 5;
@@ -156,7 +157,9 @@ export async function DashboardRail({ workspaceId, workspaceSlug, userId }: Prop
                     dateTime={a.createdAt.toISOString()}
                     className="shrink-0 text-[11px] text-muted-foreground tabular-nums"
                   >
-                    {a.createdAt.toISOString().slice(5, 10)}
+                    {/* `toISOString()` là UTC: trước 07:00 giờ VN nó lùi lại
+                        một ngày, nên hoạt động sáng sớm hiện sai ngày. */}
+                    {formatDateVN(a.createdAt).slice(0, 5)}
                   </time>
                 )}
               </li>

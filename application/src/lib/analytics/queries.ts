@@ -26,6 +26,7 @@ import {
   workspaces,
 } from '@/lib/db/schema';
 import { DAY_MS } from './metrics';
+import { isoDaysAgoVN, startOfDayVN } from '@/lib/day-vn';
 
 /* ============================== C5.1 — Overview ============================== */
 
@@ -54,9 +55,10 @@ export type OverviewStats = {
  * ws_user_created_idx / pk) — không quét theo member.
  */
 export async function getOverviewStats(workspaceId: string): Promise<OverviewStats> {
-  const now = new Date();
-  const weekAgo = new Date(now.getTime() - 7 * DAY_MS);
-  const weekAgoDate = weekAgo.toISOString().slice(0, 10);
+  // Mốc "7 ngày qua" cắt theo giờ VN cho khớp với `streaks.last_active_date`
+  // (cột đó do `todayVN()` ghi). Cắt theo UTC thì hai bên lệch nhau 7 tiếng và
+  // người vừa hoạt động sáng sớm bị đếm nhầm sang ngày trước.
+  const weekAgoDate = isoDaysAgoVN(7);
 
   const [wsRow, memberRows, nodeRows, doneRows, activityRows, streakRows] =
     await Promise.all([
@@ -89,7 +91,7 @@ export async function getOverviewStats(workspaceId: string): Promise<OverviewSta
         .where(
           and(
             eq(activityLog.workspaceId, workspaceId),
-            dsql`${activityLog.createdAt} >= ${weekAgo.toISOString()}`,
+            dsql`${activityLog.createdAt} >= ${startOfDayVN(weekAgoDate).toISOString()}`,
           ),
         ),
       db

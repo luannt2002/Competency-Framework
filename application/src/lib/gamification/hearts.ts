@@ -92,6 +92,30 @@ export function computeRefill(
 }
 
 /**
+ * SQL fragment: lên dây cót đồng hồ hồi tim khi số tim vừa tụt xuống dưới `max`.
+ *
+ * `newCurrentSql` là biểu thức tính số tim MỚI trong cùng câu UPDATE (vế phải
+ * vẫn đọc giá trị cũ của cột, nên phải truyền lại biểu thức chứ không đọc
+ * `hearts.current` được).
+ *
+ * `COALESCE` chứ không gán đè: nếu đã có mốc hồi đang chạy thì giữ nguyên. Đẩy
+ * lùi mốc mỗi lần mất tim là phạt người học hai lần cho một lỗi.
+ *
+ * Vì sao cần: `computeRefill` và `gainedSql` đều thoát sớm khi
+ * `next_refill_at IS NULL` — quy ước NULL = "không có đợt hồi nào đang chờ",
+ * chỉ đúng cho hàng ĐẦY tim. Đường nào trừ tim mà quên lên dây cót sẽ để lại
+ * `current = 0` kèm NULL, và người học kẹt ở 0 tim VĨNH VIỄN: không nộp được
+ * bài nữa, trong khi giao diện vẫn hứa "tim hồi lại 1 trái mỗi 4 giờ".
+ */
+function armRefillSql(newCurrentSql: ReturnType<typeof sql>) {
+  return sql`CASE
+    WHEN ${newCurrentSql} < ${hearts.max}
+      THEN COALESCE(${hearts.nextRefillAt}, NOW() + make_interval(secs => ${REFILL_INTERVAL_MS / 1000}))
+    ELSE ${hearts.nextRefillAt}
+  END`;
+}
+
+/**
  * SQL fragment: number of hearts owed right now (0 when nothing is pending).
  * Mirrors `computeRefill`'s gained count, capping handled by the caller.
  */
@@ -214,11 +238,14 @@ export async function applyHeartDecay(workspaceId: string, userId: string): Prom
   );
   if (lost <= 0) return 0;
 
+  const decayed = sql`GREATEST(${hearts.current} - ${lost}, 0)`;
   await db
     .update(hearts)
     .set({
-      current: sql`GREATEST(${hearts.current} - ${lost}, 0)`,
+      current: decayed,
       decayedThrough,
+      // Nghỉ học làm vơi tim cũng phải mở đợt hồi, y như trả lời sai.
+      nextRefillAt: armRefillSql(decayed),
     })
     .where(and(eq(hearts.workspaceId, workspaceId), eq(hearts.userId, userId)));
   return lost;
@@ -232,9 +259,14 @@ export async function spendHearts(
   userId: string,
   amount: number,
 ): Promise<number> {
+  const spent = sql`GREATEST(${hearts.current} - ${amount}, 0)`;
   const rows = await db
     .update(hearts)
-    .set({ current: sql`GREATEST(${hearts.current} - ${amount}, 0)` })
+    .set({
+      current: spent,
+      // Tiêu tim (F9 bỏ qua task) cũng phải mở đợt hồi, y như trả lời sai.
+      nextRefillAt: armRefillSql(spent),
+    })
     .where(and(eq(hearts.workspaceId, workspaceId), eq(hearts.userId, userId)))
     .returning({ current: hearts.current });
   return heartsToNumber(rows[0]?.current);
@@ -269,9 +301,15 @@ export async function grantHeartOnce(params: {
     .returning({ id: heartGrants.id });
   if (inserted.length === 0) return false;
 
+  const granted = sql`LEAST(${hearts.max}, ${hearts.current} + ${amount})`;
   await db
     .update(hearts)
-    .set({ current: sql`LEAST(${hearts.max}, ${hearts.current} + ${amount})` })
+    .set({
+      current: granted,
+      // Đầy tim thì xoá mốc hồi — cùng quy ước với `computeRefill` và với dòng
+      // khởi tạo 5/5. Để sót mốc cũ trên hàng đã đầy là dữ liệu tự mâu thuẫn.
+      nextRefillAt: sql`CASE WHEN ${granted} >= ${hearts.max} THEN NULL ELSE ${hearts.nextRefillAt} END`,
+    })
     .where(and(eq(hearts.workspaceId, params.workspaceId), eq(hearts.userId, params.userId)));
   return true;
 }

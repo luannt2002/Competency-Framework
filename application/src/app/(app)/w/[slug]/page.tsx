@@ -11,7 +11,7 @@
 import Link from 'next/link';
 import { sum, eq, and, count } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { xpEvents, streaks as streaksT, hearts as heartsT, roadmapTreeNodes, userNodeProgress } from '@/lib/db/schema';
+import { xpEvents, streaks as streaksT, roadmapTreeNodes, userNodeProgress } from '@/lib/db/schema';
 import { requireWorkspacePage } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { getRootNodes, getTreeSections, getLastInProgressNode } from '@/lib/tree/queries';
@@ -37,6 +37,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { NoNodesIllustration } from '@/components/ui/empty-state-illustrations';
 import { effectiveStreak } from '@/lib/gamification/streak';
+import { readHearts } from '@/lib/gamification/hearts';
 import { todayVN, isoDaysAgoVN } from '@/lib/day-vn';
 
 export default async function DashboardPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -45,7 +46,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   const user = await requireUser();
 
   // Fetch root nodes + top-bar stats + last in-progress node in parallel
-  const [rootNodes, xpRow, streakRow, heartRow, totalNodesRow, totalDoneRow, lastInProgress] = await Promise.all([
+  const [rootNodes, xpRow, streakRow, heartSnapshot, totalNodesRow, totalDoneRow, lastInProgress] = await Promise.all([
     getRootNodes(ws.id, user.id),
     db
       .select({ s: sum(xpEvents.amount) })
@@ -56,11 +57,17 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
       .from(streaksT)
       .where(and(eq(streaksT.workspaceId, ws.id), eq(streaksT.userId, user.id)))
       .limit(1),
-    db
-      .select()
-      .from(heartsT)
-      .where(and(eq(heartsT.workspaceId, ws.id), eq(heartsT.userId, user.id)))
-      .limit(1),
+    // Đọc tim PHẢI đi qua readHearts, không đọc thẳng bảng.
+    //
+    // Hàng thô trong bảng là số CHƯA áp hồi phục theo giờ và CHƯA trừ hao vì
+    // nghỉ học — `readHearts` làm cả hai rồi mới trả số. Trang này đọc thẳng
+    // bảng nên nó và topbar (vốn gọi readHearts) hiện HAI số tim khác nhau
+    // trên cùng một màn hình: thanh trên báo 3, thân trang báo 5.
+    //
+    // Chính chú thích trong readHearts đã ghi "Mọi bề mặt hiển thị tim phải gọi
+    // hàm này" sau một đợt rà đo được ba mặt trả ba số khác nhau. Trang chủ
+    // workspace vẫn còn sót lại.
+    readHearts(ws.id, user.id),
     db
       .select({ n: count() })
       .from(roadmapTreeNodes)
@@ -90,8 +97,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   );
   // No hearts row yet = the learner has not lost any; show a full bar rather
   // than a scary 0 (same default the topbar uses).
-  const heartsMax = heartRow[0]?.max ?? 5;
-  const hearts = heartRow[0]?.current ?? heartsMax;
+  const heartsMax = heartSnapshot?.max ?? 5;
+  const hearts = heartSnapshot?.current ?? heartsMax;
   const totalNodes = totalNodesRow[0]?.n ?? 0;
   const totalDone = totalDoneRow[0]?.n ?? 0;
   const overallPct = totalNodes === 0 ? 0 : Math.round((totalDone / totalNodes) * 100);

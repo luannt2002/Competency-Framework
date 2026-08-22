@@ -191,11 +191,26 @@ export async function listMyFollowedWorkspaces(): Promise<FollowedWorkspace[]> {
   }));
 }
 
-/** Server helper: is the current user following this workspace? */
-export async function isFollowingWorkspace(
-  workspaceId: string,
-  userId: string,
-): Promise<boolean> {
+/**
+ * Người ĐANG ĐĂNG NHẬP có đang theo dõi workspace này không?
+ *
+ * Lấy `userId` từ phiên, không nhận qua tham số. File này mang `'use server'`,
+ * nên hàm export ở đây là endpoint gọi được thẳng từ trình duyệt với tham số do
+ * phía gọi tự đặt — nhận `userId` nghĩa là bất kỳ ai đăng nhập cũng tra được
+ * người khác có theo dõi workspace nào. Nhỏ, nhưng vẫn là dữ liệu của người
+ * khác, và nó lệch với ba hàm còn lại trong file vốn đều lấy từ `requireUser`.
+ *
+ * Trả `false` cho khách ẩn danh thay vì ném lỗi: bề mặt gọi hàm này là trang
+ * /share công khai, nơi khách chưa đăng nhập là chuyện bình thường.
+ */
+export async function isFollowingWorkspace(workspaceId: string): Promise<boolean> {
+  let userId: string;
+  try {
+    userId = (await requireUser()).id;
+  } catch {
+    return false;
+  }
+
   const rows = await db
     .select({ id: workspaceFollows.id })
     .from(workspaceFollows)

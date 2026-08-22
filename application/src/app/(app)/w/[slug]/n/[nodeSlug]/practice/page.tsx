@@ -17,13 +17,10 @@
  */
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { and, eq } from 'drizzle-orm';
 import { BookOpen, Clock, PencilLine } from 'lucide-react';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
 import { resolveWorkspace } from '@/lib/rbac/resolve';
-import { db } from '@/lib/db/client';
-import { heartsToNumber } from '@/lib/gamification/hearts';
-import { hearts } from '@/lib/db/schema';
+import { readHearts } from '@/lib/gamification/hearts';
 import { getNodeBySlug } from '@/lib/tree/queries';
 import { findNodeLesson } from '@/lib/learn/node-lesson';
 import { loadExerciseOutcomes, loadSettledExplanations } from '@/lib/exercises/attempts';
@@ -97,13 +94,15 @@ export default async function PracticePage({
     userId: user.id,
     exerciseIds,
   });
-  const [explanations, heartRows] = await Promise.all([
+  const [explanations, heartSnapshot] = await Promise.all([
     loadSettledExplanations({ workspaceId: ws.id, lessonId: lesson.lessonId, outcomes }),
-    db
-      .select({ current: hearts.current })
-      .from(hearts)
-      .where(and(eq(hearts.workspaceId, ws.id), eq(hearts.userId, user.id)))
-      .limit(1),
+    // Qua readHearts, không đọc thẳng bảng — xem scripts/guard-hearts-single-source.ts.
+    //
+    // Trang này quan trọng nhất trong cả nhóm: đây là nơi người học TIÊU tim.
+    // Đọc số thô nghĩa là thanh tim ở đây không tính phần đã hồi theo giờ, nên
+    // người vừa chờ đủ 4 giờ mở bài ra vẫn thấy con số cũ và tưởng mình chưa
+    // được hồi.
+    readHearts(ws.id, user.id),
   ]);
 
   return (
@@ -130,7 +129,7 @@ export default async function PracticePage({
         lesson={run}
         initialOutcomes={Object.fromEntries(outcomes)}
         initialExplanations={Object.fromEntries(explanations)}
-        initialHearts={heartsToNumber(heartRows[0]?.current)}
+        initialHearts={heartSnapshot?.current ?? heartSnapshot?.max ?? 5}
         backHref={nodeHref}
       />
     </div>

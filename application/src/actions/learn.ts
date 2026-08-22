@@ -264,6 +264,20 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
   const ex = exRows[0];
   if (!ex) throw new Error('EXERCISE_NOT_FOUND');
 
+  // F7 — hết tim thì KHÔNG nộp bài được nữa.
+  //
+  // Chốt này phải đứng TRƯỚC mọi dòng ghi. Trước đợt này nó nằm sau phần cộng
+  // XP và sau dòng ghi `user_exercise_attempts`, mà cả hàm không có transaction
+  // nào bao ngoài — nên khi ném `NO_HEARTS`, ba dòng ghi kia đã commit xong:
+  // người học vừa bị từ chối nộp bài vừa bị ghi mất một lượt làm, và lượt đó
+  // làm `countPriorAttempts` tăng lên, khiến MỌI lần nộp về sau bị tính là làm
+  // lại và trả XP thấp hơn — vĩnh viễn, vì một lần nộp mà hệ thống đã từ chối.
+  //
+  // `readHearts` áp cả hồi phục theo giờ lẫn hao vì nghỉ học rồi mới trả số,
+  // nên số ở đây là số thật chứ không phải số cũ trong bảng.
+  const snapshot = await readHearts(ws.id, user.id);
+  if (snapshot && snapshot.current <= 0) throw new Error('NO_HEARTS');
+
   // Resolve kind -> engine through the catalogue, then grade. `manual` kinds
   // come back `pending_review`: nothing is settled, so no XP and no heart lost
   // until a human grades it on /w/[slug]/grading.
@@ -337,16 +351,7 @@ export async function submitExercise(input: z.infer<typeof submitInput>): Promis
   // been judged yet, and a partial answer was not wrong — charging either would
   // punish the learner for the grader's latency.
   //
-  // Lazy refill first: apply any hearts owed since next_refill_at elapsed, so
-  // the reported count (and the decrement below) starts from the true value.
-  // F7 — hết tim thì KHÔNG nộp bài được nữa.
-  // Trước đợt này tim chỉ để trang trí: hết 5 tim vẫn học bình thường
-  // (grep `heartsLeft === 0` / `NO_HEARTS` ra 0 kết quả). `readHearts` áp cả
-  // hồi phục theo giờ lẫn hao vì nghỉ học rồi mới trả số, nên số ở đây là số
-  // thật chứ không phải số cũ trong bảng.
-  const snapshot = await readHearts(ws.id, user.id);
-  if (snapshot && snapshot.current <= 0) throw new Error('NO_HEARTS');
-
+  // `snapshot` đã đọc ở đầu hàm, cùng lúc với chốt F7 — xem chú thích ở đó.
   let heartsLeft = snapshot?.current ?? 5;
   if (isWrong) {
     const HEART_REFILL_MS = 4 * 60 * 60 * 1000;

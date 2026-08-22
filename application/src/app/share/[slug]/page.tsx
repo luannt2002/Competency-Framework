@@ -162,7 +162,7 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
   const isOwner = !!viewer && ws.ownerUserId === viewer.id;
   const viewerFollowing =
     viewer && !isOwner
-      ? await isFollowingWorkspace(ws.id, viewer.id)
+      ? await isFollowingWorkspace(ws.id)
       : false;
   const showFollow = !!viewer && !isOwner;
 

@@ -45,7 +45,17 @@ export function Topbar({
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/85 backdrop-blur px-4 md:px-6">
-      <h1 className="text-sm font-semibold truncate md:hidden">{workspaceName}</h1>
+      {/*
+        Tên workspace là NGỮ CẢNH thường trực của thanh trên, không phải tiêu đề
+        của trang đang mở — nên không được là <h1>.
+
+        Trước đây chỗ này là <h1>: dưới breakpoint md nó hiện cùng lúc với <h1>
+        thật của trang, thành hai <h1> trên một trang. Trình đọc màn hình trên
+        điện thoại nghe tên workspace ngang hàng với tên bài học, và nghe TRƯỚC
+        vì nó đứng trên trong DOM. Desktop không lộ vì `md:hidden` giấu đi —
+        lỗi chỉ tồn tại đúng ở nơi ít người kiểm nhất.
+      */}
+      <p className="text-sm font-semibold truncate md:hidden">{workspaceName}</p>
 
       <button
         className="hidden md:flex flex-1 max-w-md items-center gap-2 rounded-xl border border-border bg-secondary/50 px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"

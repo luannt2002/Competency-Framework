@@ -51,16 +51,47 @@ async function assertSkillInWorkspace(skillId: string, workspaceId: string) {
 
 /* ============================ SUBMIT EVIDENCE ============================ */
 
+/**
+ * Chỉ nhận dạng bằng chứng TỰ LÀM.
+ *
+ * `submitEvidence` luôn ghi `userId: user.id` — nó là đường tự nộp, không có
+ * biến thể nộp hộ. Nên `peer_review` / `manager_review` không được xuất hiện ở
+ * đây: chúng mô tả việc NGƯỜI KHÁC đã xem xét, mà người khác thì không đi qua
+ * hàm này.
+ *
+ * Trước đợt này enum nhận cả bốn, và dòng ghi `reviewerUserId` đặt chính người
+ * nộp làm người duyệt. Hậu quả: một learner mở drawer kỹ năng, chọn
+ * "Manager review", nhập 100, bấm gửi → `hasManager` thành true → kỹ năng lên
+ * thẳng `verified`, và `nextLevelSource` quy định `verified` không sự kiện
+ * thường nào hạ được, nên trạng thái tự phong đó là VĨNH VIỄN. Toàn bộ roster,
+ * export XLSX/PDF và ma trận năng lực hiển thị "đã được duyệt" trong khi không
+ * ai duyệt cả.
+ *
+ * Chốt chặn ở `verifyEvidence` ("KHÔNG ai được tự duyệt bằng chứng của chính
+ * mình") bị đi vòng hoàn toàn qua cửa này. Chặn ngay ở biên: trạng thái sai
+ * không biểu diễn được thì không cần kiểm ở dưới.
+ */
 const submitInput = z.object({
   workspaceSlug: z.string().min(1),
   skillId: z.string().uuid(),
-  kind: z.enum(['lab', 'project', 'peer_review', 'manager_review']),
+  kind: z.enum(['lab', 'project']),
   score: z.number().int().min(0).max(100),
   evidenceUrl: z.string().url().max(2_000).optional(),
   note: z.string().max(5_000).optional(),
 });
 
 export type SubmitEvidenceInput = z.infer<typeof submitInput>;
+
+/**
+ * Dạng bằng chứng người học TỰ NỘP được — hẹp hơn `EvidenceKind` của DB.
+ *
+ * DB vẫn giữ đủ bốn dạng vì những hàng `peer_review` / `manager_review` cũ còn
+ * đó và phép tính độ tin cậy vẫn phải đọc chúng. Nhưng biểu mẫu tự nộp chỉ
+ * được phép sinh ra hai dạng này. Lấy kiểu thẳng từ schema đầu vào để form và
+ * server không bao giờ lệch nhau: siết enum ở một chỗ là typecheck bắt luôn
+ * mọi chỗ còn lại.
+ */
+export type SelfEvidenceKind = SubmitEvidenceInput['kind'];
 
 export interface SubmitEvidenceResult {
   gradeId: string;
@@ -76,8 +107,8 @@ export async function submitEvidence(
   const { ws, user, ctx } = await resolveWorkspace(parsed.workspaceSlug, RBAC_LEVELS.LEARNER);
   await assertSkillInWorkspace(parsed.skillId, ws.id);
 
-  // Insert the new grade. Self-submitted lab/project rows have no reviewer.
-  const isSelfKind = parsed.kind === 'lab' || parsed.kind === 'project';
+  // Bằng chứng tự nộp thì CHƯA có người duyệt. Ô người duyệt chỉ được điền ở
+  // `verifyEvidence`, nơi có chốt `grade.userId !== user.id`.
   const inserted = await db
     .insert(evidenceGrades)
     .values({
@@ -87,8 +118,8 @@ export async function submitEvidence(
       kind: parsed.kind,
       score: parsed.score,
       evidenceUrl: parsed.evidenceUrl,
-      reviewerUserId: isSelfKind ? null : user.id,
-      reviewedAt: isSelfKind ? null : new Date(),
+      reviewerUserId: null,
+      reviewedAt: null,
       note: parsed.note,
     })
     .returning({ id: evidenceGrades.id });
@@ -110,8 +141,14 @@ export async function submitEvidence(
   const confidence = computeConfidenceFromGrades(
     allGrades as { kind: Parameters<typeof computeConfidenceFromGrades>[0][number]['kind']; score: number }[],
   );
-  const hasManager = allGrades.some((g) => g.kind === 'manager_review');
-  const shouldVerify = hasManager && confidence.score >= VERIFIED_MIN_SCORE;
+  // Tự nộp KHÔNG bao giờ nâng lên `verified`.
+  //
+  // Trước đợt này chỗ này là `hasManager && score >= VERIFIED_MIN_SCORE`, mà
+  // `hasManager` lại đọc chính những hàng do người dùng tự nộp — nên tự phong
+  // được. Chặn ở enum đầu vào là chưa đủ: những hàng `manager_review` do lỗ
+  // hổng cũ để lại vẫn còn trong DB, và phép đếm này sẽ tiếp tục nâng cấp cho
+  // họ ở lần nộp kế tiếp. Đường duy nhất lên `verified` là `verifyEvidence`.
+  const shouldVerify = false;
 
   // Upsert user_skill_progress. M6.5: enum extended with 'verified'.
   const existing = await db
@@ -326,6 +363,73 @@ export async function verifyEvidence(input: VerifyEvidenceInput): Promise<{ ok: 
       note: parsed.note ?? null,
     })
     .where(and(eq(evidenceGrades.id, grade.id), eq(evidenceGrades.workspaceId, ws.id)));
+
+  // Duyệt xong thì NÂNG kỹ năng của chủ bằng chứng lên `verified`.
+  //
+  // Trước đợt này `nextLevelSource(..., 'verify')` chỉ được gọi ở
+  // `submitEvidence` — tức đường TỰ NỘP là đường duy nhất lên được `verified`,
+  // còn hàm này (đường duyệt thật, có chốt `grade.userId !== user.id` và đòi
+  // EDITOR) thì không hề đụng tới `userSkillProgress`. Kiến trúc bị lộn ngược:
+  // cửa có khoá thì không dẫn đi đâu, cửa dẫn tới đích thì không có khoá.
+  //
+  // Đặt phép nâng cấp vào đây là trả nó về đúng chỗ: chỉ người KHÁC, từ EDITOR
+  // trở lên, mới phong `verified` được.
+  if (parsed.approved) {
+    // Ngưỡng điểm vẫn giữ nguyên như đặc tả ở lib/evidence/confidence.ts:
+    // "đã có người duyệt VÀ điểm tổng hợp >= 70 -> verified". Cái đổi chỗ là
+    // vế đầu: trước đây "đã có người duyệt" được suy ra từ một hàng
+    // `manager_review` mà chính chủ tự nộp; giờ nó là hành động duyệt thật của
+    // một người khác, đã qua chốt `grade.userId !== user.id` ở trên.
+    const ownerGrades = await db
+      .select({ kind: evidenceGrades.kind, score: evidenceGrades.score })
+      .from(evidenceGrades)
+      .where(
+        and(
+          eq(evidenceGrades.workspaceId, ws.id),
+          eq(evidenceGrades.userId, grade.userId),
+          eq(evidenceGrades.skillId, grade.skillId),
+        ),
+      );
+
+    const confidence = computeConfidenceFromGrades(
+      ownerGrades as {
+        kind: Parameters<typeof computeConfidenceFromGrades>[0][number]['kind'];
+        score: number;
+      }[],
+    );
+
+    if (confidence.score >= VERIFIED_MIN_SCORE) {
+      const existing = await db
+        .select({ id: userSkillProgress.id, levelSource: userSkillProgress.levelSource })
+        .from(userSkillProgress)
+        .where(
+          and(
+            eq(userSkillProgress.workspaceId, ws.id),
+            eq(userSkillProgress.userId, grade.userId),
+            eq(userSkillProgress.skillId, grade.skillId),
+          ),
+        )
+        .limit(1);
+
+      if (existing[0]) {
+        await db
+          .update(userSkillProgress)
+          .set({
+            levelSource: nextLevelSource(existing[0].levelSource ?? null, 'verify'),
+            updatedAt: new Date(),
+          })
+          // Mang theo `workspaceId` dù `id` đã đủ định danh: câu select ở trên
+          // có lọc tenant, nhưng câu update thì phải TỰ nó an toàn — người đọc
+          // sau này không nên phải lần ngược lên mới biết nó có bị rò không.
+          .where(
+            and(
+              eq(userSkillProgress.id, existing[0].id),
+              eq(userSkillProgress.workspaceId, ws.id),
+            ),
+          );
+      }
+    }
+  }
 
   await db.insert(skillAuditLog).values({
     workspaceId: ws.id,

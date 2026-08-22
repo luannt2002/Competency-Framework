@@ -55,3 +55,26 @@ for (const route of PUBLIC_ROUTES) {
     ).toBeLessThanOrEqual(clientWidth + 1);
   });
 }
+
+/**
+ * Mỗi trang đúng MỘT `<h1>`.
+ *
+ * Cùng họ với phép đo tràn ngang ở trên: lỗi chỉ tồn tại ở một bề rộng. Thanh
+ * trên cùng của mobile từng đặt tên workspace trong `<h1 class="md:hidden">`,
+ * nên dưới breakpoint md trang có hai `<h1>` — trình đọc màn hình nghe tên
+ * workspace ngang hàng với tên bài học, và nghe trước vì nó đứng trên trong
+ * DOM. Desktop không lộ vì `md:hidden` giấu đi.
+ *
+ * Chạy trên cả hai project nên phép đo này bắt được đúng loại lỗi đó.
+ */
+for (const route of PUBLIC_ROUTES) {
+  test(`đúng một h1: ${route}`, async ({ page }, testInfo) => {
+    await page.goto(`${BASE}${route}`);
+    await page.waitForLoadState('networkidle');
+    const texts = await page.locator('h1').allTextContents();
+    expect(
+      texts.length,
+      `${route} có ${texts.length} thẻ h1 ở ${testInfo.project.name}: ${JSON.stringify(texts)}`,
+    ).toBe(1);
+  });
+}

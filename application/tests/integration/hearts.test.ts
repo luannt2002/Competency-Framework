@@ -11,22 +11,26 @@ import {
   spendHearts,
   grantHeartOnce,
   applyHeartDecay,
+  readHearts,
   heartsToNumber,
   SKIP_HEART_COST,
+  REFILL_INTERVAL_MS,
 } from '@/lib/gamification/hearts';
 
 const TAG = `${process.pid}-${process.hrtime.bigint()}`;
 const USER = '00000000-0000-0000-0000-0000000000f8';
 let wsId = '';
 
-const readCurrent = async () => {
+const readRow = async () => {
   const rows = await db
-    .select({ current: hearts.current })
+    .select({ current: hearts.current, nextRefillAt: hearts.nextRefillAt })
     .from(hearts)
     .where(and(eq(hearts.workspaceId, wsId), eq(hearts.userId, USER)))
     .limit(1);
-  return heartsToNumber(rows[0]?.current);
+  return rows[0];
 };
+
+const readCurrent = async () => heartsToNumber((await readRow())?.current);
 
 beforeAll(async () => {
   const [ws] = await db
@@ -120,5 +124,81 @@ describe('F8 — nghỉ học thì vơi tim', () => {
   it('không có dòng hearts thì không nổ', async () => {
     await db.delete(hearts).where(eq(hearts.workspaceId, wsId));
     expect(await applyHeartDecay(wsId, USER)).toBe(0);
+  });
+});
+
+/**
+ * Bất biến của `next_refill_at`, kiểm trên MỌI đường ghi.
+ *
+ * `computeRefill` và `gainedSql` đều thoát sớm khi cột này NULL — quy ước NULL
+ * = "không có đợt hồi nào đang chờ" chỉ đúng cho hàng ĐẦY tim. Một hàng
+ * `current = 0` kèm NULL nghĩa là người học kẹt ở 0 tim vĩnh viễn: không nộp
+ * được bài nữa, trong khi giao diện vẫn hứa "tim hồi lại 1 trái mỗi 4 giờ".
+ *
+ * Trước đợt này mọi test đều chỉ kiểm SỐ tim, không test nào kiểm ĐỒNG HỒ hồi
+ * tim — nên `applyHeartDecay` và `spendHearts` trừ tim mà quên lên dây cót suốt
+ * một thời gian dài mà 447 test vẫn xanh. Nhóm test này bịt đúng đường nối đó.
+ */
+describe('bất biến: tim chưa đầy thì luôn có mốc hồi', () => {
+  const armDecay = () =>
+    db.insert(streaks).values({
+      workspaceId: wsId,
+      userId: USER,
+      currentStreak: 0,
+      longestStreak: 0,
+      lastActiveDate: '2020-01-01',
+    });
+
+  it('F8 — nghỉ học vơi tim về 0 thì mốc hồi PHẢI được đặt', async () => {
+    await armDecay();
+    await applyHeartDecay(wsId, USER);
+
+    const row = await readRow();
+    expect(heartsToNumber(row?.current)).toBe(0);
+    expect(row?.nextRefillAt).not.toBeNull();
+  });
+
+  it('F9 — tiêu tim xuống dưới mức tối đa thì mốc hồi PHẢI được đặt', async () => {
+    await spendHearts(wsId, USER, SKIP_HEART_COST);
+
+    const row = await readRow();
+    expect(heartsToNumber(row?.current)).toBeLessThan(5);
+    expect(row?.nextRefillAt).not.toBeNull();
+  });
+
+  it('đã có mốc hồi rồi thì lần mất tim sau KHÔNG đẩy lùi mốc', async () => {
+    await spendHearts(wsId, USER, 1);
+    const first = (await readRow())?.nextRefillAt;
+    expect(first).not.toBeNull();
+
+    // Mất tim lần nữa: phạt hai lần cho một đợt hồi là sai.
+    await spendHearts(wsId, USER, 1);
+    expect((await readRow())?.nextRefillAt).toEqual(first);
+  });
+
+  it('cấp tim đầy lại thì mốc hồi được XOÁ', async () => {
+    await spendHearts(wsId, USER, 5);
+    expect((await readRow())?.nextRefillAt).not.toBeNull();
+
+    await grantHeartOnce({ workspaceId: wsId, userId: USER, reason: 'test-full', amount: 5 });
+
+    const row = await readRow();
+    expect(heartsToNumber(row?.current)).toBe(5);
+    expect(row?.nextRefillAt).toBeNull();
+  });
+
+  it('kẹt-vĩnh-viễn: hết tim vì nghỉ học rồi vẫn hồi lại được', async () => {
+    await armDecay();
+    await applyHeartDecay(wsId, USER);
+    expect(await readCurrent()).toBe(0);
+
+    // Tua mốc hồi về quá khứ = giả lập đã chờ đủ 4 giờ.
+    await db
+      .update(hearts)
+      .set({ nextRefillAt: new Date(Date.now() - REFILL_INTERVAL_MS) })
+      .where(and(eq(hearts.workspaceId, wsId), eq(hearts.userId, USER)));
+
+    const snapshot = await readHearts(wsId, USER);
+    expect(snapshot?.current).toBeGreaterThan(0);
   });
 });

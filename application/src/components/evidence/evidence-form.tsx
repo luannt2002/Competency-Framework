@@ -3,11 +3,15 @@
 /**
  * Evidence submission form — V8 verified competency engine.
  *
- * Users submit a piece of evidence (lab/project/peer_review/manager_review) for a
- * single skill. The server action recomputes confidence and may promote the
- * user's level_source to 'verified' if thresholds are met. The form is intended
- * to be embedded inside a Dialog from the skill drawer, but also renders fine
- * standalone (see `mode` prop).
+ * Người học tự nộp một bằng chứng (lab / project) cho MỘT kỹ năng. Server action
+ * tính lại độ tin cậy và ghi lại dấu vết "đã học".
+ *
+ * Nộp bằng chứng KHÔNG nâng được lên `verified` — việc đó chỉ xảy ra khi người
+ * KHÁC (EDITOR trở lên) bấm Duyệt trong drawer kỹ năng. Xem chú thích ở
+ * `submitInput` trong src/actions/evidence.ts để biết vì sao.
+ *
+ * Form này nhúng trong Dialog của skill drawer, nhưng đứng riêng cũng render
+ * được.
  */
 
 import { useId, useState, useTransition } from 'react';
@@ -18,7 +22,7 @@ import { Award, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { submitEvidence, type EvidenceKind } from '@/actions/evidence';
+import { submitEvidence, type SelfEvidenceKind } from '@/actions/evidence';
 import { cn } from '@/lib/utils';
 
 type EvidenceFormProps = {
@@ -30,11 +34,21 @@ type EvidenceFormProps = {
   className?: string;
 };
 
-const KINDS: ReadonlyArray<{ value: EvidenceKind; label: string; hint: string }> = [
+/**
+ * Chỉ hai dạng TỰ LÀM.
+ *
+ * `peer_review` / `manager_review` mô tả việc người khác đã xem xét, nên không
+ * thuộc về một biểu mẫu mà người học tự điền cho chính mình. Trước đợt này form
+ * phơi cả bốn: chọn "Manager review" + nhập 100 là kỹ năng lên thẳng `verified`
+ * vĩnh viễn mà không ai duyệt. Đường duyệt nằm ở nút Duyệt trong drawer kỹ
+ * năng, do người khác (EDITOR trở lên) bấm.
+ *
+ * `submitEvidence` cũng đã chặn ở enum đầu vào — đây chỉ là để người dùng không
+ * nhìn thấy một cánh cửa đã khoá.
+ */
+const KINDS: ReadonlyArray<{ value: SelfEvidenceKind; label: string; hint: string }> = [
   { value: 'lab', label: 'Lab', hint: 'Hands-on exercise (weight 0.30)' },
   { value: 'project', label: 'Project', hint: 'Real-world deliverable (weight 0.40)' },
-  { value: 'peer_review', label: 'Peer review', hint: 'Reviewed by a peer (weight 0.15)' },
-  { value: 'manager_review', label: 'Manager review', hint: 'Reviewed by a manager (weight 0.15)' },
 ];
 
 export function EvidenceForm({
@@ -47,7 +61,7 @@ export function EvidenceForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const [kind, setKind] = useState<EvidenceKind>('lab');
+  const [kind, setKind] = useState<SelfEvidenceKind>('lab');
   const [score, setScore] = useState<number>(70);
   const [evidenceUrl, setEvidenceUrl] = useState<string>('');
   const [note, setNote] = useState<string>('');

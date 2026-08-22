@@ -11,6 +11,8 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { GitFork, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { isNextControlFlowError } from '@/lib/is-redirect-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -68,8 +70,31 @@ export function ForkButton({ sourceSlug, defaultName, viewerId, isOwner }: Props
           </DialogHeader>
           <form
             action={(fd) => {
-              startTransition(() => {
-                forkWorkspace(fd);
+              // `startTransition` phải nhận callback BẤT ĐỒNG BỘ và `await`
+              // action bên trong.
+              //
+              // Trước đợt này callback là hàm đồng bộ và promise bị vứt: React
+              // kết thúc transition ngay khi callback return, nên `pending` về
+              // false gần như tức thì trong khi `forkWorkspace` vẫn đang sao
+              // chép hơn 10 bảng. Hệ quả — nút hết disabled và không quay, người
+              // dùng bấm lại, tài khoản có hai bản fork trùng phải tự đi xoá;
+              // `onOpenChange` cũng mất tác dụng vì nó gác theo `pending`.
+              //
+              // Promise bị vứt còn nuốt luôn mọi lỗi của action
+              // (WORKSPACE_NOT_FOUND, WORKSPACE_NOT_PUBLIC): fork thất bại thì
+              // màn hình đứng yên, không báo gì.
+              startTransition(async () => {
+                try {
+                  await forkWorkspace(fd);
+                } catch (e) {
+                  // `forkWorkspace` kết thúc bằng `redirect()`, mà redirect báo
+                  // hiệu bằng cách ném lỗi — nuốt nó là biến thành công thành
+                  // thất bại.
+                  if (isNextControlFlowError(e)) throw e;
+                  toast.error('Fork không thành công', {
+                    description: e instanceof Error ? e.message : 'Thử lại sau.',
+                  });
+                }
               });
             }}
             className="space-y-4"

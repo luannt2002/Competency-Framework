@@ -88,228 +88,248 @@ async function forkTemplateCore(input: {
   // this owner — otherwise the insert races into workspaces_slug_uq.
   const slug = await reserveWorkspaceSlug(parsed.slug);
 
-  // Insert workspace
-  const [ws] = await db
-    .insert(workspaces)
-    .values({
-      ownerUserId: user.id,
-      slug,
-      name: parsed.name,
-      icon: payload.icon,
-      color: payload.color,
-      frameworkTemplateId: tpl.id,
-      visibility: 'private',
-    })
-    .returning();
-  if (!ws) throw new Error('WORKSPACE_INSERT_FAILED');
-
-  // Helper: maps from seed slug → DB uuid (so we can wire FKs across tables)
-  const categoryIdBySlug = new Map<string, string>();
-  const skillIdBySlug = new Map<string, string>();
-  const trackIdByLevel = new Map<string, string>();
-  const weekIdByLevelAndIndex = new Map<string, string>();
-
-  /* ---- Levels ---- */
-  if (payload.levels.length > 0) {
-    await db.insert(competencyLevels).values(
-      payload.levels.map((l, i) => ({
-        workspaceId: ws.id,
-        code: l.code,
-        label: l.label,
-        numericValue: l.numeric,
-        description: l.description,
-        examples: l.examples,
-        color: l.color,
-        displayOrder: i,
-      })),
-    );
-  }
-
-  /* ---- Categories + Skills ---- */
-  for (let ci = 0; ci < payload.categories.length; ci++) {
-    const cat = payload.categories[ci];
-    if (!cat) continue;
-    const [insertedCat] = await db
-      .insert(skillCategories)
+  // Tất cả các dòng ghi nằm TRONG MỘT transaction.
+  //
+  // Docstring đầu file vẫn ghi "Copies, in one transaction" từ lâu, nhưng cả
+  // file không có `db.transaction` nào: hơn 10 bảng được ghi tuần tự, hỏng
+  // giữa chừng thì để lại một workspace vỡ dở — có dòng workspaces nhưng thiếu
+  // skills/lessons — mà người dùng không xoá được và fork lại cũng không được
+  // vì slug đã bị chiếm.
+  //
+  // `writeAudit` và `revalidatePath` cố ý nằm NGOÀI: nhật ký một việc đã thành
+  // công thì phải ghi sau khi việc đó commit, và `writeAudit` dùng `db` ở
+  // module scope nên không tham gia transaction được.
+  const ws = await db.transaction(async (tx) => {
+    // Insert workspace
+    const [ws] = await tx
+      .insert(workspaces)
       .values({
-        workspaceId: ws.id,
-        slug: cat.slug,
-        name: cat.name,
-        description: cat.description,
-        color: cat.color,
-        icon: cat.icon,
-        displayOrder: ci,
+        ownerUserId: user.id,
+        slug,
+        name: parsed.name,
+        icon: payload.icon,
+        color: payload.color,
+        frameworkTemplateId: tpl.id,
+        visibility: 'private',
       })
-      .returning({ id: skillCategories.id });
-    if (!insertedCat) continue;
-    categoryIdBySlug.set(cat.slug, insertedCat.id);
+      .returning();
+    if (!ws) throw new Error('WORKSPACE_INSERT_FAILED');
 
-    if (cat.skills.length > 0) {
-      const inserted = await db
-        .insert(skills)
-        .values(
-          cat.skills.map((s, si) => ({
-            workspaceId: ws.id,
-            categoryId: insertedCat.id,
-            slug: s.slug,
-            name: s.name,
-            description: s.description,
-            tags: s.tags ?? [],
-            displayOrder: s.displayOrder ?? si,
-          })),
-        )
-        .returning({ id: skills.id, slug: skills.slug });
-      for (const row of inserted) skillIdBySlug.set(row.slug, row.id);
+    // Helper: maps from seed slug → DB uuid (so we can wire FKs across tables)
+    const categoryIdBySlug = new Map<string, string>();
+    const skillIdBySlug = new Map<string, string>();
+    const trackIdByLevel = new Map<string, string>();
+    const weekIdByLevelAndIndex = new Map<string, string>();
+
+    /* ---- Levels ---- */
+    if (payload.levels.length > 0) {
+      await tx.insert(competencyLevels).values(
+        payload.levels.map((l, i) => ({
+          workspaceId: ws.id,
+          code: l.code,
+          label: l.label,
+          numericValue: l.numeric,
+          description: l.description,
+          examples: l.examples,
+          color: l.color,
+          displayOrder: i,
+        })),
+      );
     }
-  }
 
-  /* ---- Tracks + Weeks + Modules + Lessons + Exercises ---- */
-  for (let ti = 0; ti < payload.tracks.length; ti++) {
-    const track = payload.tracks[ti];
-    if (!track) continue;
-
-    const [insertedTrack] = await db
-      .insert(levelTracks)
-      .values({
-        workspaceId: ws.id,
-        levelCode: track.levelCode,
-        title: track.title,
-        description: track.description,
-        displayOrder: ti,
-      })
-      .returning({ id: levelTracks.id });
-    if (!insertedTrack) continue;
-    trackIdByLevel.set(track.levelCode, insertedTrack.id);
-
-    for (const week of track.weeks) {
-      const [insertedWeek] = await db
-        .insert(weeks)
+    /* ---- Categories + Skills ---- */
+    for (let ci = 0; ci < payload.categories.length; ci++) {
+      const cat = payload.categories[ci];
+      if (!cat) continue;
+      const [insertedCat] = await tx
+        .insert(skillCategories)
         .values({
           workspaceId: ws.id,
-          trackId: insertedTrack.id,
-          weekIndex: week.index,
-          title: week.title,
-          summary: week.summary,
-          goals: week.goals ?? [],
-          keywords: week.keywords ?? [],
-          estHours: week.estHours ?? 8,
-          displayOrder: week.index,
+          slug: cat.slug,
+          name: cat.name,
+          description: cat.description,
+          color: cat.color,
+          icon: cat.icon,
+          displayOrder: ci,
         })
-        .returning({ id: weeks.id });
-      if (!insertedWeek) continue;
-      weekIdByLevelAndIndex.set(`${track.levelCode}:${week.index}`, insertedWeek.id);
+        .returning({ id: skillCategories.id });
+      if (!insertedCat) continue;
+      categoryIdBySlug.set(cat.slug, insertedCat.id);
 
-      for (let mi = 0; mi < week.modules.length; mi++) {
-        const mod = week.modules[mi];
-        if (!mod) continue;
-        const [insertedMod] = await db
-          .insert(modules)
+      if (cat.skills.length > 0) {
+        const inserted = await tx
+          .insert(skills)
+          .values(
+            cat.skills.map((s, si) => ({
+              workspaceId: ws.id,
+              categoryId: insertedCat.id,
+              slug: s.slug,
+              name: s.name,
+              description: s.description,
+              tags: s.tags ?? [],
+              displayOrder: s.displayOrder ?? si,
+            })),
+          )
+          .returning({ id: skills.id, slug: skills.slug });
+        for (const row of inserted) skillIdBySlug.set(row.slug, row.id);
+      }
+    }
+
+    /* ---- Tracks + Weeks + Modules + Lessons + Exercises ---- */
+    for (let ti = 0; ti < payload.tracks.length; ti++) {
+      const track = payload.tracks[ti];
+      if (!track) continue;
+
+      const [insertedTrack] = await tx
+        .insert(levelTracks)
+        .values({
+          workspaceId: ws.id,
+          levelCode: track.levelCode,
+          title: track.title,
+          description: track.description,
+          displayOrder: ti,
+        })
+        .returning({ id: levelTracks.id });
+      if (!insertedTrack) continue;
+      trackIdByLevel.set(track.levelCode, insertedTrack.id);
+
+      for (const week of track.weeks) {
+        const [insertedWeek] = await tx
+          .insert(weeks)
           .values({
             workspaceId: ws.id,
-            weekId: insertedWeek.id,
-            title: mod.title,
-            summary: mod.summary,
-            displayOrder: mi,
+            trackId: insertedTrack.id,
+            weekIndex: week.index,
+            title: week.title,
+            summary: week.summary,
+            goals: week.goals ?? [],
+            keywords: week.keywords ?? [],
+            estHours: week.estHours ?? 8,
+            displayOrder: week.index,
           })
-          .returning({ id: modules.id });
-        if (!insertedMod) continue;
+          .returning({ id: weeks.id });
+        if (!insertedWeek) continue;
+        weekIdByLevelAndIndex.set(`${track.levelCode}:${week.index}`, insertedWeek.id);
 
-        for (let li = 0; li < mod.lessons.length; li++) {
-          const lesson = mod.lessons[li];
-          if (!lesson) continue;
-          const [insertedLesson] = await db
-            .insert(lessons)
+        for (let mi = 0; mi < week.modules.length; mi++) {
+          const mod = week.modules[mi];
+          if (!mod) continue;
+          const [insertedMod] = await tx
+            .insert(modules)
             .values({
               workspaceId: ws.id,
-              moduleId: insertedMod.id,
-              slug: lesson.slug,
-              title: lesson.title,
-              introMd: lesson.introMd,
-              estMinutes: lesson.estMinutes ?? 8,
-              displayOrder: li,
+              weekId: insertedWeek.id,
+              title: mod.title,
+              summary: mod.summary,
+              displayOrder: mi,
             })
-            .returning({ id: lessons.id });
-          if (!insertedLesson) continue;
+            .returning({ id: modules.id });
+          if (!insertedMod) continue;
 
-          // lesson_skill_map links
-          const links = lesson.skillsAdvanced
-            .map((sa) => {
-              const skillId = skillIdBySlug.get(sa.skillSlug);
-              if (!skillId) return null;
-              return {
-                lessonId: insertedLesson.id,
-                skillId,
-                contributesToLevel: sa.contributesToLevel,
-                weight: sa.weight ?? 1,
-              };
-            })
-            .filter((x): x is Exclude<typeof x, null> => x !== null);
-          if (links.length > 0) {
-            await db.insert(lessonSkillMap).values(links);
-          }
-
-          // exercises
-          if (lesson.exercises.length > 0) {
-            await db.insert(exercises).values(
-              lesson.exercises.map((ex, ei) => ({
+          for (let li = 0; li < mod.lessons.length; li++) {
+            const lesson = mod.lessons[li];
+            if (!lesson) continue;
+            const [insertedLesson] = await tx
+              .insert(lessons)
+              .values({
                 workspaceId: ws.id,
-                lessonId: insertedLesson.id,
-                kind: ex.kind,
-                promptMd: ex.promptMd,
-                payload: ex.payload as Record<string, unknown>,
-                explanationMd: ex.explanationMd,
-                xpAward: ex.xpAward ?? 10,
-                displayOrder: ei,
-              })),
-            );
+                moduleId: insertedMod.id,
+                slug: lesson.slug,
+                title: lesson.title,
+                introMd: lesson.introMd,
+                estMinutes: lesson.estMinutes ?? 8,
+                displayOrder: li,
+              })
+              .returning({ id: lessons.id });
+            if (!insertedLesson) continue;
+
+            // lesson_skill_map links
+            const links = lesson.skillsAdvanced
+              .map((sa) => {
+                const skillId = skillIdBySlug.get(sa.skillSlug);
+                if (!skillId) return null;
+                return {
+                  lessonId: insertedLesson.id,
+                  skillId,
+                  contributesToLevel: sa.contributesToLevel,
+                  weight: sa.weight ?? 1,
+                };
+              })
+              .filter((x): x is Exclude<typeof x, null> => x !== null);
+            if (links.length > 0) {
+              await tx.insert(lessonSkillMap).values(links);
+            }
+
+            // exercises
+            if (lesson.exercises.length > 0) {
+              await tx.insert(exercises).values(
+                lesson.exercises.map((ex, ei) => ({
+                  workspaceId: ws.id,
+                  lessonId: insertedLesson.id,
+                  kind: ex.kind,
+                  promptMd: ex.promptMd,
+                  payload: ex.payload as Record<string, unknown>,
+                  explanationMd: ex.explanationMd,
+                  xpAward: ex.xpAward ?? 10,
+                  displayOrder: ei,
+                })),
+              );
+            }
           }
         }
       }
     }
-  }
 
-  /* ---- Badges ---- */
-  if (payload.badges.length > 0) {
-    await db.insert(badges).values(
-      payload.badges.map((b) => ({
+    /* ---- Badges ---- */
+    if (payload.badges.length > 0) {
+      await tx.insert(badges).values(
+        payload.badges.map((b) => ({
+          workspaceId: ws.id,
+          slug: b.slug,
+          name: b.name,
+          description: b.description,
+          icon: b.icon,
+          rule: b.rule as Record<string, unknown> | undefined,
+        })),
+      );
+    }
+
+    /* ---- User level progress: XS unlocked, others locked ---- */
+    await tx.insert(userLevelProgress).values(
+      payload.levels.map((l, i) => ({
         workspaceId: ws.id,
-        slug: b.slug,
-        name: b.name,
-        description: b.description,
-        icon: b.icon,
-        rule: b.rule as Record<string, unknown> | undefined,
+        userId: user.id,
+        levelCode: l.code,
+        status: i === 0 ? ('unlocked' as const) : ('locked' as const),
+        unlockedAt: i === 0 ? new Date() : null,
       })),
     );
-  }
 
-  /* ---- User level progress: XS unlocked, others locked ---- */
-  await db.insert(userLevelProgress).values(
-    payload.levels.map((l, i) => ({
+    /* ---- Hearts + Streak init ---- */
+    await tx
+      .insert(hearts)
+      .values({ workspaceId: ws.id, userId: user.id, current: '5', max: 5 });
+    await tx.insert(streaks).values({
       workspaceId: ws.id,
       userId: user.id,
-      levelCode: l.code,
-      status: i === 0 ? ('unlocked' as const) : ('locked' as const),
-      unlockedAt: i === 0 ? new Date() : null,
-    })),
-  );
+      currentStreak: 0,
+      longestStreak: 0,
+    });
 
-  /* ---- Hearts + Streak init ---- */
-  await db
-    .insert(hearts)
-    .values({ workspaceId: ws.id, userId: user.id, current: '5', max: 5 });
-  await db.insert(streaks).values({
-    workspaceId: ws.id,
-    userId: user.id,
-    currentStreak: 0,
-    longestStreak: 0,
-  });
+    /* ---- Activity log ---- */
+    await tx.insert(activityLog).values({
+      workspaceId: ws.id,
+      userId: user.id,
+      kind: 'framework_forked',
+      payload: { templateSlug: tpl.slug, templateId: tpl.id },
+    });
 
-  /* ---- Activity log ---- */
-  await db.insert(activityLog).values({
-    workspaceId: ws.id,
-    userId: user.id,
-    kind: 'framework_forked',
-    payload: { templateSlug: tpl.slug, templateId: tpl.id },
+    /* ---- Bump fork count ---- */
+    await tx
+      .update(frameworkTemplates)
+      .set({ forksCount: dsql`${frameworkTemplates.forksCount} + 1` })
+      .where(eq(frameworkTemplates.id, tpl.id));
+    return ws;
   });
 
   // Audit: the creator is implicitly workspace_owner at this point because
@@ -331,12 +351,6 @@ async function forkTemplateCore(input: {
       templateSlug: tpl.slug,
     },
   });
-
-  /* ---- Bump fork count ---- */
-  await db
-    .update(frameworkTemplates)
-    .set({ forksCount: dsql`${frameworkTemplates.forksCount} + 1` })
-    .where(eq(frameworkTemplates.id, tpl.id));
 
   revalidatePath('/');
   return { id: ws.id, slug: ws.slug, name: ws.name };

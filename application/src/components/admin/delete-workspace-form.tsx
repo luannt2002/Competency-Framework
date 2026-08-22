@@ -10,6 +10,7 @@ import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { deleteWorkspace } from '@/actions/workspace-admin';
+import { isNextControlFlowError } from '@/lib/is-redirect-error';
 
 export function DeleteWorkspaceForm({ workspaceSlug }: { workspaceSlug: string }) {
   const [typed, setTyped] = useState('');
@@ -28,7 +29,7 @@ export function DeleteWorkspaceForm({ workspaceSlug }: { workspaceSlug: string }
         // deleteWorkspace redirects to '/' on success — this line is unreachable.
       } catch (e) {
         // Next.js redirect surfaces as a special error; let it propagate.
-        if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
+        if (isNextControlFlowError(e)) throw e;
         setError(e instanceof Error ? e.message : 'DELETE_FAILED');
       }
     });

@@ -21,6 +21,7 @@
  * `src/lib/auth/join-pending-invites.ts`.
  */
 'use server';
+import { assertMemberIsNotOwner } from '@/lib/rbac/owner-guard';
 import { resolveOwnerWorkspace } from '@/lib/rbac/resolve';
 
 import { z } from 'zod';
@@ -219,12 +220,8 @@ export async function updateMemberRole(
     .limit(1);
   const before = beforeRows[0];
   if (!before) throw new Error('MEMBER_NOT_FOUND');
-  // Never let the owner's own (legacy) member row be demoted through this
-  // surface — ownership comes from workspaces.owner_user_id, demoting a member
-  // row for the owner would create a contradictory authz state.
-  if (ws.ownerUserId && before.userId === ws.ownerUserId) {
-    throw new Error('MEMBER_IS_OWNER');
-  }
+  // Chủ workspace không được hạ vai — xem lib/rbac/owner-guard.ts.
+  assertMemberIsNotOwner(before.userId, ws.ownerUserId);
 
   await db
     .update(workspaceMembers)
@@ -405,12 +402,8 @@ export async function removeMember(workspaceSlug: string, memberId: string): Pro
     .limit(1);
   const before = beforeRows[0];
   if (!before) throw new Error('MEMBER_NOT_FOUND');
-  // Guard: the workspace owner must never be removable via the member admin
-  // surface (ownership is stored on workspaces.owner_user_id and the workspace
-  // would be orphaned with no admin able to manage it).
-  if (ws.ownerUserId && before.userId === ws.ownerUserId) {
-    throw new Error('MEMBER_IS_OWNER');
-  }
+  // Chủ workspace không được gỡ bỏ — xem lib/rbac/owner-guard.ts.
+  assertMemberIsNotOwner(before.userId, ws.ownerUserId);
 
   await db
     .delete(workspaceMembers)

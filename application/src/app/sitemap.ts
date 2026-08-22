@@ -11,7 +11,7 @@
  * development.
  */
 import type { MetadataRoute } from 'next';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { workspaces, roadmapTreeNodes } from '@/lib/db/schema';
 
@@ -54,32 +54,41 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return staticEntries;
   }
 
-  const dynamicEntries: MetadataRoute.Sitemap = [];
+  const dynamicEntries: MetadataRoute.Sitemap = publicWorkspaces.map((ws) => ({
+    url: `${BASE_URL}/share/${ws.slug}`,
+    lastModified: now,
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
+  }));
 
-  for (const ws of publicWorkspaces) {
-    dynamicEntries.push({
-      url: `${BASE_URL}/share/${ws.slug}`,
-      lastModified: now,
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    });
+  if (publicWorkspaces.length > 0) {
+    // MỘT truy vấn cho toàn bộ node, không phải một truy vấn mỗi workspace.
+    //
+    // Bản cũ lặp qua từng workspace công khai và bắn một câu SELECT node cho
+    // mỗi cái, nên chi phí tăng tuyến tính theo số workspace được chia sẻ —
+    // đúng thứ càng thành công càng chậm. Join thẳng qua `workspaces` và lọc
+    // theo `visibility` cho ra cùng tập dữ liệu trong một lượt.
+    let nodeRows: { wsSlug: string; nodeSlug: string; updatedAt: Date | null }[] = [];
+    try {
+      nodeRows = await db
+        .select({
+          wsSlug: workspaces.slug,
+          nodeSlug: roadmapTreeNodes.slug,
+          updatedAt: roadmapTreeNodes.updatedAt,
+        })
+        .from(roadmapTreeNodes)
+        .innerJoin(workspaces, eq(roadmapTreeNodes.workspaceId, workspaces.id))
+        .where(eq(workspaces.visibility, 'public-readonly'));
+    } catch {
+      // Node không lấy được thì vẫn phát sitemap cho các trang workspace —
+      // một sitemap thiếu node còn hơn không có sitemap nào.
+      return [...staticEntries, ...dynamicEntries];
+    }
 
-    const nodes = await db
-      .select({
-        slug: roadmapTreeNodes.slug,
-        updatedAt: roadmapTreeNodes.updatedAt,
-      })
-      .from(roadmapTreeNodes)
-      .where(
-        and(
-          eq(roadmapTreeNodes.workspaceId, ws.id),
-        ),
-      );
-
-    for (const n of nodes) {
+    for (const r of nodeRows) {
       dynamicEntries.push({
-        url: `${BASE_URL}/share/${ws.slug}/n/${n.slug}`,
-        lastModified: n.updatedAt ?? now,
+        url: `${BASE_URL}/share/${r.wsSlug}/n/${r.nodeSlug}`,
+        lastModified: r.updatedAt ?? now,
         changeFrequency: 'monthly',
         priority: 0.6,
       });

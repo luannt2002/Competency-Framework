@@ -26,21 +26,10 @@ import * as React from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Check, Copy, ExternalLink, Link as LinkIcon } from 'lucide-react';
+import { slugifyHeading } from '@/lib/learn/slugify-heading';
 import { cn } from '@/lib/utils';
 
 /* ---------- slug ---------- */
-/** Mirror of `slugifyHeading` in node-toc.tsx — keep them identical. */
-export function slugifyHeading(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-}
 
 /* ---------- helpers to derive plain text from React children ---------- */
 function childrenToText(children: React.ReactNode): string {

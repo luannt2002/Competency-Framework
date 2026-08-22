@@ -1,3 +1,4 @@
+import { slugifyHeading } from '@/lib/learn/slugify-heading';
 /**
  * Server-safe heading parser for markdown `body_md` strings.
  *
@@ -18,17 +19,6 @@ export interface TocHeading {
   slug: string;
 }
 
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-}
 
 export function parseHeadings(md: string | null | undefined): TocHeading[] {
   if (!md) return [];
@@ -40,7 +30,7 @@ export function parseHeadings(md: string | null | undefined): TocHeading[] {
     const level = m[1]!.length as 2 | 3;
     const text = m[2]!.trim().replace(/\s*#*\s*$/, '');
     if (!text) continue;
-    out.push({ level, text, slug: slugify(text) });
+    out.push({ level, text, slug: slugifyHeading(text) });
   }
   return out;
 }

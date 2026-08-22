@@ -1,5 +1,5 @@
 /**
- * BulkInviteCsv — paste a CSV of `user_id,role` lines and invite many at once.
+ * BulkInviteCsv — dán CSV `email_hoặc_user_id,role` để mời nhiều người một lượt.
  *
  * Renders a textarea, a parsed preview table (with per-row validation), and an
  * "Invite all" button that calls the `bulkInviteMembers` server action. The
@@ -8,7 +8,13 @@
  *
  * Roles accepted (canonical or short alias):
  *   learner | contributor (=workspace_contributor) | editor (=workspace_editor)
- * Header `user_id,role` is optional (auto-detected by first column literal).
+ * Header tuỳ chọn, tự nhận ra qua cột đầu (`email` hoặc `user_id`).
+ *
+ * Cột định danh nhận CẢ email lẫn UUID. Server đã resolve email từ đợt 7
+ * (`findUserIdByEmail`, và ghi invite pending nếu người đó chưa có tài khoản),
+ * nhưng client vẫn chặn cứng bằng `UUID_RE` nên mọi dòng email bị gạt trước khi
+ * rời trình duyệt — server chạy được mà KHÔNG có đường UI nào tới (rà D2.2:
+ * POST thẳng server action với một dòng email trả `{"added":0,"invited":1}`).
  */
 'use client';
 
@@ -22,61 +28,7 @@ import {
   type BulkInviteResult,
   type BulkInviteRowInput,
 } from '@/actions/workspace-members';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-type ParsedRow = {
-  line: number;
-  userId: string;
-  roleRaw: string;
-  role: BulkInviteRowInput['role'] | null;
-  error: string | null;
-};
-
-/** Map any accepted role alias → canonical workspace_members.role value. */
-function normalizeRole(raw: string): BulkInviteRowInput['role'] | null {
-  const r = raw.trim().toLowerCase();
-  if (r === 'learner') return 'learner';
-  if (r === 'contributor' || r === 'workspace_contributor') return 'workspace_contributor';
-  if (r === 'editor' || r === 'workspace_editor') return 'workspace_editor';
-  return null;
-}
-
-function parseCsv(text: string): ParsedRow[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0 && !l.startsWith('#'));
-  if (lines.length === 0) return [];
-
-  // Detect header: literal "user_id" in the first column.
-  const first = lines[0]!.split(',').map((s) => s.trim().toLowerCase());
-  const body = first[0] === 'user_id' ? lines.slice(1) : lines;
-
-  return body.map((raw, idx): ParsedRow => {
-    const parts = raw.split(',').map((s) => s.trim());
-    const userId = parts[0] ?? '';
-    const roleRaw = parts[1] ?? '';
-    const role = normalizeRole(roleRaw);
-
-    let error: string | null = null;
-    if (!UUID_RE.test(userId)) error = 'user_id is not a UUID';
-    else if (!role) error = `role must be learner|contributor|editor (got "${roleRaw}")`;
-
-    return {
-      line: idx + 1,
-      userId,
-      roleRaw,
-      role,
-      error,
-    };
-  });
-}
-
-function shortId(id: string): string {
-  if (id.length <= 10) return id;
-  return `${id.slice(0, 4)}…${id.slice(-4)}`;
-}
+import { parseInviteCsv, shortIdentifier } from '@/lib/admin/parse-invite-csv';
 
 export function BulkInviteCsv({ workspaceSlug }: { workspaceSlug: string }) {
   const router = useRouter();
@@ -86,7 +38,7 @@ export function BulkInviteCsv({ workspaceSlug }: { workspaceSlug: string }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const rows = useMemo(() => parseCsv(text), [text]);
+  const rows = useMemo(() => parseInviteCsv(text), [text]);
   const validRows = rows.filter((r) => !r.error && r.role);
   const errorCount = rows.filter((r) => r.error).length;
 
@@ -94,11 +46,11 @@ export function BulkInviteCsv({ workspaceSlug }: { workspaceSlug: string }) {
     setSubmitError(null);
     setResult(null);
     const payload: BulkInviteRowInput[] = validRows.map((r) => ({
-      userId: r.userId,
+      userId: r.identifier,
       role: r.role!,
     }));
     if (payload.length === 0) {
-      setSubmitError('No valid rows to invite.');
+      setSubmitError('Không có dòng nào hợp lệ để mời.');
       return;
     }
     startTransition(async () => {
@@ -124,7 +76,7 @@ export function BulkInviteCsv({ workspaceSlug }: { workspaceSlug: string }) {
           <Upload className="size-4 text-muted-foreground" />
           <span className="text-sm font-semibold">Bulk import từ CSV</span>
           <span className="text-xs text-muted-foreground">
-            Dán nhiều `user_id,role` cùng lúc
+            Mời hàng loạt bằng CSV
           </span>
         </span>
         {open ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
@@ -134,13 +86,13 @@ export function BulkInviteCsv({ workspaceSlug }: { workspaceSlug: string }) {
         <div className="border-t border-border p-5 space-y-4">
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-muted-foreground">
-              CSV — mỗi dòng `user_id,role`. Header `user_id,role` tùy chọn.
+              Mỗi dòng: <code>email,vai trò</code> (hoặc user_id). Dòng tiêu đề tuỳ chọn. Người chưa có tài khoản sẽ được ghi lời mời chờ, tự vào workspace khi họ đăng nhập lần đầu.
               Vai trò hợp lệ: <code>learner</code>, <code>contributor</code>, <code>editor</code>.
             </span>
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={'user_id,role\n00000000-0000-0000-0000-000000000001,learner\n00000000-0000-0000-0000-000000000002,editor'}
+              placeholder={'email,role\nan@congty.vn,learner\nbinh@congty.vn,editor\n00000000-0000-0000-0000-000000000001,contributor'}
               className="font-mono text-xs min-h-[140px]"
               style={{ fontFamily: 'var(--font-jetbrains), monospace' }}
             />
@@ -167,7 +119,7 @@ export function BulkInviteCsv({ workspaceSlug }: { workspaceSlug: string }) {
                         className="px-3 py-1.5 font-mono"
                         style={{ fontFamily: 'var(--font-jetbrains), monospace' }}
                       >
-                        {r.userId ? shortId(r.userId) : <span className="text-destructive">—</span>}
+                        {r.identifier ? shortIdentifier(r.identifier) : <span className="text-destructive">—</span>}
                       </td>
                       <td className="px-3 py-1.5">
                         {r.role ? (
@@ -241,7 +193,7 @@ export function BulkInviteCsv({ workspaceSlug }: { workspaceSlug: string }) {
                       className="font-mono"
                       style={{ fontFamily: 'var(--font-jetbrains), monospace' }}
                     >
-                      row {e.index + 1}: {shortId(e.userId)} → {e.reason}
+                      dòng {e.index + 1}: {shortIdentifier(e.userId)} → {e.reason}
                     </li>
                   ))}
                   {result.errors.length > 10 && (

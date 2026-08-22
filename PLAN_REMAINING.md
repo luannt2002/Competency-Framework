@@ -53,14 +53,14 @@ Cạn hàng đợi = xong. Không tự đẻ thêm việc ngoài file này.
 
 ### 3.1 — Nối đường đứt (tính năng đã xây xong nhưng không vào được)
 
-- [ ] **Q1** `/w/[slug]/grading` không lối vào — `src/lib/rbac/admin-nav.ts` thiếu key `grading`. Bằng chứng: `grep "/grading"` trong `*.tsx` = **rỗng**. Thêm mục sidebar + badge đếm bài chờ chấm.
-- [ ] **Q2** `/w/[slug]/badges` route mồ côi — cùng file, thiếu key `badges`. F16 vừa dựng xong, creator không có đường vào.
-- [ ] **Q3** Sidebar EDITOR dẫn vào `NEXT_REDIRECT` — `admin-nav.ts:12,13` vs `members/page.tsx:81`, `audit/page.tsx:39`. `PHAN_QUYEN.md:95-97` nói Members/Audit là OWNER. ⚠️ `tests/unit/admin-nav.test.ts:11,12` **đang khoá chặt cái sai** — sửa test cùng lúc.
-- [ ] **Q4** Bulk CSV chặn email ở client — `bulk-invite-csv.tsx:63` `UUID_RE`. Server chạy được: POST thẳng trả `{"added":0,"invited":1}`.
+- [x] **Q1** ✅ sidebar có mục "Chấm bài"; owner+editor đều thấy `href="/w/devops-test/grading"`, bấm vào 200 — `/w/[slug]/grading` không lối vào — `src/lib/rbac/admin-nav.ts` thiếu key `grading`. Bằng chứng: `grep "/grading"` trong `*.tsx` = **rỗng**. Thêm mục sidebar + badge đếm bài chờ chấm.
+- [x] **Q2** ✅ sidebar có mục "Huy hiệu"; editor vào `/badges` → 200 — `/w/[slug]/badges` route mồ côi — cùng file, thiếu key `badges`. F16 vừa dựng xong, creator không có đường vào.
+- [x] **Q3** ✅ members/audit về OWNER khớp `requireMinLevel` của chính trang; đo runtime: editor **không còn thấy** members/audit/settings, vẫn thấy roster/analytics/grading/badges. Test viết lại + thêm phép kiểm "không route mồ côi" — Sidebar EDITOR dẫn vào `NEXT_REDIRECT` — `admin-nav.ts:12,13` vs `members/page.tsx:81`, `audit/page.tsx:39`. `PHAN_QUYEN.md:95-97` nói Members/Audit là OWNER. ⚠️ `tests/unit/admin-nav.test.ts:11,12` **đang khoá chặt cái sai** — sửa test cùng lúc.
+- [x] **Q4** ✅ tách `parseInviteCsv` ra `src/lib/admin/`, nhận email lẫn UUID, 13 unit test; `shortIdentifier` không cắt email nữa — Bulk CSV chặn email ở client — `bulk-invite-csv.tsx:63` `UUID_RE`. Server chạy được: POST thẳng trả `{"added":0,"invited":1}`.
 - [ ] **Q5** Hàng đợi duyệt bằng chứng — `listEvidenceForSkill` đã mở cho EDITOR+, còn thiếu màn.
-- [ ] **Q6** `/u/[id]` không nơi nào link tới — `grep 'href={`/u/'` = **0**. Thêm "Mở hồ sơ" trong drawer roster.
-- [ ] **Q7** Không có lối vào `/discover` trong app — chỉ có ở landing + trang 404.
-- [ ] **Q8** `/w/[slug]/certificate` → 404 — thêm `certificate/page.tsx` redirect sang `/certificate/<user.id>`.
+- [x] **Q6** ✅ link "Mở hồ sơ công khai" trong drawer roster; chuỗi có trong chunk client (drawer render phía client nên không nằm trong HTML SSR) — `/u/[id]` không nơi nào link tới — `grep 'href={`/u/'` = **0**. Thêm "Mở hồ sơ" trong drawer roster.
+- [x] **Q7** ✅ sidebar có `href="/discover"`, đo runtime: CÓ — Không có lối vào `/discover` trong app — chỉ có ở landing + trang 404.
+- [x] **Q8** ✅ `/w/devops-test/certificate` từ **404** → 200 (redirect sang `/certificate/<user.id>`) — `/w/[slug]/certificate` → 404 — thêm `certificate/page.tsx` redirect sang `/certificate/<user.id>`.
 
 ### 3.2 — RBAC tới được UI (gốc rễ một chỗ)
 
@@ -202,6 +202,7 @@ thuộc `postgres` — **chủ bảng đọc xuyên mọi policy** nên đây l�
 | Ngày | Cụm | Kết quả |
 |---|---|---|
 | 2026-08-22 | — | Hàng đợi lập: **96 mục**. Bắt đầu từ Q1. |
+| 2026-08-22 | Q1–Q4, Q6–Q8 | **7 mục xong.** Test 400 → **413**. Đo runtime theo vai: editor không còn thấy link vào trang OWNER, và 4 trang EDITOR đều vào được thật. |
 
 ---
 

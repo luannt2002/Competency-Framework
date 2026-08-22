@@ -26,6 +26,9 @@ import {
   Check,
   ClipboardList,
   BarChart3,
+  ClipboardCheck,
+  Award,
+  Compass,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ADMIN_NAV_MIN_LEVELS, type AdminNavKey } from '@/lib/rbac/admin-nav';
@@ -64,18 +67,26 @@ export function AppSidebar({
     { href: base, label: 'Cây học tập', icon: LayoutDashboard },
     { href: `${base}/daily`, label: 'Hôm nay', icon: Calendar },
     { href: `${base}/skills`, label: 'Kỹ năng', icon: Grid3x3 },
+    // /discover trước đây chỉ có lối vào từ landing và trang 404 — người đã
+    // đăng nhập không có đường nào tới chỗ khám phá lộ trình của cộng đồng.
+    { href: '/discover', label: 'Khám phá', icon: Compass },
   ];
 
-  // Workspace-admin items — each rendered only when the viewer's effective
-  // RBAC level meets the item's minimum (EDITOR for most, OWNER for Settings).
-  // Invisible items never enter the DOM (filtered before render, no CSS hiding).
+  // Mục quản trị — chỉ render khi cấp quyền thật của người xem đạt mức tối thiểu
+  // khai trong ADMIN_NAV_MIN_LEVELS (bảng đó phải khớp cấp mà CHÍNH TRANG đòi,
+  // nếu không sidebar dẫn người ta vào một trang đá họ ra).
+  // Mục không đủ quyền KHÔNG vào DOM — lọc trước khi render, không giấu bằng CSS.
   type AdminItem = Omit<Item, 'admin'> & { admin: keyof typeof ADMIN_NAV_MIN_LEVELS };
   const allAdminItems: AdminItem[] = [
-    { href: `${base}/members`, label: 'Members', icon: Users, admin: 'members' },
-    { href: `${base}/audit`, label: 'Audit log', icon: ShieldCheck, admin: 'audit' },
-    { href: `${base}/roster`, label: 'Roster', icon: ClipboardList, admin: 'roster' },
-    { href: `${base}/analytics`, label: 'Analytics', icon: BarChart3, admin: 'analytics' },
-    { href: `${base}/settings`, label: 'Settings (workspace)', icon: SlidersHorizontal, admin: 'settings' },
+    { href: `${base}/members`, label: 'Thành viên', icon: Users, admin: 'members' },
+    { href: `${base}/audit`, label: 'Nhật ký kiểm toán', icon: ShieldCheck, admin: 'audit' },
+    { href: `${base}/roster`, label: 'Tiến độ thành viên', icon: ClipboardList, admin: 'roster' },
+    { href: `${base}/analytics`, label: 'Phân tích', icon: BarChart3, admin: 'analytics' },
+    // Hai mục dưới đây từng KHÔNG có ở đâu cả: trang chạy tốt nhưng không một
+    // `href` nào trong toàn bộ *.tsx trỏ tới, nên người dùng không có đường vào.
+    { href: `${base}/grading`, label: 'Chấm bài', icon: ClipboardCheck, admin: 'grading' },
+    { href: `${base}/badges`, label: 'Huy hiệu', icon: Award, admin: 'badges' },
+    { href: `${base}/settings`, label: 'Cài đặt workspace', icon: SlidersHorizontal, admin: 'settings' },
   ];
   const adminItems: Item[] = allAdminItems
     .filter((it) => checkMinLevel(rbacLevel, ADMIN_NAV_MIN_LEVELS[it.admin]))

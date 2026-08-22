@@ -15,7 +15,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Circle, Loader2, Search, X } from 'lucide-react';
+import Link from 'next/link';
+import { Check, Circle, ExternalLink, Loader2, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { HEATMAP_RGB } from '@/lib/constants/palette';
 import {
@@ -295,9 +296,21 @@ export function RosterTable({
                   )}
                 </SheetTitle>
                 <SheetDescription>
-                  {roleLabel(selected.role)} · {selected.overallPct}% overall
+                  {roleLabel(selected.role)} · hoàn thành {selected.overallPct}%
                 </SheetDescription>
               </SheetHeader>
+
+              {/* `/u/[id]` tồn tại từ lâu nhưng `grep 'href={\`/u/'` ra 0 kết quả —
+                  hồ sơ công khai không có một lối vào nào trong toàn app. */}
+              <div className="px-6 pt-4">
+                <Link
+                  href={`/u/${selected.userId}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                >
+                  <ExternalLink className="size-3.5" aria-hidden="true" />
+                  Mở hồ sơ công khai
+                </Link>
+              </div>
 
               <div className="p-6 space-y-3">
                 <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

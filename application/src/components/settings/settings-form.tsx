@@ -1,47 +1,37 @@
 'use client';
 
 /**
- * Client form for /settings — persists preferences in localStorage.
- * Real prefs (theme, sound, daily goal, reduced motion) tied to localStorage
- * so they survive reload without DB round-trip.
+ * Trang cài đặt cá nhân — CHỈ giữ những gì thật sự có tác dụng.
+ *
+ * Trước đợt này ở đây có 4 tuỳ chọn ghi `localStorage['pref:*']` mà rà toàn
+ * `src/` ra 0 nơi đọc: sound, reduced-motion, language, và daily XP goal.
+ * Người dùng bấm, thấy toast "đã lưu", rồi không gì thay đổi.
+ *
+ * Đã xử lý:
+ *  - sound / reduced-motion / language: GỠ. Không có tính năng nào phía sau —
+ *    chính file này từng tự ghi "UI labels only (MVP)" cho phần ngôn ngữ. Bày
+ *    ra một công tắc không nối vào đâu tệ hơn là không bày.
+ *  - daily XP goal: CHUYỂN sang /w/[slug]/daily. Nó có đường thật đã dựng sẵn
+ *    (`user_planner_settings.dailyGoalXp` + `updatePlannerSettings`) nhưng
+ *    không UI nào gọi, nên mục tiêu của mọi người kẹt ở mặc định 60. Bảng đó
+ *    khoá theo (workspace, user) mà trang này là TOÀN CỤC nên không có
+ *    workspace để ghi vào — chỗ đúng của nó là trang Hôm nay.
+ *
+ * Còn lại đây: theme (next-themes, có tác dụng thật).
  */
 import { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
-import { Moon, Sun, Volume2, VolumeX, Zap, Sparkles } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
-
-const GOAL_OPTIONS = [30, 60, 120, 300] as const;
 
 export function SettingsForm() {
   const { theme, setTheme } = useTheme();
-  const [sound, setSound] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [dailyGoal, setDailyGoal] = useState<number>(60);
-  const [lang, setLang] = useState<'vi' | 'en'>('vi');
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-    try {
-      setSound(localStorage.getItem('pref:sound') === 'true');
-      setReducedMotion(localStorage.getItem('pref:reduced-motion') === 'true');
-      setDailyGoal(Number(localStorage.getItem('pref:daily-goal')) || 60);
-      const l = (localStorage.getItem('pref:lang') ?? 'vi') as 'vi' | 'en';
-      setLang(l);
-    } catch {
-      /* no-op */
-    }
-  }, []);
-
-  const save = <T,>(key: string, value: T) => {
-    try {
-      localStorage.setItem(key, String(value));
-    } catch {
-      /* no-op */
-    }
-  };
+  // `next-themes` chỉ biết theme thật sau khi mount; render trước đó sẽ lệch
+  // giữa server và client.
+  useEffect(() => setMounted(true), []);
 
   if (!mounted) {
     return <div className="surface p-6 animate-pulse h-48" />;
@@ -65,97 +55,9 @@ export function SettingsForm() {
         }
       />
 
-      {/* Sound */}
-      <Row
-        icon={sound ? Volume2 : VolumeX}
-        label="Sound effects"
-        description="Play subtle audio cues on correct/wrong answers."
-        action={
-          <Switch
-            checked={sound}
-            onCheckedChange={(v) => {
-              setSound(v);
-              save('pref:sound', v);
-              toast.success(v ? 'Sound on' : 'Sound off');
-            }}
-          />
-        }
-      />
-
-      {/* Reduced motion */}
-      <Row
-        icon={Sparkles}
-        label="Reduced motion"
-        description="Disable confetti and large transitions (a11y)."
-        action={
-          <Switch
-            checked={reducedMotion}
-            onCheckedChange={(v) => {
-              setReducedMotion(v);
-              save('pref:reduced-motion', v);
-            }}
-          />
-        }
-      />
-
-      {/* Daily goal */}
-      <div className="surface p-5">
-        <div className="flex items-start gap-4">
-          <Zap className="size-5 text-amber-400 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-medium">Daily XP goal</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Target XP earned per day. Drives the streak indicator.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {GOAL_OPTIONS.map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => {
-                    setDailyGoal(g);
-                    save('pref:daily-goal', g);
-                    toast.success(`Daily goal: ${g} XP`);
-                  }}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                    dailyGoal === g
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {g} XP {g === 60 ? '· Casual' : g === 120 ? '· Regular' : g === 300 ? '· Intense' : '· Light'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Language */}
-      <div className="surface p-5">
-        <h3 className="text-sm font-medium">Language</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">UI labels only (MVP).</p>
-        <div className="mt-3 flex gap-2">
-          {(['vi', 'en'] as const).map((l) => (
-            <button
-              key={l}
-              type="button"
-              onClick={() => {
-                setLang(l);
-                save('pref:lang', l);
-                toast.success(`Language: ${l.toUpperCase()}`);
-              }}
-              className={`rounded-full border px-3 py-1 text-xs font-mono uppercase transition-colors ${
-                lang === l
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Sound / Reduced motion / Language / Daily goal đã gỡ — xem chú thích
+          đầu file. Mục tiêu XP mỗi ngày giờ nằm ở trang Hôm nay của workspace,
+          nơi nó có ngữ cảnh workspace để ghi vào DB. */}
 
       {/* Danger zone */}
       <div className="surface p-5 border-destructive/30">
@@ -163,23 +65,9 @@ export function SettingsForm() {
         <p className="text-xs text-muted-foreground mt-0.5">
           Reset is irreversible — you&apos;ll lose all assessments + XP for the workspace.
         </p>
-        <div className="mt-3 flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (window.confirm('Clear local preferences?')) {
-                ['pref:sound', 'pref:reduced-motion', 'pref:daily-goal', 'pref:lang'].forEach((k) =>
-                  localStorage.removeItem(k),
-                );
-                toast.success('Preferences cleared');
-                window.location.reload();
-              }
-            }}
-          >
-            Clear preferences
-          </Button>
-        </div>
+        {/* Nút "Clear preferences" đã gỡ cùng với 4 key `pref:*`: không còn
+            key nào để xoá, và một nút xoá thứ không tồn tại thì chỉ làm người
+            dùng tưởng mình vừa đặt lại được cái gì đó. */}
       </div>
     </div>
   );

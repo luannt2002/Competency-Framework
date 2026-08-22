@@ -12,6 +12,7 @@ import { getOrGenerateDailyPlan } from '@/actions/daily-planner';
 import { resolveTaskTargets } from '@/lib/learn/task-links';
 import { TodayFocus } from '@/components/daily/today-focus';
 import { DailyQuickAdd } from '@/components/learn/daily-quick-add';
+import { DailyGoalPicker } from '@/components/learn/daily-goal-picker';
 import { StatChip } from '@/components/learn/stat-chip';
 import { cn } from '@/lib/utils';
 
@@ -122,6 +123,7 @@ export default async function DailyPage({
             aria-label={`${goalPct}% of daily goal`}
           />
         </div>
+        <DailyGoalPicker workspaceSlug={slug} currentGoal={view.dailyGoalXp} />
         {goalPct >= 100 && (
           <p className="text-xs text-emerald-500 flex items-center gap-1">
             <Sparkles className="size-3" />

@@ -19,6 +19,28 @@ export const XP = {
 } as const;
 
 /**
+ * Các mốc mục tiêu XP mỗi ngày mà người học chọn được.
+ *
+ * Ở đây chứ không nằm trong component: `guard-no-hardcode` coi mọi con số
+ * nghiệp vụ rải trong `src/components` là lỗi, và nó đúng — bốn con số này
+ * phải khớp với `dailyGoalXp` mà `updatePlannerSettings` nhận (min 10, max
+ * 1000) lẫn với mặc định 60 dùng khi chưa có dòng cài đặt nào.
+ *
+ * Không đặt trong `actions/daily-planner.ts` được: file đó mang `'use server'`,
+ * mà file `'use server'` chỉ được export hàm async — export một hằng số ở đó là
+ * lỗi build.
+ */
+export const DAILY_GOAL_PRESETS = [
+  { xp: 30, label: 'Light' },
+  { xp: 60, label: 'Casual' },
+  { xp: 120, label: 'Regular' },
+  { xp: 300, label: 'Intense' },
+] as const;
+
+/** Mục tiêu mặc định khi người dùng chưa từng đặt. */
+export const DAILY_GOAL_DEFAULT_XP = 60;
+
+/**
  * XP for completing a roadmap tree node, keyed by how much of the tree the
  * node represents (USER_FLOWS.md → Flow F "Kiếm XP"):
  *

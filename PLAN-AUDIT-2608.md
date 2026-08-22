@@ -98,11 +98,31 @@ Không payload nào thoát ra ngoài. **Phát hiện này đã sống sót qua v
 
 ---
 
-## Đợt 5 — FE: nút hứa việc không làm
+## Đợt 5 — FE: nút hứa việc không làm ✅ XONG
 
-`/settings` có 4 tuỳ chọn chỉ ghi `localStorage` mà **không ai đọc**. "Daily XP goal" không hề đổi mục tiêu ở trang Hôm nay.
+User chọn: **gỡ 3, nối 1 vào bản thật.**
 
-**Quyết định sản phẩm, cần user chọn:** nối dây thật, hay gỡ khỏi giao diện. Giữ nguyên là tệ nhất — người dùng chỉnh xong tưởng đã đổi.
+Đo trước khi làm cho ra bức tranh nặng hơn báo cáo audit:
+
+| Thành phần | Trạng thái trước |
+|---|---|
+| `pref:sound` / `pref:reduced-motion` / `pref:lang` | ghi localStorage, **0 nơi đọc**, không có tính năng phía sau |
+| `pref:daily-goal` | ghi localStorage, **0 nơi đọc** |
+| `user_planner_settings.dailyGoalXp` | ✅ có trong DB, khoá theo (workspace, user) |
+| `updatePlannerSettings(...)` | ✅ action hoàn chỉnh, đã validate (min 10, max 1000) |
+| UI gọi action đó | ❌ **không có nơi nào** |
+| `/daily` | chỉ **hiện** mục tiêu, không có nút đổi |
+
+Tức mục tiêu XP của **mọi người dùng** kẹt vĩnh viễn ở mặc định 60: có nút bấm thì nút không nối vào đâu, có đường thật thì đường không có nút.
+
+**Đã làm:**
+- Gỡ sound / reduced-motion / language khỏi `/settings`, gỡ luôn nút "Clear preferences" (không còn key nào để xoá).
+- Dựng `DailyGoalPicker` đặt ở `/w/[slug]/daily` — **không** ở `/settings`, vì bảng khoá theo (workspace, user) mà `/settings` là trang toàn cục nên không có workspace để ghi vào.
+- Mốc XP chuyển vào `lib/learn/xp-rules.ts` (`DAILY_GOAL_PRESETS`). Không đặt trong `actions/daily-planner.ts` được: file `'use server'` chỉ được export hàm async.
+
+**Guard bắt lỗi của chính bản vá:** `guard-no-hardcode` chặn 4 con số XP viết thẳng trong component. Không thêm dòng miễn trừ — chuyển sang `xp-rules.ts` là chỗ đúng.
+
+**Chứng minh:** 6 test, gỡ bản vá ra thì **5/6 đỏ** (cả nhánh gỡ lẫn nhánh nối). Kiểm live `/daily`: 4 nút `aria-pressed` render đủ nhãn.
 
 ---
 

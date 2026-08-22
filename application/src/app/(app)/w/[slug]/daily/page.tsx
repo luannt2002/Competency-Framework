@@ -7,7 +7,7 @@
  */
 import Link from 'next/link';
 import { Calendar, Clock, Sparkles, Target, Zap, ListChecks, ArrowRight } from 'lucide-react';
-import { requireWorkspaceAccess } from '@/lib/workspace';
+import { requireWorkspacePage } from '@/lib/workspace';
 import { getOrGenerateDailyPlan } from '@/actions/daily-planner';
 import { resolveTaskTargets } from '@/lib/learn/task-links';
 import { TodayFocus } from '@/components/daily/today-focus';
@@ -21,7 +21,7 @@ export default async function DailyPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const ws = await requireWorkspaceAccess(slug);
+  const ws = await requireWorkspacePage(slug);
   const view = await getOrGenerateDailyPlan(ws.slug);
 
   const goalPct = view.dailyGoalXp > 0

@@ -7,7 +7,7 @@
  * Auth: enforced by (app)/layout.tsx → requireUser().
  */
 import { notFound } from 'next/navigation';
-import { requireWorkspaceAccess } from '@/lib/workspace';
+import { requireWorkspacePage } from '@/lib/workspace';
 import { MarkdownRenderer } from '@/components/learn/markdown-renderer';
 import { NodeToc } from '@/components/learn/node-toc';
 import { parseHeadings } from '@/lib/learn/parse-headings';
@@ -35,7 +35,7 @@ export default async function NodeDetailPage({
   params: Promise<{ slug: string; nodeSlug: string }>;
 }) {
   const { slug, nodeSlug } = await params;
-  const ws = await requireWorkspaceAccess(slug);
+  const ws = await requireWorkspacePage(slug);
   const user = await requireUser();
 
   const result = await getNodeBySlug(ws.id, user.id, nodeSlug);
@@ -108,6 +108,11 @@ export default async function NodeDetailPage({
               ownStatus: (ownProgress?.status ?? 'todo') as 'todo' | 'doing' | 'done',
               evidenceUrls,
             }}
+            // Cấp quyền THẬT của người xem, lấy từ resolver — không đoán ở
+            // client. `createTreeNode`/`updateTreeNode`/`moveTreeNode` đòi
+            // EDITOR, `deleteTreeNode` đòi OWNER; bảng nút phải nói đúng như vậy.
+            canEdit={ws.level >= RBAC_LEVELS.EDITOR}
+            canDelete={ws.level >= RBAC_LEVELS.OWNER}
           />
         }
       />
@@ -172,8 +177,11 @@ export default async function NodeDetailPage({
 
         {children.length === 0 ? (
           <div className="surface p-8 text-center text-sm text-muted-foreground border-dashed border-hue-1/30 bg-hue-1/5">
+            {/* Đừng bảo người học bấm một nút họ không được phép thấy. */}
             <p className="mb-3">
-              Chưa có node con trong &quot;{node.title}&quot;. Click &quot;Thêm con&quot; ở trên để bắt đầu.
+              {ws.level >= RBAC_LEVELS.EDITOR
+                ? `Chưa có mục con trong "${node.title}". Bấm "Thêm con" ở trên để bắt đầu.`
+                : `Chưa có mục con trong "${node.title}".`}
             </p>
           </div>
         ) : (

@@ -11,7 +11,7 @@ import { xpEvents, streaks as streaksT } from '@/lib/db/schema';
 import { readHearts } from '@/lib/gamification/hearts';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { getEffectiveLevel } from '@/lib/rbac/server';
-import { requireWorkspaceAccess, listMyWorkspaces } from '@/lib/workspace';
+import { requireWorkspacePage, listMyWorkspaces } from '@/lib/workspace';
 import { workspaceAccentStyle } from '@/lib/theme/workspace-theme';
 
 export default async function WorkspaceLayout({
@@ -22,7 +22,7 @@ export default async function WorkspaceLayout({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const ws = await requireWorkspaceAccess(slug);
+  const ws = await requireWorkspacePage(slug);
   const user = await requireUser();
 
   // Start of today (UTC) — MVP good enough.

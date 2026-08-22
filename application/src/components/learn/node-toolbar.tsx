@@ -70,9 +70,21 @@ type Props = {
     /** Evidence URLs already attached to this node by the current learner. */
     evidenceUrls?: string[];
   };
+  /**
+   * Người xem có được SỬA cấu trúc cây không (EDITOR trở lên).
+   *
+   * Bắt buộc truyền từ trang, không đoán ở client. Trước đây toolbar render đủ
+   * nút cho mọi người: đo bằng cookie vai learner (cấp 20) → trang node 200 và
+   * hiện đủ Thêm con / Lên / Xuống / Sửa / Xoá; bấm vào mới nhận toast
+   * `WORKSPACE_NOT_FOUND_OR_FORBIDDEN`. Server chặn đúng, nhưng UI hứa một việc
+   * nó không cho làm — và người học không hiểu vì sao mình bị từ chối.
+   */
+  canEdit: boolean;
+  /** Xoá là hành động phá huỷ — OWNER trở lên (`deleteTreeNode` đòi OWNER). */
+  canDelete: boolean;
 };
 
-export function NodeToolbar({ workspaceSlug, node }: Props) {
+export function NodeToolbar({ workspaceSlug, node, canEdit, canDelete }: Props) {
   const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -236,41 +248,56 @@ export function NodeToolbar({ workspaceSlug, node }: Props) {
           {isDone ? 'Bỏ done' : 'Đánh dấu xong'}
           {pending && <Loader2 className="size-3 animate-spin opacity-70" />}
         </Button>
-        <Button onClick={() => setAddOpen(true)} variant="outline" size="sm">
-          <Plus className="size-3" />
-          Thêm con
-        </Button>
-        <Button onClick={() => onMove('up')} disabled={pending} variant="outline" size="sm" aria-label="Chuyển lên">
-          <ArrowUp className="size-3" />
-          Lên
-        </Button>
-        <Button onClick={() => onMove('down')} disabled={pending} variant="outline" size="sm" aria-label="Chuyển xuống">
-          <ArrowDown className="size-3" />
-          Xuống
-        </Button>
-        <Button onClick={() => setEditOpen(true)} variant="outline" size="sm">
-          <Pencil className="size-3" />
-          Sửa
-        </Button>
-        <Button onClick={onDelete} disabled={pending} variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-          <Trash2 className="size-3" />
-          Xoá
-        </Button>
+        {/* Nút không đủ quyền KHÔNG vào DOM — không giấu bằng CSS, không
+            `disabled`. Người học không cần biết có những nút này tồn tại. */}
+        {canEdit && (
+          <>
+            <Button onClick={() => setAddOpen(true)} variant="outline" size="sm">
+              <Plus className="size-3" />
+              Thêm con
+            </Button>
+            <Button onClick={() => onMove('up')} disabled={pending} variant="outline" size="sm" aria-label="Chuyển lên">
+              <ArrowUp className="size-3" />
+              Lên
+            </Button>
+            <Button onClick={() => onMove('down')} disabled={pending} variant="outline" size="sm" aria-label="Chuyển xuống">
+              <ArrowDown className="size-3" />
+              Xuống
+            </Button>
+            <Button onClick={() => setEditOpen(true)} variant="outline" size="sm">
+              <Pencil className="size-3" />
+              Sửa
+            </Button>
+          </>
+        )}
+        {canDelete && (
+          <Button onClick={onDelete} disabled={pending} variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+            <Trash2 className="size-3" />
+            Xoá
+          </Button>
+        )}
       </div>
 
-      <AddChildDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        workspaceSlug={workspaceSlug}
-        parentId={node.id}
-        parentTitle={node.title}
-      />
-      <EditDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        workspaceSlug={workspaceSlug}
-        node={node}
-      />
+      {/* Chỉ dựng hộp thoại sửa cấu trúc khi có quyền. `EvidenceDialog` thì
+          KHÔNG gate: gắn bằng chứng là việc của người học, không phải của
+          người biên tập. */}
+      {canEdit && (
+        <>
+          <AddChildDialog
+            open={addOpen}
+            onOpenChange={setAddOpen}
+            workspaceSlug={workspaceSlug}
+            parentId={node.id}
+            parentTitle={node.title}
+          />
+          <EditDialog
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            workspaceSlug={workspaceSlug}
+            node={node}
+          />
+        </>
+      )}
       <EvidenceDialog
         open={evidenceOpen}
         onOpenChange={setEvidenceOpen}

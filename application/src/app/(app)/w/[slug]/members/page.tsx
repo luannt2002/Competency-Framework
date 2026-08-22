@@ -10,15 +10,15 @@
  * `docs/dev/RBAC_PERMISSIONS.md`.
  */
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+
 import { and, desc, eq } from 'drizzle-orm';
 import { Users, Award, MailQuestion } from 'lucide-react';
 import { db } from '@/lib/db/client';
-import { workspaces, workspaceMembers } from '@/lib/db/schema';
+import { workspaceMembers } from '@/lib/db/schema';
 import { workspaceInvites } from '@/lib/db/schema-invites';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, RBACError } from '@/lib/rbac/server';
+
 import { StatChip } from '@/components/learn/stat-chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InviteMemberDialog } from '@/components/admin/invite-member-dialog';
@@ -28,6 +28,7 @@ import { BulkInviteCsv } from '@/components/admin/bulk-invite-csv';
 import { CopyButton } from '@/components/ui/copy-button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { formatDateTimeVN } from '@/lib/format-date';
+import { requireAdminPage } from '@/lib/workspace';
 
 /** Render a UUID as `aaaa…zzzz` (first/last 4 chars). */
 function shortId(id: string): string {
@@ -64,26 +65,8 @@ export default async function MembersPage({
   const user = await requireUser();
 
   // Resolve workspace by slug (no owner check — RBAC guard below handles it).
-  const wsRows = await db
-    .select({
-      id: workspaces.id,
-      slug: workspaces.slug,
-      name: workspaces.name,
-      ownerUserId: workspaces.ownerUserId,
-    })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = wsRows[0];
-  if (!ws) redirect('/');
-
-  // OWNER-only — non-owners get redirected (not 404).
-  try {
-    await requireMinLevel(ws.id, RBAC_LEVELS.OWNER);
-  } catch (err) {
-    if (err instanceof RBACError) redirect(`/w/${ws.slug}`);
-    throw err;
-  }
+  // Một cửa duy nhất cho trang quản trị — xem lib/workspace.ts.
+  const ws = await requireAdminPage(slug, RBAC_LEVELS.OWNER);
 
   const members = await db
     .select()

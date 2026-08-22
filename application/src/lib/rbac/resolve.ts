@@ -26,6 +26,10 @@ export type ResolvedWorkspace = {
   name: string;
   ownerUserId: string | null;
   visibility: 'private' | 'public-readonly' | null;
+  /** Emoji do chủ workspace chọn (có thể trống). */
+  icon: string | null;
+  /** Màu nhấn do chủ workspace chọn — chỉ nhận giá trị trong bảng màu. */
+  color: string | null;
 };
 
 export type ResolvedContext = {
@@ -47,6 +51,11 @@ export async function resolveWorkspace(
       name: workspaces.name,
       ownerUserId: workspaces.ownerUserId,
       visibility: workspaces.visibility,
+      // icon/color để vỏ workspace tô theo chủ đề riêng — trước đây chỉ
+      // `requireWorkspaceAccess` lấy hai cột này, nên gộp hai resolver thì
+      // resolver chuẩn phải biết chúng.
+      icon: workspaces.icon,
+      color: workspaces.color,
     })
     .from(workspaces)
     .where(eq(workspaces.slug, slug))

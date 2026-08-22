@@ -7,17 +7,18 @@
  *
  * Non-owners are redirected to /w/[slug]. See `src/lib/rbac/server.ts`.
  */
-import { redirect } from 'next/navigation';
+
 import { desc, eq, count } from 'drizzle-orm';
 import { ShieldCheck, ListChecks } from 'lucide-react';
 import { db } from '@/lib/db/client';
-import { workspaces, auditLog } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
+import { auditLog } from '@/lib/db/schema';
+
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, RBACError } from '@/lib/rbac/server';
+
 import { StatChip } from '@/components/learn/stat-chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { AuditRow, type AuditRowData } from '@/components/admin/audit-row';
+import { requireAdminPage } from '@/lib/workspace';
 
 export default async function AuditPage({
   params,
@@ -25,22 +26,9 @@ export default async function AuditPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  await requireUser();
 
-  const wsRows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug, name: workspaces.name })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = wsRows[0];
-  if (!ws) redirect('/');
-
-  try {
-    await requireMinLevel(ws.id, RBAC_LEVELS.OWNER);
-  } catch (err) {
-    if (err instanceof RBACError) redirect(`/w/${ws.slug}`);
-    throw err;
-  }
+  // Một cửa duy nhất cho trang quản trị — xem lib/workspace.ts.
+  const ws = await requireAdminPage(slug, RBAC_LEVELS.OWNER);
 
   const [rows, totalRows] = await Promise.all([
     db

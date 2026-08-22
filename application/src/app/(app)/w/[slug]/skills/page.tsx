@@ -5,7 +5,7 @@
 import { eq, and, asc } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { skills, skillCategories, userSkillProgress, competencyLevels } from '@/lib/db/schema';
-import { requireWorkspaceAccess } from '@/lib/workspace';
+import { requireWorkspacePage } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { getEffectiveLevel } from '@/lib/rbac/server';
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
@@ -19,7 +19,7 @@ import { StatChip } from '@/components/learn/stat-chip';
 
 export default async function SkillsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const ws = await requireWorkspaceAccess(slug);
+  const ws = await requireWorkspacePage(slug);
   const user = await requireUser();
 
   // Skills + category + user progress (parallel queries via Promise.all)

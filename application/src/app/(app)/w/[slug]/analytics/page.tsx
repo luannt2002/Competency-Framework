@@ -12,8 +12,7 @@
  * (giống /roster, /audit, /members).
  */
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { eq } from 'drizzle-orm';
+
 import {
   BarChart3,
   Users,
@@ -23,11 +22,9 @@ import {
   ArrowRight,
   Grid3x3,
 } from 'lucide-react';
-import { db } from '@/lib/db/client';
-import { workspaces } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
+
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, RBACError } from '@/lib/rbac/server';
+
 import { StatChip } from '@/components/learn/stat-chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
@@ -37,6 +34,7 @@ import {
   getWorkspaceNodeMeta,
 } from '@/lib/analytics/queries';
 import { buildBreadcrumb, stuckScore, formatIdleDays } from '@/lib/analytics/metrics';
+import { requireAdminPage } from '@/lib/workspace';
 
 const TOP_STUCK_LIMIT = 10;
 
@@ -46,22 +44,9 @@ export default async function AnalyticsPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  await requireUser();
 
-  const wsRows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug, name: workspaces.name })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = wsRows[0];
-  if (!ws) redirect('/');
-
-  try {
-    await requireMinLevel(ws.id, RBAC_LEVELS.EDITOR);
-  } catch (err) {
-    if (err instanceof RBACError) redirect(`/w/${ws.slug}`);
-    throw err;
-  }
+  // Một cửa duy nhất cho trang quản trị — xem lib/workspace.ts.
+  const ws = await requireAdminPage(slug, RBAC_LEVELS.EDITOR);
 
   // Tất cả aggregate chạy song song; node meta dùng chung cho breadcrumb.
   const [overview, stuckByNode, skillRows, nodeMetas] = await Promise.all([

@@ -7,17 +7,18 @@
  * Server actions in src/actions/badges.ts enforce the same level, so a direct
  * action call cannot bypass this page's guard.
  */
-import { redirect } from 'next/navigation';
+
 import { asc, count, eq } from 'drizzle-orm';
 import { Medal } from 'lucide-react';
 import { db } from '@/lib/db/client';
-import { workspaces, userBadges } from '@/lib/db/schema';
+import { userBadges } from '@/lib/db/schema';
 import { badgesAdmin } from '@/lib/db/schema-badges';
-import { requireUser } from '@/lib/auth/supabase-server';
+
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, RBACError } from '@/lib/rbac/server';
+
 import { StatChip } from '@/components/learn/stat-chip';
 import { BadgeManager, type BadgeRow } from '@/components/admin/badge-manager';
+import { requireAdminPage } from '@/lib/workspace';
 
 export default async function BadgesPage({
   params,
@@ -25,23 +26,9 @@ export default async function BadgesPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  await requireUser();
 
-  const wsRows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug, name: workspaces.name })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = wsRows[0];
-  if (!ws) redirect('/');
-
-  // EDITOR+ — below-editors get redirected to the workspace home.
-  try {
-    await requireMinLevel(ws.id, RBAC_LEVELS.EDITOR);
-  } catch (err) {
-    if (err instanceof RBACError) redirect(`/w/${ws.slug}`);
-    throw err;
-  }
+  // Một cửa duy nhất cho trang quản trị — xem lib/workspace.ts.
+  const ws = await requireAdminPage(slug, RBAC_LEVELS.EDITOR);
 
   // One query: badges + how many learners earned each (left join + group).
   const rows = await db

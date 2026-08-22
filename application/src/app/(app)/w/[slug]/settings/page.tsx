@@ -15,7 +15,7 @@
  * members + audit pages so all three behave consistently.
  */
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+
 import { eq } from 'drizzle-orm';
 import {
   SlidersHorizontal,
@@ -25,10 +25,10 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { db } from '@/lib/db/client';
-import { workspaces, competencyLevels, skillCategories } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
+import { competencyLevels, skillCategories } from '@/lib/db/schema';
+
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, RBACError } from '@/lib/rbac/server';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { RenameWorkspaceForm } from '@/components/admin/rename-workspace-form';
 import { VisibilityToggle } from '@/components/admin/visibility-toggle';
@@ -40,6 +40,7 @@ import { CategoryColorEditor } from '@/components/admin/category-color-editor';
 import { NODE_TYPE_LIST } from '@/components/learn/node-card';
 import { getNodeTypeOverrides } from '@/lib/theme/node-type-queries';
 import type { VisibilityValue } from '@/actions/workspace-admin';
+import { requireAdminPage } from '@/lib/workspace';
 
 export default async function WorkspaceSettingsPage({
   params,
@@ -47,29 +48,9 @@ export default async function WorkspaceSettingsPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  await requireUser();
 
-  const wsRows = await db
-    .select({
-      id: workspaces.id,
-      slug: workspaces.slug,
-      name: workspaces.name,
-      visibility: workspaces.visibility,
-      icon: workspaces.icon,
-      color: workspaces.color,
-    })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = wsRows[0];
-  if (!ws) redirect('/');
-
-  try {
-    await requireMinLevel(ws.id, RBAC_LEVELS.OWNER);
-  } catch (err) {
-    if (err instanceof RBACError) redirect(`/w/${ws.slug}`);
-    throw err;
-  }
+  // Một cửa duy nhất cho trang quản trị — xem lib/workspace.ts.
+  const ws = await requireAdminPage(slug, RBAC_LEVELS.OWNER);
 
   // Map DB enum → UI value.
   const uiVisibility: VisibilityValue = ws.visibility === 'public-readonly' ? 'public' : 'private';

@@ -2,15 +2,13 @@
  * /w/[slug]/import — Framework import wizard (OWNER-only).
  * Paste a PHASE markdown file → phase + weeks tree nodes.
  */
-import { redirect } from 'next/navigation';
-import { eq } from 'drizzle-orm';
+
 import { FileUp } from 'lucide-react';
-import { db } from '@/lib/db/client';
-import { workspaces } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
+
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, RBACError } from '@/lib/rbac/server';
+
 import { ImportWizard } from '@/components/admin/import-wizard';
+import { requireAdminPage } from '@/lib/workspace';
 
 export default async function ImportPage({
   params,
@@ -18,20 +16,8 @@ export default async function ImportPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  await requireUser();
-  const rows = await db
-    .select({ id: workspaces.id, slug: workspaces.slug })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = rows[0];
-  if (!ws) redirect('/');
-  try {
-    await requireMinLevel(ws.id, RBAC_LEVELS.OWNER);
-  } catch (err) {
-    if (err instanceof RBACError) redirect(`/w/${ws.slug}`);
-    throw err;
-  }
+  // Một cửa duy nhất cho trang quản trị — xem lib/workspace.ts.
+  const ws = await requireAdminPage(slug, RBAC_LEVELS.OWNER);
 
   return (
     <div className="mx-auto max-w-3xl p-6 md:p-10 space-y-6">

@@ -24,26 +24,20 @@
  *
  * Per-member breakdown is opened via the client-side `RosterRow` (drawer).
  */
-import { redirect } from 'next/navigation';
+
 import { eq, asc, sql as dsql, and, inArray } from 'drizzle-orm';
 import { Users, ClipboardList, Trophy, Activity } from 'lucide-react';
 import { db } from '@/lib/db/client';
-import {
-  workspaces,
-  workspaceMembers,
-  roadmapTreeNodes,
-  userNodeProgress,
-  streaks,
-  activityLog,
-} from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/supabase-server';
+import { workspaceMembers, roadmapTreeNodes, userNodeProgress, streaks, activityLog } from '@/lib/db/schema';
+
 import { RBAC_LEVELS } from '@/lib/rbac/levels';
-import { requireMinLevel, RBACError } from '@/lib/rbac/server';
+
 import { StatChip } from '@/components/learn/stat-chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { RosterTable, type RosterMemberData, type RosterPhaseColumn } from '@/components/admin/roster-table';
 import { RosterExportButton } from '@/components/admin/roster-export-button';
 import { getUsersDisplay, shortId } from '@/lib/auth/user-display';
+import { requireAdminPage } from '@/lib/workspace';
 
 /** Số ngày (UTC, làm tròn xuống) từ `d` đến `now`. */
 function daysSinceUTC(d: Date, now = new Date()): number {
@@ -56,28 +50,9 @@ export default async function RosterPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {  const { slug } = await params;
-  await requireUser();
 
-  const wsRows = await db
-    .select({
-      id: workspaces.id,
-      slug: workspaces.slug,
-      name: workspaces.name,
-      ownerUserId: workspaces.ownerUserId,
-    })
-    .from(workspaces)
-    .where(eq(workspaces.slug, slug))
-    .limit(1);
-  const ws = wsRows[0];
-  if (!ws) redirect('/');
-
-  // EDITOR+ (level >= 60) can view.
-  try {
-    await requireMinLevel(ws.id, RBAC_LEVELS.EDITOR);
-  } catch (err) {
-    if (err instanceof RBACError) redirect(`/w/${ws.slug}`);
-    throw err;
-  }
+  // Một cửa duy nhất cho trang quản trị — xem lib/workspace.ts.
+  const ws = await requireAdminPage(slug, RBAC_LEVELS.EDITOR);
 
   // 1. Phases (top-level nodes), LIMIT 6.
   const phaseRows = await db

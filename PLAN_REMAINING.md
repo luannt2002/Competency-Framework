@@ -67,11 +67,11 @@ Cạn hàng đợi = xong. Không tự đẻ thêm việc ngoài file này.
 Hai resolver song song: `lib/workspace.ts:38-62` (`requireWorkspaceAccess`, ghim
 cứng LEARNER, **không trả cấp quyền thật**) và `lib/rbac/resolve.ts:38-63`.
 
-- [ ] **Q9** Gộp `requireWorkspaceAccess` → gọi `resolveWorkspace(slug, LEARNER)`, trả kèm `ctx.level`.
-- [ ] **Q10** `node-toolbar.tsx:234-253` nhận `canEdit`/`canDelete`. Bằng chứng lỗi: cookie learner (level 20) → trang node 200 và **hiện đủ nút Thêm con/Lên/Xuống/Sửa/Xoá**, bấm mới nhận `WORKSPACE_NOT_FOUND_OR_FORBIDDEN`.
-- [ ] **Q11** `n/[nodeSlug]/page.tsx:176` empty state bảo learner bấm nút họ không được phép.
-- [ ] **Q12** Viewer gặp **500** thay vì màn từ chối; HTML nhúng nguyên mã lỗi + đường dẫn tuyệt đối. `throw` → `notFound()` ở `workspace.ts:54,59` và `resolve.ts:55,60`.
-- [ ] **Q13** 8 trang tự query `workspaces` + `requireMinLevel` thay vì `resolveWorkspace` (analytics/audit/badges/certificate/import/members/roster/settings — chỉ 3 trang dùng đúng).
+- [x] **Q9** ✅ `requireWorkspaceAccess` nay là lớp mỏng bọc `resolveWorkspace`, trả kèm `level` + `role`. Một resolver duy nhất, 11 call-site không phải sửa — Gộp `requireWorkspaceAccess` → gọi `resolveWorkspace(slug, LEARNER)`, trả kèm `ctx.level`.
+- [x] **Q10** ✅ toolbar nhận `canEdit`/`canDelete`, nút không đủ quyền **không vào DOM**. Đo runtime: OWNER thấy đủ · EDITOR có Sửa nhưng **không có Xoá** (xoá đòi OWNER) · LEARNER chỉ còn nút tiến độ của chính mình — `node-toolbar.tsx:234-253` nhận `canEdit`/`canDelete`. Bằng chứng lỗi: cookie learner (level 20) → trang node 200 và **hiện đủ nút Thêm con/Lên/Xuống/Sửa/Xoá**, bấm mới nhận `WORKSPACE_NOT_FOUND_OR_FORBIDDEN`.
+- [x] **Q11** ✅ empty state chỉ mời bấm "Thêm con" khi người xem thật sự có quyền — `n/[nodeSlug]/page.tsx:176` empty state bảo learner bấm nút họ không được phép.
+- [x] **Q12** ✅ thêm `requireWorkspacePage` → 404 thay vì 500. Đo: viewer/người lạ/slug-không-tồn-tại đều **500 → 404**, và `WORKSPACE_NOT_FOUND_OR_FORBIDDEN` xuất hiện **0 lần** trong HTML. Error boundary bỏ in `error.message`, chỉ giữ `digest` — Viewer gặp **500** thay vì màn từ chối; HTML nhúng nguyên mã lỗi + đường dẫn tuyệt đối. `throw` → `notFound()` ở `workspace.ts:54,59` và `resolve.ts:55,60`.
+- [x] **Q13** ✅ `requireAdminPage(slug, level)` thay 7 bản sao khối gác. Bịt luôn một rò rỉ: người ngoài trước đây bị redirect `/w/<slug>` rồi mới 404 — chặng đầu xác nhận slug tồn tại; nay 404 ngay. Ma trận runtime 7 trang × 4 vai đúng hết — 8 trang tự query `workspaces` + `requireMinLevel` thay vì `resolveWorkspace` (analytics/audit/badges/certificate/import/members/roster/settings — chỉ 3 trang dùng đúng).
 
 ### 3.3 — Số liệu đang sai (sửa trước khi làm đẹp)
 
@@ -202,6 +202,7 @@ thuộc `postgres` — **chủ bảng đọc xuyên mọi policy** nên đây l�
 | Ngày | Cụm | Kết quả |
 |---|---|---|
 | 2026-08-22 | — | Hàng đợi lập: **96 mục**. Bắt đầu từ Q1. |
+| 2026-08-22 | Q9–Q13 | **14 mục xong.** Gộp hai resolver song song — gốc rễ của việc learner thấy nút Sửa/Xoá. Ma trận quyền 7 trang × 4 vai đo runtime, đúng hết. |
 | 2026-08-22 | Q5, Q20 | **9 mục xong.** Test 413 → **423**. Hàng đợi duyệt bằng chứng chạy thật; ngày giờ hết render kiểu Mỹ. |
 | 2026-08-22 | Q1–Q4, Q6–Q8 | **7 mục xong.** Test 400 → **413**. Đo runtime theo vai: editor không còn thấy link vào trang OWNER, và 4 trang EDITOR đều vào được thật. |
 

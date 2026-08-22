@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { sum, eq, and, count } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { xpEvents, streaks as streaksT, hearts as heartsT, roadmapTreeNodes, userNodeProgress } from '@/lib/db/schema';
-import { requireWorkspaceAccess } from '@/lib/workspace';
+import { requireWorkspacePage } from '@/lib/workspace';
 import { requireUser } from '@/lib/auth/supabase-server';
 import { getRootNodes, getTreeSections, getLastInProgressNode } from '@/lib/tree/queries';
 import { VerticalRoadmap, RoadmapHero, RoadmapLegend } from '@/components/learn/vertical-roadmap';
@@ -39,7 +39,7 @@ import { NoNodesIllustration } from '@/components/ui/empty-state-illustrations';
 
 export default async function DashboardPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const ws = await requireWorkspaceAccess(slug);
+  const ws = await requireWorkspacePage(slug);
   const user = await requireUser();
 
   // Fetch root nodes + top-bar stats + last in-progress node in parallel

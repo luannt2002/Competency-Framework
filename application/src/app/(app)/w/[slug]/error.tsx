@@ -3,12 +3,15 @@
 /**
  * Workspace-scoped error boundary.
  *
- * Catches errors under /w/[slug]/* — e.g. missing workspace, RLS denials,
- * query failures inside dashboard/skills/learn/daily routes. Stays scoped so
- * the sidebar + topbar remain rendered.
+ * Bắt lỗi dưới /w/[slug]/* — truy vấn hỏng, render hỏng. Giữ phạm vi hẹp để
+ * sidebar và topbar vẫn còn, người dùng không bị ném ra một trang trắng.
  *
- * The retry card mirrors <RetryUI/> but also offers a secondary "back to my
- * workspaces" escape hatch — useful when the slug itself is the problem.
+ * KHÔNG in `error.message` ra màn hình. Bản cũ in thẳng, nên người xem không
+ * đủ quyền nhận nguyên văn `WORKSPACE_NOT_FOUND_OR_FORBIDDEN` trong HTML —
+ * vừa vô nghĩa với họ, vừa nói cho người ngoài biết cơ chế kiểm quyền tên là
+ * gì. Chỉ giữ `digest`: đủ để tra log, không lộ gì.
+ * (Trường hợp không-đủ-quyền nay ra 404 ở `requireWorkspacePage`, không rơi
+ * vào đây nữa — nhưng ranh giới lỗi vẫn phải kín.)
  */
 import { useEffect } from 'react';
 import Link from 'next/link';
@@ -33,10 +36,10 @@ export default function WorkspaceError({
           <AlertTriangle className="size-6" aria-hidden="true" />
         </div>
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold">Couldn&apos;t load this workspace section</h2>
+          <h2 className="text-lg font-semibold">Không tải được phần này</h2>
           <p className="text-sm text-muted-foreground">
-            {error.message ||
-              'Đã xảy ra lỗi truy vấn hoặc render. Thử lại hoặc quay lại danh sách workspace.'}
+            Đã xảy ra lỗi khi truy vấn hoặc hiển thị. Thử lại, hoặc quay về danh
+            sách workspace của bạn.
           </p>
           {error.digest && (
             <p className="text-[10px] font-mono text-muted-foreground/60 mt-2">
@@ -48,7 +51,7 @@ export default function WorkspaceError({
           <Button variant="outline" asChild>
             <Link href="/profile">
               <ArrowLeft className="size-4" />
-              My workspaces
+              Workspace của tôi
             </Link>
           </Button>
           <Button onClick={reset}>

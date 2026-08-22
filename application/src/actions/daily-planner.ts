@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { eq, and, desc, asc, max as drizzleMax } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
+import { sumXpOnDateVN } from '@/lib/learn/xp-today';
 import { spendHearts, SKIP_HEART_COST } from '@/lib/gamification/hearts';
 import {
   activityLog,
@@ -30,7 +31,6 @@ import {
   userSkillProgress,
   skills,
   streaks,
-  xpEvents,
   userExerciseAttempts,
   exercises,
 } from '@/lib/db/schema';
@@ -151,13 +151,9 @@ async function assembleView(
   const settings = await loadSettings(workspaceId, userId);
   const totalEstMinutes = rows.reduce((sum, r) => sum + (r.estMinutes ?? 0), 0);
 
-  const xpRows = await db
-    .select({ amount: xpEvents.amount, createdAt: xpEvents.createdAt })
-    .from(xpEvents)
-    .where(and(eq(xpEvents.workspaceId, workspaceId), eq(xpEvents.userId, userId)));
-  const xpToday = xpRows
-    .filter((r) => r.createdAt && isoDate(r.createdAt) === planDate)
-    .reduce((sum, r) => sum + (r.amount ?? 0), 0);
+  // Cộng ở DB. Bản cũ kéo TOÀN BỘ lịch sử xp_events về rồi lọc bằng
+  // Array.filter — chi phí tăng theo tuổi tài khoản, mỗi lần mở trang Hôm nay.
+  const xpToday = await sumXpOnDateVN(workspaceId, userId, planDate);
 
   return {
     planDate,
@@ -380,13 +376,7 @@ async function gatherUserContext(workspaceId: string, userId: string): Promise<U
     .where(and(eq(streaks.workspaceId, workspaceId), eq(streaks.userId, userId)))
     .limit(1);
   const streakRow = streakRows[0];
-  const todayXpRows = await db
-    .select({ amount: xpEvents.amount, createdAt: xpEvents.createdAt })
-    .from(xpEvents)
-    .where(and(eq(xpEvents.workspaceId, workspaceId), eq(xpEvents.userId, userId)));
-  const xpToday = todayXpRows
-    .filter((r) => r.createdAt && isoDate(r.createdAt) === today)
-    .reduce((sum, r) => sum + (r.amount ?? 0), 0);
+  const xpToday = await sumXpOnDateVN(workspaceId, userId, today);
 
   const lastActive = streakRow?.lastActiveDate ?? null;
   const lastActiveIso = lastActive ? lastActive : null;

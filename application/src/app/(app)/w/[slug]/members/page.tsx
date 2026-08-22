@@ -27,6 +27,7 @@ import { InviteRowActions } from '@/components/admin/invite-row-actions';
 import { BulkInviteCsv } from '@/components/admin/bulk-invite-csv';
 import { CopyButton } from '@/components/ui/copy-button';
 import { Tooltip } from '@/components/ui/tooltip';
+import { formatDateTimeVN } from '@/lib/format-date';
 
 /** Render a UUID as `aaaa…zzzz` (first/last 4 chars). */
 function shortId(id: string): string {
@@ -36,7 +37,7 @@ function shortId(id: string): string {
 
 function formatDate(d: Date | null | undefined): string {
   if (!d) return '—';
-  return new Date(d).toLocaleString();
+  return formatDateTimeVN(d);
 }
 
 function roleLabel(role: string): string {

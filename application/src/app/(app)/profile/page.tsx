@@ -21,6 +21,7 @@ import { Plus, Trophy, Flame, Zap, BookOpen, CalendarDays, Boxes, ArrowRight } f
 import { ActivityHeatmap, type DailyXp } from '@/components/charts/activity-heatmap';
 import { StatChip } from '@/components/learn/stat-chip';
 import { getLastInProgressNode } from '@/lib/tree/queries';
+import { formatDateVN } from '@/lib/format-date';
 
 export default async function ProfilePage() {
   const user = await requireUser();
@@ -76,7 +77,7 @@ export default async function ProfilePage() {
     .where(eq(userBadges.userId, user.id))
     .orderBy(desc(userBadges.grantedAt));
 
-  const memberSince = new Date(user.created_at ?? Date.now()).toLocaleDateString();
+  const memberSince = formatDateVN(user.created_at ?? Date.now());
 
   // Resume cards — one per workspace that has an in-progress node.
   const resumeCards = (
@@ -200,7 +201,7 @@ export default async function ProfilePage() {
                   <div className="text-3xl mb-2">🏅</div>
                   <div className="text-sm font-semibold truncate text-foreground">{b.name}</div>
                   <div className="text-[10px] text-muted-foreground mt-1 font-mono uppercase tracking-wider">
-                    {b.grantedAt ? new Date(b.grantedAt).toLocaleDateString() : ''}
+                    {b.grantedAt ? formatDateVN(b.grantedAt) : ''}
                   </div>
                 </div>
               ))}

@@ -3,6 +3,7 @@
  */
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { relativeTimeVN } from './format-date';
 
 /** Merge tailwind classes safely. */
 export function cn(...inputs: ClassValue[]) {
@@ -18,18 +19,15 @@ export function toSlug(s: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
-/** Pretty timestamp like "2 min ago". */
+/**
+ * @deprecated Dùng `relativeTimeVN` ở `@/lib/format-date`.
+ *
+ * Bản này trả tiếng Anh ("just now", "5m ago") và kết thúc bằng
+ * `toLocaleDateString()` không truyền locale — cùng một `Date` render khác nhau
+ * giữa server và trình duyệt, gây lệch hydration.
+ */
 export function relativeTime(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const diff = Date.now() - d.getTime();
-  const min = Math.floor(diff / 60_000);
-  if (min < 1) return 'just now';
-  if (min < 60) return `${min}m ago`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h}h ago`;
-  const days = Math.floor(h / 24);
-  if (days < 7) return `${days}d ago`;
-  return d.toLocaleDateString();
+  return relativeTimeVN(date);
 }
 
 /** Clamp a number between min and max. */

@@ -57,7 +57,7 @@ Cạn hàng đợi = xong. Không tự đẻ thêm việc ngoài file này.
 - [x] **Q2** ✅ sidebar có mục "Huy hiệu"; editor vào `/badges` → 200 — `/w/[slug]/badges` route mồ côi — cùng file, thiếu key `badges`. F16 vừa dựng xong, creator không có đường vào.
 - [x] **Q3** ✅ members/audit về OWNER khớp `requireMinLevel` của chính trang; đo runtime: editor **không còn thấy** members/audit/settings, vẫn thấy roster/analytics/grading/badges. Test viết lại + thêm phép kiểm "không route mồ côi" — Sidebar EDITOR dẫn vào `NEXT_REDIRECT` — `admin-nav.ts:12,13` vs `members/page.tsx:81`, `audit/page.tsx:39`. `PHAN_QUYEN.md:95-97` nói Members/Audit là OWNER. ⚠️ `tests/unit/admin-nav.test.ts:11,12` **đang khoá chặt cái sai** — sửa test cùng lúc.
 - [x] **Q4** ✅ tách `parseInviteCsv` ra `src/lib/admin/`, nhận email lẫn UUID, 13 unit test; `shortIdentifier` không cắt email nữa — Bulk CSV chặn email ở client — `bulk-invite-csv.tsx:63` `UUID_RE`. Server chạy được: POST thẳng trả `{"added":0,"invited":1}`.
-- [ ] **Q5** Hàng đợi duyệt bằng chứng — `listEvidenceForSkill` đã mở cho EDITOR+, còn thiếu màn.
+- [x] **Q5** ✅ hàng đợi duyệt bằng chứng nằm cạnh hàng đợi chấm bài trên `/grading` (không dựng route mới để khỏi đẻ thêm route mồ côi). Đo runtime: gieo 2 dòng — đồ của người khác **hiện**, đồ của chính người duyệt **không hiện** (0/1 đúng như thiết kế), đã dọn sạch DB — Hàng đợi duyệt bằng chứng — `listEvidenceForSkill` đã mở cho EDITOR+, còn thiếu màn.
 - [x] **Q6** ✅ link "Mở hồ sơ công khai" trong drawer roster; chuỗi có trong chunk client (drawer render phía client nên không nằm trong HTML SSR) — `/u/[id]` không nơi nào link tới — `grep 'href={`/u/'` = **0**. Thêm "Mở hồ sơ" trong drawer roster.
 - [x] **Q7** ✅ sidebar có `href="/discover"`, đo runtime: CÓ — Không có lối vào `/discover` trong app — chỉ có ở landing + trang 404.
 - [x] **Q8** ✅ `/w/devops-test/certificate` từ **404** → 200 (redirect sang `/certificate/<user.id>`) — `/w/[slug]/certificate` → 404 — thêm `certificate/page.tsx` redirect sang `/certificate/<user.id>`.
@@ -81,7 +81,7 @@ cứng LEARNER, **không trả cấp quyền thật**) và `lib/rbac/resolve.ts:
 - [ ] **Q17** **A3b** `full-tree.ts:45,73-80` `orderBy` chỉ theo `orderIndex`, giả định "con sau cha" ⇒ render "48 mục" trong khi đệ quy cho **159**; "Giai đoạn 1" hiện 15 trong khi thật 46. ⚠️ Nâng `EXPAND_ALL_LIMIT` cùng lúc.
 - [ ] **Q18** `full-tree` chưa có **một** unit test nào — viết cùng Q17.
 - [ ] **Q19** **C5.4** analytics bỏ sót `level_source='both'` ⇒ phân bố **0/0/0** dù có 1 learner; `orderBy count(verified)` cũng sai.
-- [ ] **Q20** 6+ chỗ `toLocaleDateString()` không truyền locale ⇒ "8/20/2026, 11:47:37 AM"; Server Component còn nguy cơ lệch hydration. Helper chung `Intl('vi-VN', Asia/Ho_Chi_Minh)`.
+- [x] **Q20** ✅ tạo `src/lib/format-date.ts` ghim `vi-VN` + `Asia/Ho_Chi_Minh`, thay 8 chỗ `toLocale*` không truyền locale; `relativeTime` cũ uỷ quyền sang bản VN. 9 unit test, có phép kiểm chống lệch hydration (17:30Z = ngày hôm sau theo giờ VN) — 6+ chỗ `toLocaleDateString()` không truyền locale ⇒ "8/20/2026, 11:47:37 AM"; Server Component còn nguy cơ lệch hydration. Helper chung `Intl('vi-VN', Asia/Ho_Chi_Minh)`.
 - [ ] **Q21** `dashboard-rail.tsx:159` `toISOString()` = UTC ⇒ UTC+7 lùi 1 ngày trước 07:00.
 - [ ] **Q22** Sentinel `999` lọt ra UI: "Weak skill (unset) — 999d since last touch" (`daily-planner.ts:330`).
 
@@ -202,6 +202,7 @@ thuộc `postgres` — **chủ bảng đọc xuyên mọi policy** nên đây l�
 | Ngày | Cụm | Kết quả |
 |---|---|---|
 | 2026-08-22 | — | Hàng đợi lập: **96 mục**. Bắt đầu từ Q1. |
+| 2026-08-22 | Q5, Q20 | **9 mục xong.** Test 413 → **423**. Hàng đợi duyệt bằng chứng chạy thật; ngày giờ hết render kiểu Mỹ. |
 | 2026-08-22 | Q1–Q4, Q6–Q8 | **7 mục xong.** Test 400 → **413**. Đo runtime theo vai: editor không còn thấy link vào trang OWNER, và 4 trang EDITOR đều vào được thật. |
 
 ---

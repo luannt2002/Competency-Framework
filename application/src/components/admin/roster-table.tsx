@@ -32,6 +32,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+import { formatDateTimeVN } from '@/lib/format-date';
 
 // Re-exported for backwards compatibility (tests / pages import these from here).
 export { AT_RISK_DAYS, daysSinceISO, formatLastActive };
@@ -244,7 +245,7 @@ export function RosterTable({
                       className="px-3 py-3 text-xs text-muted-foreground"
                       title={
                         m.lastActiveISO
-                          ? `Hoạt động gần nhất: ${new Date(m.lastActiveISO).toLocaleString('vi-VN')}`
+                          ? `Hoạt động gần nhất: ${formatDateTimeVN(m.lastActiveISO)}`
                           : 'Chưa có ghi nhận hoạt động'
                       }
                     >

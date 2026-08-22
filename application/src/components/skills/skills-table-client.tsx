@@ -21,6 +21,7 @@ import { LevelBadge } from '@/components/skills/level-badge';
 import { SkillDrawer, type SkillDrawerData, type LevelCode } from '@/components/skills/skill-drawer';
 import { CrownCount } from '@/components/skills/crown-count';
 import { NEUTRAL_FALLBACK } from '@/lib/constants/palette';
+import { formatDateVN } from '@/lib/format-date';
 
 export type SkillRow = {
   skillId: string;
@@ -337,7 +338,7 @@ export function SkillsTableClient({ workspaceSlug, rows, rubric, canVerify = fal
                     <CrownCount crowns={r.crowns} source={r.levelSource} />
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-muted-foreground text-xs">
-                    {r.updatedAt ? new Date(r.updatedAt).toLocaleDateString() : '—'}
+                    {r.updatedAt ? formatDateVN(r.updatedAt) : '—'}
                   </td>
                 </tr>
               ))}

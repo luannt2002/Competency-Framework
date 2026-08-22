@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { formatDateTimeVN } from '@/lib/format-date';
 
 export type AuditRowData = {
   id: string;
@@ -44,7 +45,7 @@ export function AuditRow({ row }: { row: AuditRowData }) {
     <>
       <tr className="border-t border-border hover:bg-secondary/20">
         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-          {new Date(row.createdAt).toLocaleString()}
+          {formatDateTimeVN(row.createdAt)}
         </td>
         <td
           className="px-4 py-3 text-xs"

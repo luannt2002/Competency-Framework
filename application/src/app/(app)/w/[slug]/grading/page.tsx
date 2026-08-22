@@ -19,6 +19,13 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatChip } from '@/components/learn/stat-chip';
 import { GradingQueue, type GradingItem } from '@/components/exercises/grading-queue';
+import {
+  EvidenceReviewQueue,
+  type EvidenceItem,
+} from '@/components/evidence/evidence-review-queue';
+import { listPendingEvidence, countPendingEvidence } from '@/lib/evidence/review-queue';
+import { getUsersDisplay } from '@/lib/auth/user-display';
+import { formatDateVN } from '@/lib/format-date';
 
 export default async function GradingPage({
   params,
@@ -35,10 +42,28 @@ export default async function GradingPage({
   }
   const { ws } = ctx;
 
-  const [items, total] = await Promise.all([
+  const [items, total, evidence, evidenceTotal] = await Promise.all([
     listPendingAttempts(ws.id, 50),
     countPendingAttempts(ws.id),
+    // Bằng chứng kỹ năng cũng là "thứ đang chờ người có quyền xử lý" — cùng
+    // trang, cùng cấp quyền. `verifyEvidence` có đủ logic từ lâu nhưng chưa có
+    // màn nào nhìn thấy được đồ của NGƯỜI KHÁC (rà D4.7).
+    listPendingEvidence(ws.id, ctx.user.id, 50),
+    countPendingEvidence(ws.id, ctx.user.id),
   ]);
+
+  const evidenceNames = await getUsersDisplay(evidence.map((e) => e.userId));
+  const evidenceData: EvidenceItem[] = evidence.map((e) => ({
+    gradeId: e.gradeId,
+    displayName: evidenceNames.get(e.userId)?.displayName ?? e.userId,
+    skillName: e.skillName,
+    levelCode: e.levelCode,
+    kind: e.kind,
+    score: e.score,
+    evidenceUrl: e.evidenceUrl,
+    note: e.note,
+    createdAtLabel: formatDateVN(e.createdAt),
+  }));
 
   // `listPendingAttempts` already sanitized every payload; only the fields the
   // card renders cross into the client bundle.
@@ -113,6 +138,18 @@ export default async function GradingPage({
       ) : (
         <GradingQueue workspaceSlug={ws.slug} items={data} />
       )}
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border pb-3">
+          <h2 className="text-lg font-semibold tracking-tight">Bằng chứng kỹ năng chờ duyệt</h2>
+          <span className="tag tabular-nums">{evidenceTotal}</span>
+          <p className="w-full text-sm text-muted-foreground sm:w-auto">
+            Duyệt thì kỹ năng chuyển sang <strong>đã xác minh</strong> và người học
+            nhận 30 XP. Không hiện bằng chứng của chính bạn.
+          </p>
+        </div>
+        <EvidenceReviewQueue workspaceSlug={ws.slug} items={evidenceData} />
+      </section>
     </div>
   );
 }

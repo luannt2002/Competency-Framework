@@ -28,20 +28,25 @@ describe('utils', () => {
   });
 
   describe('relativeTime', () => {
-    it('shows "just now" for fresh date', () => {
-      expect(relativeTime(new Date())).toBe('just now');
+    // Hàm này nay uỷ quyền sang `relativeTimeVN` — app khai lang="vi", và bản
+    // cũ kết thúc bằng `toLocaleDateString()` không truyền locale nên cùng một
+    // Date render khác nhau giữa server và trình duyệt (lệch hydration).
+    it('vừa xong', () => {
+      expect(relativeTime(new Date())).toBe('vừa xong');
     });
-    it('shows minutes', () => {
-      const d = new Date(Date.now() - 5 * 60_000);
-      expect(relativeTime(d)).toMatch(/\dm ago/);
+    it('phút', () => {
+      expect(relativeTime(new Date(Date.now() - 5 * 60_000))).toBe('5 phút trước');
     });
-    it('shows hours', () => {
-      const d = new Date(Date.now() - 3 * 3600_000);
-      expect(relativeTime(d)).toMatch(/\dh ago/);
+    it('giờ', () => {
+      expect(relativeTime(new Date(Date.now() - 3 * 3_600_000))).toBe('3 giờ trước');
     });
-    it('shows days', () => {
-      const d = new Date(Date.now() - 3 * 24 * 3600_000);
-      expect(relativeTime(d)).toMatch(/\dd ago/);
+    it('ngày', () => {
+      expect(relativeTime(new Date(Date.now() - 2 * 86_400_000))).toBe('2 ngày trước');
+    });
+    it('quá 7 ngày thì hiện ngày dd/mm/yyyy', () => {
+      expect(relativeTime(new Date(Date.now() - 30 * 86_400_000))).toMatch(
+        /^\d{2}\/\d{2}\/\d{4}$/,
+      );
     });
   });
 });

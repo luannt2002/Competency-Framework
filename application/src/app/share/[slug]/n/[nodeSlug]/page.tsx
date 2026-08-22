@@ -122,8 +122,10 @@ export default async function ShareNodePage({
       className="mx-auto max-w-5xl p-6 md:p-8 space-y-6"
       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
     >
-      {/* Top bar */}
-      <div className="flex items-center justify-between text-xs">
+      {/* Top bar — `flex-wrap` cùng lý do với trang /share/[slug]: hàng flex
+          không wrap là cách phổ biến nhất để làm tràn ngang ở bề rộng nhỏ, và
+          desktop không bao giờ lộ ra. */}
+      <div className="flex flex-wrap items-center justify-between gap-y-2 text-xs">
         <Link
           href={`/share/${slug}`}
           className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
@@ -131,7 +133,7 @@ export default async function ShareNodePage({
           <ArrowLeft className="size-3.5" />
           Quay về roadmap
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="text-muted-foreground font-mono">👀 Chế độ chia sẻ</span>
           <ShareLinkButton />
         </div>

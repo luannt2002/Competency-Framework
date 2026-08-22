@@ -187,8 +187,14 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
       className="mx-auto max-w-5xl px-4 py-10 md:py-16"
       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
     >
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-8 text-xs">
+      {/* Top bar.
+
+          `flex-wrap` ở cả hàng ngoài lẫn nhóm nút bên phải: trên Pixel 7
+          (412px) nhóm nút rộng 449px nên cả trang trôi ngang — đo được
+          scrollWidth=518 > viewport=412. Desktop không lộ vì thừa chỗ.
+          Một hàng flex không có `flex-wrap` là cách phổ biến nhất để làm
+          tràn ngang, và nó chỉ hiện ở bề rộng nhỏ. */}
+      <div className="flex flex-wrap items-center justify-between gap-y-2 mb-8 text-xs">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
@@ -196,7 +202,7 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
           <ArrowLeft className="size-3.5" />
           Trang chủ
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="text-muted-foreground font-mono inline-flex items-center gap-1">
             👀 Read-only · {totalNodes} mục
           </span>

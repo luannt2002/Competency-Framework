@@ -9,7 +9,23 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  /**
+   * Ở máy cá nhân chạy 3 worker, không phải `undefined` (auto = số lõi).
+   *
+   * Đo được: `lesson-runner` chạy RIÊNG với 1 worker xanh 3/3 lần; chạy trong
+   * bộ đầy đủ với worker tự động thì hỏng 2/3 lần, luôn ở bước điều hướng
+   * (`toHaveURL(/practice$/)` hết hạn 5s). Không phải bug sản phẩm — là tranh
+   * chấp: `next dev` compile nhiều route cùng lúc cho các worker khác trong khi
+   * test này chờ một lần điều hướng.
+   *
+   * Cố ý KHÔNG nới timeout và KHÔNG thêm `retries` ở local: cả hai đều giấu
+   * luôn flaky thật lẫn lỗi sản phẩm chậm. Giảm số worker xoá đúng nguyên nhân
+   * đã đo, và vẫn nhanh hơn chạy tuần tự nhiều lần.
+   *
+   * CI giữ 1 worker + 2 retry vì ở đó chạy production build (`pnpm start`),
+   * không có compile on-demand.
+   */
+  workers: process.env.CI ? 1 : 3,
   reporter: 'list',
   use: {
     baseURL: process.env.BASE_URL ?? 'http://localhost:3000',

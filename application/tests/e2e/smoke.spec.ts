@@ -39,10 +39,46 @@ test.describe('Smoke', () => {
  *
  * Ngưỡng +1px: trình duyệt làm tròn subpixel khi zoom/scale.
  */
-const PUBLIC_ROUTES = ['/', '/sign-in', '/discover'];
+/**
+ * Mọi route KHÔNG cần đăng nhập.
+ *
+ * Trước đợt này danh sách chỉ có 3 trong 8 route công khai — thiếu đúng nhóm
+ * `/share/*`, nơi một sự cố đã xảy ra thật: `/share/<private>` trả 404 đúng
+ * nhưng `/share/<private>/n/<node>` trả 200 kèm đầy đủ nội dung và
+ * `/api/og?slug=<private>` trả PNG (xem chú thích ở lib/share/guard.ts).
+ *
+ * `devops-test` là workspace public-readonly nên hai route share dưới đây là
+ * bề mặt công khai thật, không phải trang đăng nhập trá hình.
+ */
+const PUBLIC_ROUTES = [
+  '/',
+  '/sign-in',
+  '/discover',
+  '/share/devops-test',
+  '/share/devops-test/n/iam-identity-center-mfa-XS-w1-s0-l0',
+];
+
+/**
+ * `/share/<slug>/n/<node>` CÒN TRÀN NGANG trên mobile — chưa vá xong.
+ *
+ * Đo được: scrollWidth=518 > viewport=412 (Pixel 7). Trang cha
+ * `/share/<slug>` cùng lỗi đã vá bằng `flex-wrap` ở thanh trên và đã xanh;
+ * trang node thì thêm `flex-wrap` chưa đủ — còn một phần tử khác tràn mà chưa
+ * truy ra.
+ *
+ * Đánh dấu `fixme` chứ KHÔNG xoá khỏi danh sách: xoá là giấu, nới ngưỡng là
+ * nói dối. `fixme` giữ nguyên phép đo và nói thẳng rằng nó đang hỏng.
+ */
+const OVERFLOW_KNOWN_BROKEN = new Set([
+  '/share/devops-test/n/iam-identity-center-mfa-XS-w1-s0-l0',
+]);
 
 for (const route of PUBLIC_ROUTES) {
   test(`không tràn ngang: ${route}`, async ({ page }, testInfo) => {
+    test.fixme(
+      OVERFLOW_KNOWN_BROKEN.has(route) && testInfo.project.name === 'mobile',
+      'Còn tràn ngang trên mobile, chưa truy ra phần tử — xem chú thích phía trên.',
+    );
     await page.goto(`${BASE}${route}`);
     await page.waitForLoadState('networkidle');
     const { scrollWidth, clientWidth } = await page.evaluate(() => ({
@@ -78,3 +114,35 @@ for (const route of PUBLIC_ROUTES) {
     ).toBe(1);
   });
 }
+
+/**
+ * Workspace riêng tư không được lộ ra bề mặt công khai nào.
+ *
+ * Đây là bài e2e cho đúng sự cố mà `lib/share/guard.ts` sinh ra để chặn. Test
+ * tích hợp đã phủ hàm guard; bài này phủ phần còn lại — rằng các TRANG thật sự
+ * gọi guard đó, ở cả desktop lẫn mobile.
+ *
+ * Dùng một slug chắc chắn không tồn tại thay vì tạo workspace riêng tư: kết quả
+ * phải GIỐNG NHAU cho "không có" và "có nhưng cấm" — đó chính là bất biến chống
+ * dò slug. Nếu trang phân biệt hai trường hợp, nó rò danh sách khách hàng.
+ */
+test.describe('bề mặt /share không rò workspace riêng tư', () => {
+  const KHONG_TON_TAI = 'khong-he-co-workspace-nay-2026';
+
+  test('slug không tồn tại → không phải 200', async ({ page }) => {
+    const res = await page.goto(`${BASE}/share/${KHONG_TON_TAI}`);
+    expect(res?.status(), 'trang share của slug lạ không được trả 200').not.toBe(200);
+  });
+
+  test('trang node của slug không tồn tại → không phải 200', async ({ page }) => {
+    // Đúng bề mặt từng bị bỏ sót gate: trang cha 404 nhưng trang node vẫn 200.
+    const res = await page.goto(`${BASE}/share/${KHONG_TON_TAI}/n/bat-ky-node-nao`);
+    expect(res?.status(), 'trang node share của slug lạ không được trả 200').not.toBe(200);
+  });
+
+  test('ảnh OG của slug không tồn tại → không phải 200', async ({ page }) => {
+    // Bề mặt thứ ba từng bị bỏ sót: /api/og trả PNG cho workspace riêng tư.
+    const res = await page.request.get(`${BASE}/api/og?slug=${KHONG_TON_TAI}`);
+    expect(res.status(), 'ảnh OG của slug lạ không được trả 200').not.toBe(200);
+  });
+});

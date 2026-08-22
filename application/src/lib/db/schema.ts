@@ -83,6 +83,8 @@ export const workspaces = pgTable(
     orgId: uuid('org_id').references(() => organizations.id, { onDelete: 'cascade' }),
     slug: text('slug').notNull(),
     name: text('name').notNull(),
+    /** Mô tả ngắn (1–2 câu). Hiện trên /share và thẻ /discover. */
+    description: text('description'),
     icon: text('icon'),
     color: text('color'),
     frameworkTemplateId: uuid('framework_template_id'),

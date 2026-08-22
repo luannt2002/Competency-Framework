@@ -122,7 +122,12 @@ const DEFAULT_OPTIONS: Required<PlannerOptions> = {
 };
 
 /**
- * Generate a daily plan from a user-context snapshot.
+ * Sinh kế hoạch ngày từ ảnh chụp ngữ cảnh người dùng.
+ *
+ * Tiêu đề và mô tả task được GHI VÀO `daily_tasks`, nên viết tiếng Việt ngay
+ * tại đây. Sản phẩm chỉ một ngôn ngữ; dựng tầng khoá-dịch cho một ngôn ngữ là
+ * thêm việc mà không thêm giá trị. Nếu sau này có ngôn ngữ thứ hai thì đổi sang
+ * `titleKey + params` và dịch lúc render — chỗ cần sửa nằm gọn trong file này.
  *
  * Pure function — no IO, deterministic given inputs. Use this from server
  * actions after assembling the {@link UserContext}.
@@ -273,10 +278,10 @@ function makeStreakKeeper(yesterday: { exerciseId: string; promptShort: string }
     kind: 'streak_keeper',
     refKind: 'exercise',
     refId: yesterday.exerciseId,
-    title: 'Keep your streak alive',
+    title: 'Giữ chuỗi ngày học',
     description: yesterday.promptShort
-      ? `Quick replay: ${yesterday.promptShort}`
-      : 'Replay yesterday\'s exercise — light & fast.',
+      ? `Làm lại nhanh: ${yesterday.promptShort}`
+      : 'Làm lại bài hôm qua — nhẹ và nhanh.',
     estMinutes: 3,
   };
 }
@@ -293,7 +298,7 @@ function pickLessonFromWeek(ctx: UserContext): PlannedTaskInput | null {
     refKind: 'lesson',
     refId: pick.id,
     title: pick.title,
-    description: `Continue ${week.title} (week ${week.weekIndex})`,
+    description: `Học tiếp ${week.title} (tuần ${week.weekIndex})`,
     estMinutes: pick.estMinutes,
   };
 }
@@ -312,8 +317,8 @@ function pickLab(ctx: UserContext): PlannedTaskInput | null {
     refId: pick.id,
     title: pick.title,
     description: inWeek
-      ? `Hands-on for current week`
-      : `Carryover lab — finish before moving on`,
+      ? 'Bài thực hành của tuần này'
+      : 'Lab còn nợ — làm xong rồi hãy đi tiếp',
     estMinutes: pick.estMinutes,
   };
 }
@@ -329,14 +334,28 @@ function pickWeakSkill(ctx: UserContext): PlannedTaskInput | null {
   return makeWeakReview(pick);
 }
 
+/**
+ * `daysSinceTouched` dùng 999 làm giá trị canh cho "chưa từng chạm tới", để
+ * kỹ năng đó luôn được xếp lên đầu. Giá trị canh là chuyện của phép sắp xếp,
+ * KHÔNG được lọt ra chữ hiển thị: người dùng từng đọc được nguyên văn
+ * "Weak skill (unset) — 999d since last touch".
+ */
+const NEVER_TOUCHED_DAYS = 999;
+
+function describeLastTouch(days: number): string {
+  if (days >= NEVER_TOUCHED_DAYS) return 'chưa từng ôn';
+  if (days <= 0) return 'vừa ôn hôm nay';
+  return `${days} ngày chưa ôn`;
+}
+
 function makeWeakReview(skill: WeakSkillContext): PlannedTaskInput {
-  const lvl = skill.levelCode ?? 'unset';
+  const lvl = skill.levelCode ?? 'chưa đặt bậc';
   return {
     kind: 'weak_skill_review',
     refKind: 'skill',
     refId: skill.id,
-    title: `Review: ${skill.name}`,
-    description: `Weak skill (${lvl}) — ${skill.daysSinceTouched}d since last touch`,
+    title: `Ôn lại: ${skill.name}`,
+    description: `Kỹ năng còn yếu (${lvl}) — ${describeLastTouch(skill.daysSinceTouched)}`,
     estMinutes: 6,
   };
 }
@@ -355,10 +374,10 @@ function pickStretch(ctx: UserContext): PlannedTaskInput | null {
     kind: 'stretch',
     refKind: 'skill',
     refId: pick.id,
-    title: `Stretch: peek next level for ${pick.name}`,
+    title: `Thử sức: xem trước bậc kế của ${pick.name}`,
     description: pick.levelCode
-      ? `Currently ${pick.levelCode} — preview what's required at the next rung.`
-      : `Set your starting level and preview the next rung.`,
+      ? `Đang ở bậc ${pick.levelCode} — xem bậc kế đòi hỏi những gì.`
+      : 'Đặt bậc khởi điểm rồi xem bậc kế đòi hỏi những gì.',
     estMinutes: 8,
   };
 }

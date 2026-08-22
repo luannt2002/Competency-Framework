@@ -58,7 +58,6 @@ export async function generateMetadata({
     return { title: 'Roadmap riêng tư · ' + SITE_NAME };
   }
 
-  // Count nodes + try to pick description from sole root node (workspaces table has none).
   const [totalNodesRow, rootRow] = await Promise.all([
     db
       .select({ n: count() })
@@ -76,7 +75,11 @@ export async function generateMetadata({
       .limit(2),
   ]);
   const totalNodes = totalNodesRow[0]?.n ?? 0;
-  const rootDescription = rootRow.length === 1 ? rootRow[0]?.description ?? null : null;
+  // Mô tả của chính workspace là nguồn thứ nhất. Mượn mô tả node gốc chỉ còn là
+  // đường lùi cho dữ liệu cũ — và đường lùi đó vốn chỉ chạy khi cây có ĐÚNG một
+  // gốc, nên trên thực tế nó chưa từng hiện (cả hai workspace public đều 2 gốc).
+  const rootDescription =
+    ws.description ?? (rootRow.length === 1 ? rootRow[0]?.description ?? null : null);
 
   const title = `${ws.name} · Roadmap`;
   const description =
@@ -133,7 +136,10 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
   const totalNodes = totalNodesRow[0]?.n ?? 0;
 
   let heroTitle = ws.name;
+  // Mô tả của chính workspace đứng trước. Câu chung chung phía sau chỉ là chỗ
+  // dựa khi chủ lộ trình chưa viết gì — trước đây nó là thứ DUY NHẤT hiện ra.
   let heroSubtitle =
+    ws.description ??
     'Lộ trình học tập — chế độ chia sẻ chỉ xem. Toàn bộ cấu trúc hiển thị trên một trang.';
 
   // A4: avg completion % across learners with progress.
@@ -168,7 +174,9 @@ export default async function SharePage({ params }: { params: Promise<{ slug: st
   const treeRoots = heroRoot ? heroRoot.children : fullTree;
   if (heroRoot) {
     heroTitle = heroRoot.title;
-    heroSubtitle = heroRoot.description ?? heroSubtitle;
+    // Mô tả workspace vẫn thắng mô tả node gốc: nó là thứ chủ lộ trình viết ra
+    // để giới thiệu, còn mô tả node gốc là nội dung học.
+    heroSubtitle = ws.description ?? heroRoot.description ?? heroSubtitle;
   }
 
   const totalSections = treeRoots.length;

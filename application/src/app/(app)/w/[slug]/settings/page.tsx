@@ -98,7 +98,11 @@ export default async function WorkspaceSettingsPage({
           <CardDescription>Rename the workspace. The slug is fixed for MVP.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <RenameWorkspaceForm workspaceSlug={ws.slug} initialName={ws.name} />
+          <RenameWorkspaceForm
+            workspaceSlug={ws.slug}
+            initialName={ws.name}
+            initialDescription={ws.description}
+          />
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>Slug:</span>
             <code

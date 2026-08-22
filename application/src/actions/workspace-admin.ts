@@ -29,13 +29,30 @@ import { writeAudit } from '@/lib/rbac/server';
 const renameInput = z.object({
   workspaceSlug: z.string(),
   name: z.string().min(1).max(80),
+  /**
+   * Mô tả ngắn. `undefined` = không đụng tới; chuỗi rỗng = XOÁ mô tả.
+   *
+   * Phân biệt hai thứ đó là cố ý: form gửi chuỗi rỗng khi người dùng chủ động
+   * xoá sạch ô nhập, và họ phải xoá được — quy `''` về `undefined` là biến
+   * "xoá" thành "không làm gì" (đúng lỗi C3.1 ở trang node).
+   */
+  description: z.string().max(280).optional(),
 });
 
-export async function renameWorkspace(workspaceSlug: string, name: string): Promise<void> {
-  const parsed = renameInput.parse({ workspaceSlug, name });
+export async function renameWorkspace(
+  workspaceSlug: string,
+  name: string,
+  description?: string,
+): Promise<void> {
+  const parsed = renameInput.parse({ workspaceSlug, name, description });
   const { ws, user, ctx } = await resolveOwnerWorkspace(parsed.workspaceSlug);
 
-  await db.update(workspaces).set({ name: parsed.name }).where(eq(workspaces.id, ws.id));
+  const patch: { name: string; description?: string | null } = { name: parsed.name };
+  if (parsed.description !== undefined) {
+    patch.description = parsed.description.trim() === '' ? null : parsed.description.trim();
+  }
+
+  await db.update(workspaces).set(patch).where(eq(workspaces.id, ws.id));
 
   await writeAudit({
     workspaceId: ws.id,
@@ -45,10 +62,12 @@ export async function renameWorkspace(workspaceSlug: string, name: string): Prom
     resourceType: 'workspace',
     resourceId: ws.id,
     before: { name: ws.name },
-    after: { name: parsed.name },
+    after: patch,
   });
 
   revalidatePath(`/w/${ws.slug}/settings`);
+  revalidatePath(`/share/${ws.slug}`);
+  revalidatePath('/discover');
 }
 
 /** UI-friendly visibility values; mapped to DB enum internally. */

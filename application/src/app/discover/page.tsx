@@ -12,8 +12,8 @@
  *     root node (the canonical shape in this app). If a workspace has 0 or
  *     >1 roots, totalPhases falls back to the root-count itself — those roots
  *     ARE the top-level phases.
- *   - description: workspaces have no description column, so we take the
- *     sole root node's description (same trick as the share page metadata).
+ *   - description: lấy từ `workspaces.description`; nếu chưa có thì lùi về mô
+ *     tả của node gốc (chỉ đúng khi cây có một gốc — đường lùi cho dữ liệu cũ).
  *   - domain: no domain/tag column either — approximated with the root
  *     node's `nodeType` (course/phase/...) as a coarse category filter.
  *     No schema change is invented for this (audit E1.1 decision).
@@ -54,6 +54,7 @@ export default async function DiscoverPage() {
       id: workspaces.id,
       slug: workspaces.slug,
       name: workspaces.name,
+      description: workspaces.description,
       ownerUserId: workspaces.ownerUserId,
       createdAt: workspaces.createdAt,
     })
@@ -173,7 +174,10 @@ export default async function DiscoverPage() {
           totalNodes: totalByWs.get(w.id) ?? 0,
           totalPhases,
           rootNodeType: rootMeta?.nodeType ?? null,
-          description: rootMeta?.description ?? null,
+          // Mô tả của chính workspace đứng trước; mô tả node gốc chỉ là đường
+          // lùi cho dữ liệu cũ. Trước khi có cột này, thẻ trên /discover không
+          // có gì ngoài cái tên — mất một tín hiệu tin cậy ở đúng cửa vào.
+          description: w.description ?? rootMeta?.description ?? null,
           forkCount: forksBySource.get(w.id) ?? 0,
         };
       })

@@ -20,6 +20,8 @@ export type WorkspaceResolved = {
   slug: string;
   name: string;
   ownerUserId: string;
+  /** Mô tả ngắn — hiện trên /share và thẻ /discover. */
+  description: string | null;
   /** Emoji icon chosen by the owner (nullable). */
   icon: string | null;
   /** Accent color hex chosen by the owner (nullable, palette-whitelisted). */
@@ -57,6 +59,7 @@ export async function requireWorkspaceAccess(slug: string): Promise<WorkspaceRes
     slug: ws.slug,
     name: ws.name,
     ownerUserId: ws.ownerUserId ?? '',
+    description: ws.description ?? null,
     icon: ws.icon ?? null,
     color: ws.color ?? null,
     visibility: ws.visibility ?? null,

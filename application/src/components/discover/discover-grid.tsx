@@ -29,7 +29,7 @@ export type DiscoverWorkspace = {
   totalPhases: number;
   /** Root node's nodeType — used as a coarse "domain" category. */
   rootNodeType: string | null;
-  /** Sole root node's description (workspaces have no description column). */
+  /** Mô tả workspace; lùi về mô tả node gốc với dữ liệu cũ. */
   description: string | null;
   /** Distinct users who forked this workspace (from activity_log). */
   forkCount: number;

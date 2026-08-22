@@ -24,6 +24,7 @@ export type ResolvedWorkspace = {
   id: string;
   slug: string;
   name: string;
+  description: string | null;
   ownerUserId: string | null;
   visibility: 'private' | 'public-readonly' | null;
   /** Emoji do chủ workspace chọn (có thể trống). */
@@ -49,6 +50,7 @@ export async function resolveWorkspace(
       id: workspaces.id,
       slug: workspaces.slug,
       name: workspaces.name,
+      description: workspaces.description,
       ownerUserId: workspaces.ownerUserId,
       visibility: workspaces.visibility,
       // icon/color để vỏ workspace tô theo chủ đề riêng — trước đây chỉ

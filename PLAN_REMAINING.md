@@ -83,11 +83,11 @@ cứng LEARNER, **không trả cấp quyền thật**) và `lib/rbac/resolve.ts:
 - [x] **Q19** ✅ thêm `both` vào truy vấn, thanh thứ 4 trong UI, và `orderBy` xét cả `both` + tổng. Đo: DB có đúng 1 dòng `both` → analytics hiện `0 / 0 / **1** / 0` thay vì `0/0/0` với bar rộng 0 — **C5.4** analytics bỏ sót `level_source='both'` ⇒ phân bố **0/0/0** dù có 1 learner; `orderBy count(verified)` cũng sai.
 - [x] **Q20** ✅ tạo `src/lib/format-date.ts` ghim `vi-VN` + `Asia/Ho_Chi_Minh`, thay 8 chỗ `toLocale*` không truyền locale; `relativeTime` cũ uỷ quyền sang bản VN. 9 unit test, có phép kiểm chống lệch hydration (17:30Z = ngày hôm sau theo giờ VN) — 6+ chỗ `toLocaleDateString()` không truyền locale ⇒ "8/20/2026, 11:47:37 AM"; Server Component còn nguy cơ lệch hydration. Helper chung `Intl('vi-VN', Asia/Ho_Chi_Minh)`.
 - [x] **Q21** ✅ `dashboard-rail` hiện ngày theo giờ VN thay vì `toISOString()` — `dashboard-rail.tsx:159` `toISOString()` = UTC ⇒ UTC+7 lùi 1 ngày trước 07:00.
-- [ ] **Q22** Sentinel `999` lọt ra UI: "Weak skill (unset) — 999d since last touch" (`daily-planner.ts:330`).
+- [x] **Q22** ✅ `999` là giá trị canh cho phép sắp xếp, nay không lọt ra chữ: hiện "chưa từng ôn" / "N ngày chưa ôn" — Sentinel `999` lọt ra UI: "Weak skill (unset) — 999d since last touch" (`daily-planner.ts:330`).
 
 ### 3.4 — Mất dữ liệu / chặn tính năng khác
 
-- [ ] **Q23** **`workspaces.description`** — migration + onboarding StepTwo + settings. **Chặn A2 và E1.2**: mô tả lộ trình hiện **không bao giờ hiện được**, kể cả `og:description`; `share/page.tsx:76` phải chữa cháy bằng cách mượn description của root và chỉ khi cây có đúng 1 root.
+- [x] **Q23** ✅ migration 0020 + `renameWorkspace` nhận mô tả (chuỗi rỗng = XOÁ, không quy về undefined) + form settings có textarea 280 ký tự. Đo runtime: `og:description` từ "Lộ trình học tập — 166 mục" → mô tả thật; hiện cả trên /share lẫn thẻ /discover — **`workspaces.description`** — migration + onboarding StepTwo + settings. **Chặn A2 và E1.2**: mô tả lộ trình hiện **không bao giờ hiện được**, kể cả `og:description`; `share/page.tsx:76` phải chữa cháy bằng cách mượn description của root và chỉ khi cây có đúng 1 root.
 - [ ] **Q24** **E2.4c fork mất dữ liệu** — fork `devops-test`: lessons **0/59**, exercises **0/75**, badges 0/12, levels 0/4; 59 node ôm `meta.lessonSlug` chết. Node nguồn có "Practice", node fork thì không.
 - [ ] **Q25** Fork **không có transaction** — hỏng giữa chừng để lại workspace nửa vời.
 
@@ -125,7 +125,7 @@ cứng LEARNER, **không trả cấp quyền thật**) và `lib/rbac/resolve.ts:
 **Ngôn ngữ**
 - [ ] **Q45** **Sign-in 100% tiếng Anh** — đích của MỌI CTA, đúng điểm chuyển đổi.
 - [ ] **Q46** Settings / Daily / Skills / drawer / onboarding bước 1 còn tiếng Anh, app khai `lang="vi"`. Settings còn lộ ghi chú nội bộ "fixed for MVP"; onboarding dạy người dùng cuối chạy `pnpm db:seed`.
-- [ ] **Q47** **Chuỗi tiếng Anh GHI THẲNG VÀO DB** — `daily-planner.ts:276,278,338-339,358` → `daily_tasks.title='Keep your streak alive'`. Đổi sang `titleKey + params`, dịch lúc render.
+- [x] **Q47** ✅ 4 chuỗi tiếng Anh ghi thẳng vào `daily_tasks.title/description` đã việt hoá; 3 test chặn hồi quy (danh sách 10 cụm tiếng Anh không được xuất hiện) — **Chuỗi tiếng Anh GHI THẲNG VÀO DB** — `daily-planner.ts:276,278,338-339,358` → `daily_tasks.title='Keep your streak alive'`. Đổi sang `titleKey + params`, dịch lúc render.
 - [ ] **Q48** Nhãn lộ phiên bản nội bộ: "Verified evidence (V8)" (`skill-drawer.tsx:435`).
 
 **Lỗi hiển thị**
@@ -202,6 +202,7 @@ thuộc `postgres` — **chủ bảng đọc xuyên mọi policy** nên đây l�
 | Ngày | Cụm | Kết quả |
 |---|---|---|
 | 2026-08-22 | — | Hàng đợi lập: **96 mục**. Bắt đầu từ Q1. |
+| 2026-08-22 | Q22, Q23, Q47 | **24 mục xong.** Mô tả lộ trình lần đầu hiện được. Test 444 → **447**. |
 | 2026-08-22 | Q16–Q19 | **21 mục xong.** Cây share hiện đủ 166/166 node; phép đếm hết sai. Test 438 → **444**. |
 | 2026-08-22 | Q14, Q15, Q21 | **17 mục xong.** Chỉ còn MỘT định nghĩa "hôm nay". Test 423 → **438**. |
 | 2026-08-22 | Q9–Q13 | **14 mục xong.** Gộp hai resolver song song — gốc rễ của việc learner thấy nút Sửa/Xoá. Ma trận quyền 7 trang × 4 vai đo runtime, đúng hết. |
